@@ -1,0 +1,5 @@
+# 3 days. pnpm measures this in minutes.
+minimumReleaseAge: 4320
+
+allowBuilds:
+  esbuild: true

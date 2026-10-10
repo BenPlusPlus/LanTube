@@ -1,0 +1,507 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-10T18:23:22+00:00",
+  "title": "Design System: LanTube",
+  "extensions": {
+    "colorMeta": {
+      "graphite-ground": {
+        "role": "neutral",
+        "displayName": "Graphite Ground",
+        "canonical": "#0f1012",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#242527",
+          "#414244",
+          "#606164",
+          "#818285",
+          "#a3a5a8",
+          "#c8c9cc",
+          "#edeef1"
+        ],
+        "cssVar": "--bg"
+      },
+      "graphite-surface": {
+        "role": "neutral",
+        "displayName": "Graphite Surface",
+        "canonical": "#17181b",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#242528",
+          "#414245",
+          "#606165",
+          "#818286",
+          "#a3a5a9",
+          "#c7c9cd",
+          "#edeef3"
+        ],
+        "cssVar": "--surface"
+      },
+      "graphite-raised": {
+        "role": "neutral",
+        "displayName": "Graphite Raised",
+        "canonical": "#222428",
+        "tonalRamp": [
+          "#090b0f",
+          "#232529",
+          "#404246",
+          "#5f6166",
+          "#808287",
+          "#a2a5aa",
+          "#c6c9ce",
+          "#eceef4"
+        ],
+        "cssVar": "--raised"
+      },
+      "graphite-raised-hover": {
+        "role": "neutral",
+        "displayName": "Graphite Raised Hover",
+        "canonical": "#2d2f34",
+        "tonalRamp": [
+          "#090b0f",
+          "#23252a",
+          "#404247",
+          "#5f6167",
+          "#808288",
+          "#a2a5ab",
+          "#c6c9cf",
+          "#eceef5"
+        ],
+        "cssVar": "--raised-hover"
+      },
+      "graphite-line": {
+        "role": "neutral",
+        "displayName": "Graphite Line",
+        "canonical": "#26282c",
+        "tonalRamp": [
+          "#090b0f",
+          "#232529",
+          "#404246",
+          "#5f6166",
+          "#808287",
+          "#a2a5aa",
+          "#c6c9ce",
+          "#eceef4"
+        ],
+        "cssVar": "--line"
+      },
+      "field-well": {
+        "role": "neutral",
+        "displayName": "Field Well",
+        "canonical": "#121316",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#242528",
+          "#414245",
+          "#606165",
+          "#818286",
+          "#a3a5a9",
+          "#c7c9cd",
+          "#edeef3"
+        ]
+      },
+      "field-line-hover": {
+        "role": "neutral",
+        "displayName": "Field Line Hover",
+        "canonical": "#33363b",
+        "tonalRamp": [
+          "#090b0f",
+          "#22252a",
+          "#3f4247",
+          "#5e6167",
+          "#7f8288",
+          "#a2a5ab",
+          "#c5c9d0",
+          "#ebeff5"
+        ]
+      },
+      "paper-text": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#f1f1f1",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ],
+        "cssVar": "--text"
+      },
+      "ash-text": {
+        "role": "neutral",
+        "displayName": "Ash",
+        "canonical": "#a0a3a9",
+        "tonalRamp": [
+          "#090b0f",
+          "#23252a",
+          "#3f4247",
+          "#5e6167",
+          "#7f8288",
+          "#a2a5ab",
+          "#c6c9cf",
+          "#ebeef5"
+        ],
+        "cssVar": "--text-2"
+      },
+      "house-blue": {
+        "role": "primary",
+        "displayName": "House Blue",
+        "canonical": "#3d8bff",
+        "tonalRamp": [
+          "#00003c",
+          "#002158",
+          "#003c8d",
+          "#005ac9",
+          "#2f7ef1",
+          "#6da5fb",
+          "#aacbfd",
+          "#e5effe"
+        ],
+        "cssVar": "--accent"
+      },
+      "house-blue-ink": {
+        "role": "primary",
+        "displayName": "House Blue Ink",
+        "canonical": "#2b72e0",
+        "tonalRamp": [
+          "#00003c",
+          "#002058",
+          "#003c8f",
+          "#0f5ac6",
+          "#377eed",
+          "#6ea5fc",
+          "#aacbfe",
+          "#e5efff"
+        ],
+        "cssVar": "--accent-ink"
+      },
+      "house-blue-ink-hover": {
+        "role": "primary",
+        "displayName": "House Blue Ink Deep",
+        "canonical": "#2466cc",
+        "tonalRamp": [
+          "#00003c",
+          "#002058",
+          "#013c8e",
+          "#185bc0",
+          "#3d7fe7",
+          "#6ea5fc",
+          "#abcbfe",
+          "#e5efff"
+        ],
+        "cssVar": "--accent-ink-hover"
+      },
+      "house-blue-soft": {
+        "role": "primary",
+        "displayName": "House Blue Soft",
+        "canonical": "#8cbcff",
+        "tonalRamp": [
+          "#00072c",
+          "#002253",
+          "#15417a",
+          "#36629e",
+          "#5684c3",
+          "#78a7e9",
+          "#a8ccfd",
+          "#e5efff"
+        ]
+      },
+      "on-chip": {
+        "role": "neutral",
+        "displayName": "On Chip (Graphite Ground)",
+        "canonical": "#0f1012",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#242527",
+          "#414244",
+          "#606164",
+          "#818285",
+          "#a3a5a8",
+          "#c8c9cc",
+          "#edeef1"
+        ],
+        "cssVar": "--on-chip"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Empty-state and placeholder page headings only."
+      },
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "The \"LanTube\" wordmark beside the house-and-play mark."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Shelf headings such as \"Continue watching\" and \"Latest in the house\"."
+      },
+      "card-title": {
+        "displayName": "Card Title",
+        "purpose": "Video titles (two-line clamp), channel-card names, nav group headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base size: nav labels, bylines, relative times, chip and button labels."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Channel-card subtitles and counts."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Duration badges, \"New\" badges, \"Watched\", folder paths, host note. Tabular numerals."
+      }
+    },
+    "shadows": [],
+    "overlays": [
+      {
+        "name": "duration-scrim",
+        "value": "rgb(0 0 0 / 0.78)",
+        "purpose": "Duration badge background on thumbnails."
+      },
+      {
+        "name": "progress-track",
+        "value": "rgb(255 255 255 / 0.28)",
+        "purpose": "Track under the House Blue watch-progress bar."
+      },
+      {
+        "name": "drawer-backdrop",
+        "value": "rgb(0 0 0 / 0.55)",
+        "purpose": "Backdrop behind the mobile navigation drawer."
+      },
+      {
+        "name": "accent-tint-new",
+        "value": "color-mix(in srgb, #3d8bff 18%, transparent)",
+        "purpose": "Background of the \"New\" badge."
+      },
+      {
+        "name": "accent-tint-link-hover",
+        "value": "color-mix(in srgb, #3d8bff 14%, transparent)",
+        "purpose": "Hover fill for accent text links such as \"All channels\"."
+      },
+      {
+        "name": "selection",
+        "value": "color-mix(in srgb, #3d8bff 45%, transparent)",
+        "purpose": "Text selection highlight, with white text."
+      }
+    ],
+    "focus": {
+      "value": "outline: 2px solid #3d8bff; outline-offset: 2px",
+      "purpose": "Universal :focus-visible ring. Search input uses border + 1px inset ring instead; video cards outline the thumbnail when the title link is focused."
+    },
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "The only easing curve; all state transitions."
+      },
+      {
+        "name": "duration-fast",
+        "value": "120ms",
+        "purpose": "Nav rows, chips, byline links, shelf links."
+      },
+      {
+        "name": "duration-base",
+        "value": "150ms",
+        "purpose": "Buttons, icon buttons, search field, channel cards."
+      },
+      {
+        "name": "duration-drawer",
+        "value": "220ms",
+        "purpose": "Mobile navigation drawer slide and backdrop fade."
+      },
+      {
+        "name": "duration-thumb",
+        "value": "240ms",
+        "purpose": "Thumbnail scale to 1.03 on card hover (disabled on touch and reduced motion)."
+      },
+      {
+        "name": "press",
+        "value": "transform: scale(0.97)",
+        "purpose": ":active feedback on buttons, icon buttons, and chips."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce -> transitions 1ms, no thumbnail scale",
+        "purpose": "Honoured globally."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "max-width: 639px",
+        "purpose": "Two-row 108px top bar, full-width search, icon-only Upload, 16px gutter, 28px shelf gap."
+      },
+      {
+        "name": "rail",
+        "value": "min-width: 792px",
+        "purpose": "72px mini rail with icon-over-label primary nav; below this nav is drawer-only."
+      },
+      {
+        "name": "sidebar",
+        "value": "min-width: 1312px",
+        "purpose": "Full 240px sidebar with people, folders and host note; menu button hidden."
+      },
+      {
+        "name": "cols-2",
+        "value": "@container content (min-width: 540px)",
+        "purpose": "Two video columns; below this, single-row shelves use 84% cards that bleed to the edge."
+      },
+      {
+        "name": "cols-3",
+        "value": "@container content (min-width: 880px)",
+        "purpose": "Three video columns."
+      },
+      {
+        "name": "cols-4",
+        "value": "@container content (min-width: 1120px)",
+        "purpose": "Four video columns."
+      },
+      {
+        "name": "cols-5",
+        "value": "@container content (min-width: 1760px)",
+        "purpose": "Five video columns."
+      }
+    ],
+    "iconography": {
+      "set": "Lucide (ISC), inline SVG",
+      "grid": "24px",
+      "stroke": "1.75, round caps and joins",
+      "logo": "House in House Blue with a white play-triangle doorway, 28px"
+    },
+    "theme": "dark-only"
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action per view (Upload). House Blue Ink fill so white text passes contrast.",
+      "html": "<a class=\"ds-btn ds-btn-primary\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3v12\"/><path d=\"m17 8-5-5-5 5\"/><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/></svg><span>Upload</span></a>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 18px;border:0;border-radius:999px;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:0.875rem;font-weight:600;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background-color 150ms var(--ease),transform 150ms var(--ease);} .ds-btn-primary{background:var(--accent-ink);color:#fff;padding:0 16px 0 12px;} .ds-btn-primary:hover{background:var(--accent-ink-hover);} .ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-btn:active{transform:scale(0.97);}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Neutral pill for recovery actions in empty and placeholder states.",
+      "html": "<a class=\"ds-btn ds-btn-secondary\" href=\"#\">Show all videos</a>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 18px;border:0;border-radius:999px;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:0.875rem;font-weight:600;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background-color 150ms var(--ease),transform 150ms var(--ease);} .ds-btn-secondary{background:var(--raised);color:var(--text);} .ds-btn-secondary:hover{background:var(--raised-hover);} .ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-btn:active{transform:scale(0.97);}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-input",
+      "description": "Split pill search in the top bar: recessed input joined to a raised search button.",
+      "html": "<form class=\"ds-search\" role=\"search\" onsubmit=\"return false\"><input class=\"ds-search-input\" type=\"search\" placeholder=\"Search the house\" aria-label=\"Search videos and channels\"><button class=\"ds-search-btn\" type=\"submit\" aria-label=\"Search\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m21 21-4.34-4.34\"/><circle cx=\"11\" cy=\"11\" r=\"8\"/></svg></button></form>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-search{display:flex;width:100%;max-width:600px;height:40px;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;} .ds-search-input{flex:1;min-width:0;height:100%;padding:0 16px 0 20px;border:1px solid var(--line);border-right:0;border-radius:999px 0 0 999px;background:#121316;color:var(--text);font:inherit;font-size:1rem;outline:none;transition:border-color 150ms var(--ease);} .ds-search-input::placeholder{color:var(--text-2);} .ds-search-input:hover{border-color:#33363b;} .ds-search-input:focus-visible{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);} .ds-search-btn{display:grid;place-items:center;width:64px;height:100%;border:1px solid var(--line);border-radius:0 999px 999px 0;background:var(--raised);color:var(--text);cursor:pointer;transition:background-color 150ms var(--ease);} .ds-search-btn:hover{background:var(--raised-hover);} .ds-search-btn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}"
+    },
+    {
+      "name": "Topic Chips",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Sticky topic filter row. Active chip inverts to a light fill with dark text, never blue.",
+      "html": "<ul class=\"ds-chips\"><li><a class=\"ds-chip\" href=\"#\" aria-current=\"page\">All</a></li><li><a class=\"ds-chip\" href=\"#\">Trips</a></li><li><a class=\"ds-chip\" href=\"#\">Kids</a></li><li><a class=\"ds-chip\" href=\"#\">Cooking</a></li><li><a class=\"ds-chip\" href=\"#\">Home movies</a></li></ul>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-chips{display:flex;gap:12px;margin:0;padding:0;list-style:none;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;} .ds-chip{display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:8px;background:var(--raised);color:var(--text);font-size:0.875rem;font-weight:500;white-space:nowrap;text-decoration:none;transition:background-color 120ms var(--ease);} .ds-chip:hover{background:var(--raised-hover);} .ds-chip[aria-current='page']{background:var(--text);color:var(--on-chip);} .ds-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-chip:active{transform:scale(0.97);}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Full 240px sidebar rows. Active row gets a raised fill, 600 weight and a House Blue icon; people show a blue new-dot.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main\"><a class=\"ds-nav-item\" href=\"#\" aria-current=\"page\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\"/><path d=\"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/></svg><span>Home</span></a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><path d=\"M16 3.128a4 4 0 0 1 0 7.744\"/><path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/></svg><span>Channels</span></a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/><path d=\"M3 3v5h5\"/><path d=\"M12 7v5l4 2\"/></svg><span>History</span></a><div class=\"ds-nav-group\"><div class=\"ds-nav-heading\">In this house</div><a class=\"ds-nav-item\" href=\"#\"><span class=\"ds-avatar-sm\" style=\"--hue:160\">M</span><span>Mia</span></a><a class=\"ds-nav-item\" href=\"#\"><span class=\"ds-avatar-sm\" style=\"--hue:110\">L</span><span>Leo</span><span class=\"ds-nav-dot\"></span></a></div></nav>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-nav{display:grid;gap:2px;width:240px;padding:4px 12px;background:var(--bg);font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;} .ds-nav-item{display:flex;align-items:center;gap:20px;min-height:40px;padding:0 12px;border-radius:10px;color:var(--text);font-size:0.875rem;text-decoration:none;transition:background-color 120ms var(--ease);} .ds-nav-item:hover{background:var(--raised);} .ds-nav-item[aria-current='page']{background:var(--raised);font-weight:600;} .ds-nav-item[aria-current='page'] svg{color:var(--accent);} .ds-nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-nav-group{display:grid;gap:2px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);} .ds-nav-group .ds-nav-item{gap:16px;} .ds-nav-heading{padding:6px 12px 8px;color:var(--text);font-size:1rem;font-weight:600;} .ds-avatar-sm{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:hsl(var(--hue) 42% 30%);color:hsl(var(--hue) 70% 88%);font-size:0.75rem;font-weight:600;line-height:1;} .ds-nav-dot{width:6px;height:6px;margin-left:auto;border-radius:50%;background:var(--accent);}"
+    },
+    {
+      "name": "Video Card",
+      "kind": "card",
+      "refersTo": "video-thumb",
+      "description": "Signature tile: 16:9 thumb (12px), duration badge, accent progress bar, 36px hue avatar, 2-line title, channel, relative time, New badge. Whole card clickable via the title link overlay.",
+      "html": "<article class=\"ds-vcard\"><a class=\"ds-vcard-thumb\" href=\"#\" tabindex=\"-1\" aria-hidden=\"true\"><span class=\"ds-vcard-img\"></span><span class=\"ds-vcard-duration\">24:37</span><span class=\"ds-vcard-progress\"><span style=\"width:38%\"></span></span></a><div class=\"ds-vcard-meta\"><a class=\"ds-vcard-avatar\" href=\"#\" tabindex=\"-1\" aria-hidden=\"true\"><span class=\"ds-avatar-md\" style=\"--hue:160\">M</span></a><div class=\"ds-vcard-text\"><h3 class=\"ds-vcard-title\"><a href=\"#\">Lake Tahoe 2025, day 2: Emerald Bay at sunset</a></h3><p class=\"ds-vcard-byline\"><a href=\"#\">Mia</a></p><p class=\"ds-vcard-when\">19 hours ago <span class=\"ds-badge-new\">New</span></p></div></div></article>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-vcard{position:relative;display:grid;gap:12px;width:300px;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--text);} .ds-vcard a{color:inherit;text-decoration:none;} .ds-vcard-thumb{position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:var(--raised);} .ds-vcard-img{position:absolute;inset:0;background:linear-gradient(160deg,#c98f7a 0%,#5a6f8f 45%,#1d3b3a 100%);transition:transform 240ms var(--ease);} .ds-vcard:hover .ds-vcard-img{transform:scale(1.03);} .ds-vcard-duration{position:absolute;right:8px;bottom:12px;padding:2px 5px;border-radius:5px;background:rgb(0 0 0 / 0.78);color:#fff;font-size:0.75rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.35;} .ds-vcard-progress{position:absolute;right:0;bottom:0;left:0;height:4px;background:rgb(255 255 255 / 0.28);} .ds-vcard-progress span{display:block;height:100%;background:var(--accent);} .ds-vcard-meta{display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;} .ds-vcard-avatar{position:relative;z-index:2;align-self:start;border-radius:50%;} .ds-avatar-md{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;background:hsl(var(--hue) 42% 30%);color:hsl(var(--hue) 70% 88%);font-size:0.875rem;font-weight:600;line-height:1;} .ds-vcard-text{display:grid;gap:2px;min-width:0;} .ds-vcard-title{display:-webkit-box;overflow:hidden;margin:0 0 4px;font-size:1rem;font-weight:600;line-height:1.375;-webkit-box-orient:vertical;-webkit-line-clamp:2;} .ds-vcard-title a::after{content:'';position:absolute;inset:0;z-index:1;} .ds-vcard-title a:focus-visible{outline:none;} .ds-vcard:has(.ds-vcard-title a:focus-visible) .ds-vcard-thumb{outline:2px solid var(--accent);outline-offset:2px;} .ds-vcard-byline,.ds-vcard-when{margin:0;color:var(--text-2);font-size:0.875rem;line-height:1.45;} .ds-vcard-byline a{position:relative;z-index:2;transition:color 120ms var(--ease);} .ds-vcard-byline a:hover{color:var(--text);} .ds-vcard-when{display:flex;align-items:center;gap:4px 8px;font-variant-numeric:tabular-nums;} .ds-badge-new{padding:1px 6px;border-radius:4px;background:color-mix(in srgb,var(--accent) 18%,transparent);color:#8cbcff;font-size:0.75rem;font-weight:600;letter-spacing:0.01em;}"
+    },
+    {
+      "name": "Channel Card",
+      "kind": "card",
+      "refersTo": "channel-card",
+      "description": "Tile in the sideways Channels strip: large initial avatar, name, video count, and an \"n new\" count.",
+      "html": "<a class=\"ds-ccard\" href=\"#\"><span class=\"ds-avatar-lg\" style=\"--hue:110\">L</span><span class=\"ds-ccard-name\">Leo</span><span class=\"ds-ccard-sub\">2 videos</span><span class=\"ds-ccard-new\">1 new</span></a>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-ccard{display:grid;justify-items:center;align-content:start;gap:4px;width:160px;padding:20px 12px 18px;border-radius:12px;background:var(--surface);color:var(--text);text-align:center;text-decoration:none;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;transition:background-color 150ms var(--ease);} .ds-ccard:hover{background:var(--raised);} .ds-ccard:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-avatar-lg{display:inline-grid;place-items:center;width:88px;height:88px;margin-bottom:10px;border-radius:50%;background:hsl(var(--hue) 42% 30%);color:hsl(var(--hue) 70% 88%);font-size:2.25rem;font-weight:600;line-height:1;} .ds-ccard-name{font-size:1rem;font-weight:600;} .ds-ccard-sub{color:var(--text-2);font-size:0.8125rem;font-variant-numeric:tabular-nums;} .ds-ccard-new{color:#8cbcff;font-size:0.8125rem;font-weight:600;}"
+    },
+    {
+      "name": "Top Bar",
+      "kind": "nav",
+      "refersTo": "icon-button",
+      "description": "Sticky 56px bar: menu icon button, house-and-play logo with wordmark, centred search, primary Upload.",
+      "html": "<header class=\"ds-topbar\"><div class=\"ds-topbar-start\"><button class=\"ds-icon-btn\" type=\"button\" aria-label=\"Open navigation\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 5h16\"/><path d=\"M4 12h16\"/><path d=\"M4 19h16\"/></svg></button><a class=\"ds-brand\" href=\"#\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 28 28\" aria-hidden=\"true\"><path d=\"M12.2 2.6a2.8 2.8 0 0 1 3.6 0l9.2 7.7c.64.53 1 1.32 1 2.15V23a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V12.45c0-.83.36-1.62 1-2.15z\" fill=\"#3d8bff\"/><path d=\"M11.4 13.1a.9.9 0 0 1 1.37-.77l5.6 3.35a.9.9 0 0 1 0 1.54l-5.6 3.35a.9.9 0 0 1-1.37-.77z\" fill=\"#fff\"/></svg><span>LanTube</span></a></div><div class=\"ds-topbar-search\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m21 21-4.34-4.34\"/><circle cx=\"11\" cy=\"11\" r=\"8\"/></svg><span>Search the house</span></div><a class=\"ds-upload\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3v12\"/><path d=\"m17 8-5-5-5 5\"/><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/></svg><span>Upload</span></a></header>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-topbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;height:56px;padding:0 24px 0 16px;background:var(--bg);color:var(--text);font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;} .ds-topbar-start{display:flex;align-items:center;gap:8px;} .ds-icon-btn{display:inline-grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text);cursor:pointer;transition:background-color 150ms var(--ease);} .ds-icon-btn:hover{background:var(--raised);} .ds-icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-icon-btn:active{transform:scale(0.97);} .ds-brand{display:inline-flex;align-items:center;gap:8px;padding:6px 8px 6px 4px;border-radius:8px;color:var(--text);text-decoration:none;font-size:1.1875rem;font-weight:700;letter-spacing:-0.025em;} .ds-brand:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-topbar-search{display:flex;align-items:center;justify-content:space-between;justify-self:center;width:100%;max-width:600px;height:40px;padding:0 20px;border:1px solid var(--line);border-radius:999px;background:#121316;color:var(--text-2);font-size:1rem;flex-direction:row-reverse;} .ds-upload{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px 0 12px;border-radius:999px;background:var(--accent-ink);color:#fff;font-size:0.875rem;font-weight:600;text-decoration:none;transition:background-color 150ms var(--ease);} .ds-upload:hover{background:var(--accent-ink-hover);} .ds-upload:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The House Channel",
+    "overview": "LanTube looks like the video site everyone in the house already knows how to use, because that is the point. A sticky top bar with a centred pill search, a left navigation that collapses from full sidebar to mini rail to drawer, topic chips, and a dense grid of 16:9 thumbnails: the category-standard grammar, executed at the craft level of YouTube and Rumble. Novelty lives nowhere in the layout. What makes it LanTube is the material: a graphite dark ground, quiet tonal surfaces, one household blue, and a house-with-a-play-doorway mark.\n\nThe system is content-first and calm. Thumbnails carry all the colour on screen; chrome is neutral graphite so family footage reads as the brightest thing in the room. The single blue accent is rare by design: it marks where you left off (progress), where you are (focus, active nav icon), what is new, and the one primary action. Everything else is graphite, off-white, or ash grey.\n\nThe product is household-only and never needs the public internet, so the design ships its own assets: Inter is self-hosted, icons are inline SVG (Lucide paths, ISC licence), avatars are generated initials rather than fetched photos. LanTube must not look like YouTube's brand: no red, no red-on-white or red-on-black identity.",
+    "keyCharacteristics": [
+      "Category-standard video-site layout; trust through familiarity, not novelty.",
+      "Dark-only graphite palette with tonal layering instead of shadows.",
+      "One accent (house blue), used sparingly and functionally.",
+      "Inter as the single family; weight, not size jumps, carries hierarchy.",
+      "Soft 12px thumbnails, pill buttons, 8px chips, circular initial avatars tinted per person.",
+      "Fully local assets: fonts, icons, and imagery never come from the WAN.",
+      "Honest states: empty and not-yet-built screens say plainly what is missing."
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "House Blue appears only for progress, focus, the active nav icon, new-indicators, and the primary action. If a new element wants blue and is none of those, it gets graphite instead.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Rule",
+        "body": "White text never sits on House Blue (#3d8bff). Any blue fill that carries white text uses House Blue Ink (#2b72e0), hovering to #2466cc.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Red Rule",
+        "body": "No red brand colour, anywhere in the chrome. LanTube shares YouTube's grammar, not its identity.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Numbers Rule",
+        "body": "Any number that changes or lines up (durations, counts, \"15 min left\", \"2 days ago\") uses `font-variant-numeric: tabular-nums`.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tonal Step Rule",
+        "body": "To lift something, move it one step up the graphite ramp. Do not add a box-shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep House Blue to progress, focus, active nav icon, new-indicators, and the single primary action.",
+      "Do use House Blue Ink (#2b72e0, hover #2466cc) for any blue fill carrying white text.",
+      "Do show the active chip as a Paper fill with dark text.",
+      "Do build every video tile from the video card: 16:9 thumb at 12px radius, duration badge, accent progress bar, 36px hue-tinted initial avatar, two-line title, channel, relative time, optional \"New\".",
+      "Do make the whole video card one click target through the title link overlay.",
+      "Do pick grid columns with container queries on the content area (1 to 5 columns).",
+      "Do convey depth by stepping up the graphite ramp.",
+      "Do time transitions between 120ms and 240ms on cubic-bezier(0.2, 0, 0, 1), and honour prefers-reduced-motion.",
+      "Do self-host every font, icon, and image; nothing on the watch path may require the WAN.",
+      "Do write honest empty and placeholder states that name what is missing."
+    ],
+    "donts": [
+      "Don't use red, or any red-on-white or red-on-black brand look.",
+      "Don't put white text on House Blue (#3d8bff).",
+      "Don't introduce a second accent colour or use blue for decoration.",
+      "Don't add drop shadows to cards, bars, or chips.",
+      "Don't ship a light theme yet; LanTube is dark-only for now.",
+      "Don't add a profile switcher, sign-in, or account avatar; the household identity mechanism is undecided.",
+      "Don't render an \"Earlier\" shelf with less than one full row of videos.",
+      "Don't load fonts, icons, or avatars from a CDN or external service.",
+      "Don't invent novelty layouts where the video-site convention already answers the question."
+    ]
+  }
+}
