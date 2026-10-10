@@ -2,6 +2,8 @@
 // Names, titles, progress and dates are illustrative; thumbnails are licensed
 // Wikimedia Commons photos (see public/thumbs/CREDITS.json).
 
+import { listPeople, getPerson as getHouseholdPerson, type Person } from './household.ts'
+
 export type ChannelKind = 'person' | 'folder'
 
 export interface Channel {
@@ -12,6 +14,8 @@ export interface Channel {
   path?: string
   /** Avatar hue (0-360) for initial-letter avatars. */
   hue: number
+  /** Optional local photo data URL. */
+  photo?: string
 }
 
 export interface Video {
@@ -27,14 +31,17 @@ export interface Video {
   progressSec?: number
 }
 
-export const channels: Channel[] = [
-  { id: 'mia', name: 'Mia', kind: 'person', hue: 172 },
-  { id: 'tomas', name: 'Tomás', kind: 'person', hue: 32 },
-  { id: 'ruth', name: 'Ruth', kind: 'person', hue: 268 },
-  { id: 'leo', name: 'Leo', kind: 'person', hue: 112 },
-  { id: 'priya', name: 'Priya', kind: 'person', hue: 338 },
+function personChannel(person: Person): Channel {
+  return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
+}
+
+const folderChannels: Channel[] = [
   { id: 'home-movies', name: 'Home Movies', kind: 'folder', path: '/media/Home Movies', hue: 214 },
 ]
+
+export function getChannels(): Channel[] {
+  return [...listPeople().map(personChannel), ...folderChannels]
+}
 
 export const videos: Video[] = [
   { id: 'tahoe-day-2', title: 'Lake Tahoe 2025, day 2: Emerald Bay at sunset', channelId: 'mia', durationSec: 1477, addedDaysAgo: 0.2, thumb: 'tahoe.jpg', tags: ['trips'], progressSec: 560 },
@@ -67,7 +74,9 @@ export const topics: { id: string; label: string }[] = [
 export const NEW_WINDOW_DAYS = 3
 
 export function getChannel(id: string): Channel | undefined {
-  return channels.find((channel) => channel.id === id)
+  let person = getHouseholdPerson(id)
+  if (person) return personChannel(person)
+  return folderChannels.find((channel) => channel.id === id)
 }
 
 export function getVideo(id: string): Video | undefined {

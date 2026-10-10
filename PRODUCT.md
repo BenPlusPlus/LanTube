@@ -39,11 +39,10 @@ Confirmed:
 - Self-hosted on a machine the household controls. Viewers are on the local network. No SaaS and no public-hosting assumption.
 - The watch path works without the public internet, CDNs, or cloud APIs.
 - Anyone on the LAN can open it and play. Each person can upload and own a channel. Publishing is tied to a simple household identity.
+- Identity is a name and password. A new person can join from the logon page, with an optional photo stored on the host (initials if none). Anyone on the LAN watches unsigned. Sign in is required to upload, own a channel, and keep per-person history.
 
 Undecided (do not invent):
 
-- Exact identity mechanism (names, PINs, passwords, device-level, or something else).
-- Whether a watcher must identify to play, or only to keep per-person history.
 - Transcoding, live broadcast, comments, likes, or a recommendation model.
 - Remote access or VPN from outside the LAN.
 - Native TV or phone apps (the product is a web app in the browser).
