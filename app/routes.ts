@@ -1,4 +1,4 @@
-import { get, route } from 'remix/routes'
+import { form, get, post, route } from 'remix/routes'
 
 export const routes = route({
   assets: get('/assets/*path'),
@@ -9,4 +9,6 @@ export const routes = route({
   playlists: get('/playlists'),
   history: get('/history'),
   upload: get('/upload'),
+  signin: form('/signin'),
+  signout: post('/signout'),
 })

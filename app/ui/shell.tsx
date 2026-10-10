@@ -1,11 +1,16 @@
 import * as os from 'node:os'
 import type { Handle, RemixNode } from 'remix/component'
 
-import { channels, channelStats } from '../data/library.ts'
+import type { Person } from '../data/household.ts'
+import { getChannels, channelStats, type Channel } from '../data/library.ts'
 import { routes } from '../routes.ts'
 import { Document } from '../actions/document.tsx'
 import { Avatar } from './cards.tsx'
 import { Icon, LogoMark, type IconName } from './icons.tsx'
+
+function asChannel(person: Person): Channel {
+  return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
+}
 
 export type Section = 'home' | 'channels' | 'playlists' | 'history' | 'upload' | `channel:${string}` | null
 
@@ -21,8 +26,8 @@ const primaryNav: { section: Section; label: string; icon: IconName; href: strin
 function NavLinks(handle: Handle<{ current: Section; idPrefix: string }>) {
   return () => {
     let { current, idPrefix } = handle.props
-    let people = channels.filter((channel) => channel.kind === 'person')
-    let folders = channels.filter((channel) => channel.kind === 'folder')
+    let people = getChannels().filter((channel) => channel.kind === 'person')
+    let folders = getChannels().filter((channel) => channel.kind === 'folder')
 
     return (
       <>
@@ -101,22 +106,27 @@ export interface AppShellProps {
   current: Section
   query?: string
   children?: RemixNode
+  person?: Person | null
+  layout?: 'app' | 'signin'
 }
 
 export function AppShell(handle: Handle<AppShellProps>) {
   return () => {
-    let { title, current, query = '', children } = handle.props
+    let { title, current, query = '', children, person = null, layout = 'app' } = handle.props
+    let signin = layout === 'signin'
 
     return (
-      <Document title={title ? `${title} · LanTube` : 'LanTube'}>
+      <Document title={title ? `${title} · LanTube` : 'LanTube'} bodyClass={signin ? 'layout-signin' : undefined}>
         <a class="skip-link" href="#main">
-          Skip to videos
+          {signin ? 'Skip to sign in' : 'Skip to videos'}
         </a>
         <header class="topbar">
           <div class="topbar-start">
-            <button class="icon-btn menu-btn" type="button" popovertarget="nav-drawer" aria-label="Open navigation">
-              <Icon name="menu" />
-            </button>
+            {signin ? null : (
+              <button class="icon-btn menu-btn" type="button" popovertarget="nav-drawer" aria-label="Open navigation">
+                <Icon name="menu" />
+              </button>
+            )}
             <a class="brand" href={routes.home.href()} aria-label="LanTube home">
               <LogoMark />
               <span class="brand-name">LanTube</span>
@@ -141,10 +151,43 @@ export function AppShell(handle: Handle<AppShellProps>) {
             </button>
           </form>
           <div class="topbar-end">
-            <a class="btn btn-primary upload-btn" href={routes.upload.href()}>
-              <Icon name="upload" size={20} />
-              <span class="upload-label">Upload</span>
-            </a>
+            {signin ? null : (
+              <a class="btn btn-primary upload-btn" href={routes.upload.href()}>
+                <Icon name="upload" size={20} />
+                <span class="upload-label">Upload</span>
+              </a>
+            )}
+            {person ? (
+              <>
+                <button class="account-btn" type="button" popovertarget="account-menu" aria-haspopup="dialog" aria-label={`${person.name}, account menu`}>
+                  <Avatar channel={asChannel(person)} size="sm" />
+                  <span class="account-name">{person.name}</span>
+                </button>
+                <div class="account-menu" id="account-menu" popover="auto">
+                  <p class="account-menu-who">
+                    Signed in as <strong>{person.name}</strong>
+                  </p>
+                  <a class="account-menu-item" href={routes.channel.href({ channelId: person.id })}>
+                    Your channel
+                  </a>
+                  <form method="post" action={routes.signout.href()}>
+                    <button class="account-menu-item account-menu-signout" type="submit">
+                      <Icon name="logout" size={18} />
+                      Sign out
+                    </button>
+                  </form>
+                </div>
+              </>
+            ) : (
+              <a
+                class="btn btn-secondary signin-btn"
+                href={routes.signin.index.href()}
+                aria-current={signin ? 'page' : undefined}
+              >
+                <Icon name="user" size={20} />
+                <span class="signin-label">Sign in</span>
+              </a>
+            )}
           </div>
         </header>
 

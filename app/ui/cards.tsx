@@ -13,12 +13,19 @@ import {
 import { routes } from '../routes.ts'
 import { Icon } from './icons.tsx'
 
-export function Avatar(handle: Handle<{ channel: Channel; size?: 'sm' | 'md' | 'lg' }>) {
+export function Avatar(handle: Handle<{ channel: Channel; size?: 'sm' | 'md' | 'lg' | 'card' }>) {
   return () => {
     let { channel, size = 'md' } = handle.props
+    let folderIcon = size === 'lg' ? 40 : size === 'card' ? 24 : 16
     return (
       <span class={`avatar avatar-${size}`} style={`--hue:${channel.hue}`} aria-hidden="true">
-        {channel.kind === 'folder' ? <Icon name="folder" size={size === 'lg' ? 40 : 16} /> : channel.name.charAt(0)}
+        {channel.photo ? (
+          <img class="avatar-photo" src={channel.photo} alt="" />
+        ) : channel.kind === 'folder' ? (
+          <Icon name="folder" size={folderIcon} />
+        ) : (
+          channel.name.charAt(0)
+        )}
       </span>
     )
   }

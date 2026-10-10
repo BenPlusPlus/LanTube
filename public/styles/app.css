@@ -306,6 +306,8 @@ input {
 .topbar-end {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
 }
 
 .upload-btn {
@@ -490,11 +492,18 @@ input {
   display: inline-grid;
   flex: none;
   place-items: center;
+  overflow: hidden;
   border-radius: 50%;
   background: hsl(var(--hue) 42% 30%);
   color: hsl(var(--hue) 70% 88%);
   font-weight: 600;
   line-height: 1;
+}
+
+.avatar-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-sm {
@@ -513,6 +522,12 @@ input {
   width: 88px;
   height: 88px;
   font-size: 2.25rem;
+}
+
+.avatar-card {
+  width: 56px;
+  height: 56px;
+  font-size: 1.375rem;
 }
 
 /* ---------- Main content ---------- */
@@ -1083,10 +1098,352 @@ input {
   *::before,
   *::after {
     transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
 
   .vcard:hover .vcard-thumb img {
     transform: none;
+  }
+}
+
+/* ---------- Header account / sign in ---------- */
+
+.signin-btn {
+  padding: 0 16px 0 12px;
+}
+
+.signin-btn[aria-current='page'] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px 0 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease);
+}
+
+.account-btn:hover {
+  background: var(--raised);
+}
+
+.account-name {
+  max-width: 12ch;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu {
+  inset: unset;
+  top: 52px;
+  right: 16px;
+  width: 240px;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.account-menu-who {
+  padding: 8px 12px 12px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.account-menu-who strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-menu-item:hover {
+  background: var(--raised);
+}
+
+.account-menu form {
+  margin: 0;
+}
+
+/* ---------- Sign in (who, then password) ---------- */
+
+.layout-signin {
+  --rail-w: 0px;
+}
+
+.layout-signin .sidebar,
+.layout-signin .drawer {
+  display: none;
+}
+
+.who {
+  max-width: 1100px;
+  padding-top: 36px;
+}
+
+.who-title {
+  margin: 0 0 8px;
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.who-lede {
+  max-width: 48ch;
+  margin: 0 0 28px;
+  color: var(--text-2);
+  font-size: 1.125rem;
+  text-wrap: pretty;
+}
+
+.who-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.who-card {
+  min-height: 168px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface);
+  transition: background-color 150ms var(--ease);
+}
+
+.who-card:hover {
+  background: var(--raised);
+}
+
+.who-card.is-open {
+  background: var(--raised);
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.who-new {
+  background: transparent;
+  outline: 1px dashed #33363b;
+  outline-offset: -1px;
+}
+
+.who-new:hover {
+  background: var(--surface);
+}
+
+.who-new.is-open {
+  background: var(--raised);
+  outline: 2px solid var(--accent);
+}
+
+.who-pick {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 168px;
+  padding: 20px;
+}
+
+.who-card.is-open .who-pick {
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+.who-pick-new {
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-2);
+}
+
+.who-meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.who-name {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.who-count {
+  color: var(--text-2);
+  font-size: var(--fs-md);
+}
+
+.who-plus {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--raised);
+  color: var(--text);
+}
+
+.who-new.is-open .who-plus {
+  background: var(--bg);
+}
+
+.who-form {
+  display: grid;
+  padding: 0 20px 20px;
+  animation: who-open 180ms var(--ease);
+}
+
+.who-join-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+@keyframes who-open {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.field-label {
+  margin: 0 0 8px;
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.field {
+  width: 100%;
+  height: 44px;
+  margin-bottom: 14px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #121316;
+  caret-color: var(--text);
+  outline: none;
+  transition: border-color 150ms var(--ease);
+}
+
+.field:hover {
+  border-color: #33363b;
+}
+
+.field:focus-visible {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.field[aria-invalid='true'] {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+.field-error {
+  margin: -6px 0 12px;
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+.photo-well {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  margin-bottom: 16px;
+  padding: 0 16px;
+  border: 1px dashed #33363b;
+  border-radius: 999px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.photo-well:hover {
+  background: var(--raised-hover);
+  color: var(--text);
+}
+
+.who-form .btn {
+  justify-self: start;
+}
+
+@media (max-width: 900px) {
+  .who-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .who-title {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .who {
+    padding-top: 24px;
+  }
+
+  .who-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .who-title {
+    font-size: 1.5rem;
+  }
+
+  .account-name,
+  .signin-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .signin-btn,
+  .account-btn {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .account-menu {
+    right: 12px;
   }
 }

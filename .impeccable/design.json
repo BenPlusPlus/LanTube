@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-10T18:23:22+00:00",
+  "generatedAt": "2026-10-10T21:37:33+00:00",
   "title": "Design System: LanTube",
   "extensions": {
     "colorMeta": {
@@ -254,6 +254,18 @@
       "caption": {
         "displayName": "Caption",
         "purpose": "Duration badges, \"New\" badges, \"Watched\", folder paths, host note. Tabular numerals."
+      },
+      "who-title": {
+        "displayName": "Who Title",
+        "purpose": "\"Who's using LanTube?\" on the sign-in route. 2.25rem; 1.75rem at ≤900px; 1.5rem at ≤639px."
+      },
+      "who-lede": {
+        "displayName": "Who Lede",
+        "purpose": "Ash intro under the who title."
+      },
+      "who-name": {
+        "displayName": "Who Name",
+        "purpose": "Person names on who cards."
       }
     },
     "shadows": [],
@@ -291,7 +303,7 @@
     ],
     "focus": {
       "value": "outline: 2px solid #3d8bff; outline-offset: 2px",
-      "purpose": "Universal :focus-visible ring. Search input uses border + 1px inset ring instead; video cards outline the thumbnail when the title link is focused."
+      "purpose": "Universal :focus-visible ring. Search and password/join fields use border + 1px inset ring instead; video cards outline the thumbnail when the title link is focused. Open who-cards use a 2px House Blue outline at offset 0; the current-page Sign in control uses the universal ring."
     },
     "motion": [
       {
@@ -307,7 +319,12 @@
       {
         "name": "duration-base",
         "value": "150ms",
-        "purpose": "Buttons, icon buttons, search field, channel cards."
+        "purpose": "Buttons, icon buttons, search field, channel cards, who cards, account button, password fields."
+      },
+      {
+        "name": "duration-who",
+        "value": "180ms",
+        "purpose": "Password/join form reveal on an opened who-card."
       },
       {
         "name": "duration-drawer",
@@ -334,7 +351,7 @@
       {
         "name": "phone",
         "value": "max-width: 639px",
-        "purpose": "Two-row 108px top bar, full-width search, icon-only Upload, 16px gutter, 28px shelf gap."
+        "purpose": "Two-row 108px top bar, full-width search, icon-only Upload and Sign in/account, 16px gutter, 28px shelf gap."
       },
       {
         "name": "rail",
@@ -365,6 +382,11 @@
         "name": "cols-5",
         "value": "@container content (min-width: 1760px)",
         "purpose": "Five video columns."
+      },
+      {
+        "name": "who-2",
+        "value": "max-width: 900px",
+        "purpose": "Sign-in route only: who-grid drops from 3 columns to 2; who-title steps to 1.75rem. Not a global shell breakpoint."
       }
     ],
     "iconography": {
@@ -436,20 +458,44 @@
       "name": "Top Bar",
       "kind": "nav",
       "refersTo": "icon-button",
-      "description": "Sticky 56px bar: menu icon button, house-and-play logo with wordmark, centred search, primary Upload.",
-      "html": "<header class=\"ds-topbar\"><div class=\"ds-topbar-start\"><button class=\"ds-icon-btn\" type=\"button\" aria-label=\"Open navigation\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 5h16\"/><path d=\"M4 12h16\"/><path d=\"M4 19h16\"/></svg></button><a class=\"ds-brand\" href=\"#\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 28 28\" aria-hidden=\"true\"><path d=\"M12.2 2.6a2.8 2.8 0 0 1 3.6 0l9.2 7.7c.64.53 1 1.32 1 2.15V23a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V12.45c0-.83.36-1.62 1-2.15z\" fill=\"#3d8bff\"/><path d=\"M11.4 13.1a.9.9 0 0 1 1.37-.77l5.6 3.35a.9.9 0 0 1 0 1.54l-5.6 3.35a.9.9 0 0 1-1.37-.77z\" fill=\"#fff\"/></svg><span>LanTube</span></a></div><div class=\"ds-topbar-search\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m21 21-4.34-4.34\"/><circle cx=\"11\" cy=\"11\" r=\"8\"/></svg><span>Search the house</span></div><a class=\"ds-upload\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3v12\"/><path d=\"m17 8-5-5-5 5\"/><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/></svg><span>Upload</span></a></header>",
-      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-topbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;height:56px;padding:0 24px 0 16px;background:var(--bg);color:var(--text);font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;} .ds-topbar-start{display:flex;align-items:center;gap:8px;} .ds-icon-btn{display:inline-grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text);cursor:pointer;transition:background-color 150ms var(--ease);} .ds-icon-btn:hover{background:var(--raised);} .ds-icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-icon-btn:active{transform:scale(0.97);} .ds-brand{display:inline-flex;align-items:center;gap:8px;padding:6px 8px 6px 4px;border-radius:8px;color:var(--text);text-decoration:none;font-size:1.1875rem;font-weight:700;letter-spacing:-0.025em;} .ds-brand:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-topbar-search{display:flex;align-items:center;justify-content:space-between;justify-self:center;width:100%;max-width:600px;height:40px;padding:0 20px;border:1px solid var(--line);border-radius:999px;background:#121316;color:var(--text-2);font-size:1rem;flex-direction:row-reverse;} .ds-upload{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px 0 12px;border-radius:999px;background:var(--accent-ink);color:#fff;font-size:0.875rem;font-weight:600;text-decoration:none;transition:background-color 150ms var(--ease);} .ds-upload:hover{background:var(--accent-ink-hover);} .ds-upload:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+      "description": "Sticky 56px bar: menu icon button, house-and-play logo with wordmark, centred search, primary Upload, and household identity (Sign in when unsigned).",
+      "html": "<header class=\"ds-topbar\"><div class=\"ds-topbar-start\"><button class=\"ds-icon-btn\" type=\"button\" aria-label=\"Open navigation\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 5h16\"/><path d=\"M4 12h16\"/><path d=\"M4 19h16\"/></svg></button><a class=\"ds-brand\" href=\"#\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 28 28\" aria-hidden=\"true\"><path d=\"M12.2 2.6a2.8 2.8 0 0 1 3.6 0l9.2 7.7c.64.53 1 1.32 1 2.15V23a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V12.45c0-.83.36-1.62 1-2.15z\" fill=\"#3d8bff\"/><path d=\"M11.4 13.1a.9.9 0 0 1 1.37-.77l5.6 3.35a.9.9 0 0 1 0 1.54l-5.6 3.35a.9.9 0 0 1-1.37-.77z\" fill=\"#fff\"/></svg><span>LanTube</span></a></div><div class=\"ds-topbar-search\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m21 21-4.34-4.34\"/><circle cx=\"11\" cy=\"11\" r=\"8\"/></svg><span>Search the house</span></div><div class=\"ds-topbar-end\"><a class=\"ds-upload\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3v12\"/><path d=\"m17 8-5-5-5 5\"/><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/></svg><span>Upload</span></a><a class=\"ds-signin\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\"/><circle cx=\"12\" cy=\"7\" r=\"4\"/></svg><span>Sign in</span></a></div></header>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-topbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;height:56px;padding:0 24px 0 16px;background:var(--bg);color:var(--text);font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;} .ds-topbar-start,.ds-topbar-end{display:flex;align-items:center;gap:8px;} .ds-icon-btn{display:inline-grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text);cursor:pointer;transition:background-color 150ms var(--ease);} .ds-icon-btn:hover{background:var(--raised);} .ds-icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-icon-btn:active{transform:scale(0.97);} .ds-brand{display:inline-flex;align-items:center;gap:8px;padding:6px 8px 6px 4px;border-radius:8px;color:var(--text);text-decoration:none;font-size:1.1875rem;font-weight:700;letter-spacing:-0.025em;} .ds-brand:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-topbar-search{display:flex;align-items:center;justify-content:space-between;justify-self:center;width:100%;max-width:600px;height:40px;padding:0 20px;border:1px solid var(--line);border-radius:999px;background:#121316;color:var(--text-2);font-size:1rem;flex-direction:row-reverse;} .ds-upload,.ds-signin{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px 0 12px;border-radius:999px;font-size:0.875rem;font-weight:600;text-decoration:none;transition:background-color 150ms var(--ease);} .ds-upload{background:var(--accent-ink);color:#fff;} .ds-upload:hover{background:var(--accent-ink-hover);} .ds-signin{background:var(--raised);color:var(--text);} .ds-signin:hover{background:var(--raised-hover);} .ds-upload:focus-visible,.ds-signin:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+    },
+    {
+      "name": "Sign In Button",
+      "kind": "button",
+      "refersTo": "signin-btn",
+      "description": "Header identity when unsigned: secondary pill with a user icon. Current page keeps a 2px House Blue outline offset 2px; 40px icon-only at ≤639px.",
+      "html": "<a class=\"ds-signin\" href=\"#\" aria-current=\"page\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\"/><circle cx=\"12\" cy=\"7\" r=\"4\"/></svg><span>Sign in</span></a>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-signin{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px 0 12px;border:0;border-radius:999px;background:var(--raised);color:var(--text);font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:0.875rem;font-weight:600;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background-color 150ms var(--ease),transform 150ms var(--ease);} .ds-signin:hover{background:var(--raised-hover);} .ds-signin[aria-current='page']{outline:2px solid var(--accent);outline-offset:2px;} .ds-signin:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-signin:active{transform:scale(0.97);}"
+    },
+    {
+      "name": "Account Button",
+      "kind": "button",
+      "refersTo": "account-btn",
+      "description": "Header identity when signed in: transparent 40px pill, 24px Avatar + name (600, truncated 12ch). Opens a 240px Graphite Surface popover with Signed in as, Your channel, Sign out.",
+      "html": "<div class=\"ds-account\"><button class=\"ds-account-btn\" type=\"button\" aria-haspopup=\"dialog\" aria-label=\"Mia, account menu\"><span class=\"ds-avatar-sm\" style=\"--hue:160\">M</span><span class=\"ds-account-name\">Mia</span></button><div class=\"ds-account-menu\"><p class=\"ds-account-who\">Signed in as <strong>Mia</strong></p><a class=\"ds-account-item\" href=\"#\">Your channel</a><button class=\"ds-account-item\" type=\"button\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"/><path d=\"m16 17 5-5-5-5\"/><path d=\"M21 12H9\"/></svg>Sign out</button></div></div>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-account{position:relative;display:inline-flex;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;} .ds-account-btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 12px 0 4px;border:0;border-radius:999px;background:transparent;color:var(--text);cursor:pointer;transition:background-color 150ms var(--ease);} .ds-account-btn:hover{background:var(--raised);} .ds-account-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;} .ds-avatar-sm{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:hsl(var(--hue) 42% 30%);color:hsl(var(--hue) 70% 88%);font-size:0.75rem;font-weight:600;line-height:1;} .ds-account-name{max-width:12ch;overflow:hidden;font-size:0.875rem;font-weight:600;text-overflow:ellipsis;white-space:nowrap;} .ds-account-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:2;width:240px;margin:0;padding:8px;border:0;border-radius:12px;background:var(--surface);color:var(--text);} .ds-account-who{margin:0;padding:8px 12px 12px;color:var(--text-2);font-size:0.8125rem;} .ds-account-who strong{color:var(--text);font-weight:600;} .ds-account-item{display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--text);font:inherit;font-weight:500;text-align:left;text-decoration:none;cursor:pointer;} .ds-account-item:hover{background:var(--raised);} .ds-account-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+    },
+    {
+      "name": "Who Card",
+      "kind": "card",
+      "refersTo": "who-card",
+      "description": "Sign-in identity tile: Graphite Surface, 12px radius, min 168px. Open state is Graphite Raised with a 2px House Blue outline, 56px hue initials, 44px pill password field, House Blue Ink Sign in. Join card is dashed and expands in its grid cell.",
+      "html": "<div class=\"ds-who-grid\"><article class=\"ds-who is-open\"><a class=\"ds-who-pick\" href=\"#\" aria-current=\"true\"><span class=\"ds-avatar-card\" style=\"--hue:160\">M</span><span class=\"ds-who-meta\"><span class=\"ds-who-name\">Mia</span><span class=\"ds-who-count\">4 videos</span></span></a><form class=\"ds-who-form\" onsubmit=\"return false\"><label class=\"ds-field-label\" for=\"ds-who-password\">Password</label><input class=\"ds-field\" id=\"ds-who-password\" type=\"password\"><button class=\"ds-who-submit\" type=\"submit\">Sign in</button></form></article><article class=\"ds-who ds-who-new\"><a class=\"ds-who-pick ds-who-pick-new\" href=\"#\"><span class=\"ds-who-plus\" aria-hidden=\"true\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg></span><span class=\"ds-who-name\">I’m new in the house</span></a></article></div>",
+      "css": ":host{--bg:#0f1012;--surface:#17181b;--raised:#222428;--raised-hover:#2d2f34;--line:#26282c;--text:#f1f1f1;--text-2:#a0a3a9;--accent:#3d8bff;--accent-ink:#2b72e0;--accent-ink-hover:#2466cc;--on-chip:#0f1012;--ease:cubic-bezier(0.2,0,0,1);} .ds-who-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:560px;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--text);} .ds-who{min-height:168px;overflow:hidden;border-radius:12px;background:var(--surface);transition:background-color 150ms var(--ease);} .ds-who:hover{background:var(--raised);} .ds-who.is-open{background:var(--raised);outline:2px solid var(--accent);outline-offset:0;} .ds-who-new{background:transparent;outline:1px dashed #33363b;outline-offset:-1px;} .ds-who-new:hover{background:var(--surface);} .ds-who-pick{display:flex;align-items:center;gap:14px;min-height:168px;padding:20px;color:inherit;text-decoration:none;} .ds-who.is-open .ds-who-pick{min-height:0;padding-bottom:8px;} .ds-who-pick-new{flex-direction:column;justify-content:center;gap:10px;color:var(--text-2);} .ds-avatar-card{display:inline-grid;place-items:center;width:56px;height:56px;border-radius:50%;background:hsl(var(--hue) 42% 30%);color:hsl(var(--hue) 70% 88%);font-size:1.375rem;font-weight:600;line-height:1;} .ds-who-meta{display:grid;gap:4px;min-width:0;} .ds-who-name{font-size:1.375rem;font-weight:600;line-height:1.2;} .ds-who-count{color:var(--text-2);font-size:0.875rem;} .ds-who-plus{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--raised);color:var(--text);} .ds-who-form{display:grid;padding:0 20px 20px;} .ds-field-label{margin:0 0 8px;color:var(--text-2);font-size:0.8125rem;font-weight:600;} .ds-field{width:100%;height:44px;margin-bottom:14px;padding:0 18px;border:1px solid var(--line);border-radius:999px;background:#121316;color:var(--text);caret-color:var(--text);outline:none;font:inherit;transition:border-color 150ms var(--ease);} .ds-field:hover{border-color:#33363b;} .ds-field:focus-visible{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);} .ds-who-submit{justify-self:start;height:40px;padding:0 18px;border:0;border-radius:999px;background:var(--accent-ink);color:#fff;font:inherit;font-weight:600;cursor:pointer;transition:background-color 150ms var(--ease);} .ds-who-submit:hover{background:var(--accent-ink-hover);} .ds-who-submit:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
     }
   ],
   "narrative": {
     "northStar": "The House Channel",
-    "overview": "LanTube looks like the video site everyone in the house already knows how to use, because that is the point. A sticky top bar with a centred pill search, a left navigation that collapses from full sidebar to mini rail to drawer, topic chips, and a dense grid of 16:9 thumbnails: the category-standard grammar, executed at the craft level of YouTube and Rumble. Novelty lives nowhere in the layout. What makes it LanTube is the material: a graphite dark ground, quiet tonal surfaces, one household blue, and a house-with-a-play-doorway mark.\n\nThe system is content-first and calm. Thumbnails carry all the colour on screen; chrome is neutral graphite so family footage reads as the brightest thing in the room. The single blue accent is rare by design: it marks where you left off (progress), where you are (focus, active nav icon), what is new, and the one primary action. Everything else is graphite, off-white, or ash grey.\n\nThe product is household-only and never needs the public internet, so the design ships its own assets: Inter is self-hosted, icons are inline SVG (Lucide paths, ISC licence), avatars are generated initials rather than fetched photos. LanTube must not look like YouTube's brand: no red, no red-on-white or red-on-black identity.",
+    "overview": "LanTube looks like the video site everyone in the house already knows how to use, because that is the point. A sticky top bar with a centred pill search, a left navigation that collapses from full sidebar to mini rail to drawer, topic chips, and a dense grid of 16:9 thumbnails: the category-standard grammar, executed at the craft level of YouTube and Rumble. Novelty lives nowhere in the layout. What makes it LanTube is the material: a graphite dark ground, quiet tonal surfaces, one household blue, and a house-with-a-play-doorway mark.\n\nThe system is content-first and calm. Thumbnails carry all the colour on screen; chrome is neutral graphite so family footage reads as the brightest thing in the room. The single blue accent is rare by design: it marks where you left off (progress), where you are (focus, active nav icon), what is new, and the one primary action. Everything else is graphite, off-white, or ash grey.\n\nThe product is household-only and never needs the public internet, so the design ships its own assets: Inter is self-hosted, icons are inline SVG (Lucide paths, ISC licence), avatars are hue-tinted initials or an optional local photo stored on the host, never fetched from the WAN. LanTube must not look like YouTube's brand: no red, no red-on-white or red-on-black identity.",
     "keyCharacteristics": [
       "Category-standard video-site layout; trust through familiarity, not novelty.",
       "Dark-only graphite palette with tonal layering instead of shadows.",
       "One accent (house blue), used sparingly and functionally.",
       "Inter as the single family; weight, not size jumps, carries hierarchy.",
-      "Soft 12px thumbnails, pill buttons, 8px chips, circular initial avatars tinted per person.",
+      "Soft 12px thumbnails, pill buttons, 8px chips, circular avatars tinted per person (initials, or a local photo).",
       "Fully local assets: fonts, icons, and imagery never come from the WAN.",
       "Honest states: empty and not-yet-built screens say plainly what is missing."
     ],
@@ -490,7 +536,8 @@
       "Do convey depth by stepping up the graphite ramp.",
       "Do time transitions between 120ms and 240ms on cubic-bezier(0.2, 0, 0, 1), and honour prefers-reduced-motion.",
       "Do self-host every font, icon, and image; nothing on the watch path may require the WAN.",
-      "Do write honest empty and placeholder states that name what is missing."
+      "Do write honest empty and placeholder states that name what is missing.",
+      "Do put household identity in the header: a secondary Sign in when unsigned; name + Avatar opening Your channel and Sign out when signed in."
     ],
     "donts": [
       "Don't use red, or any red-on-white or red-on-black brand look.",
@@ -498,7 +545,7 @@
       "Don't introduce a second accent colour or use blue for decoration.",
       "Don't add drop shadows to cards, bars, or chips.",
       "Don't ship a light theme yet; LanTube is dark-only for now.",
-      "Don't add a profile switcher, sign-in, or account avatar; the household identity mechanism is undecided.",
+      "Don't invent a second household-identity pattern: unsigned visitors get a header Sign in; signed-in visitors get name + Avatar with an account popover (Your channel, Sign out).",
       "Don't render an \"Earlier\" shelf with less than one full row of videos.",
       "Don't load fonts, icons, or avatars from a CDN or external service.",
       "Don't invent novelty layouts where the video-site convention already answers the question."

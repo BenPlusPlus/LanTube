@@ -1,7 +1,8 @@
 import type { Handle } from 'remix/component'
 
+import type { Person } from '../data/household.ts'
 import type { Video } from '../data/library.ts'
-import { channels, continueWatching, getTopic, newestFirst, topics, videos } from '../data/library.ts'
+import { continueWatching, getChannels, getTopic, newestFirst, topics, videos } from '../data/library.ts'
 import { routes } from '../routes.ts'
 import { AppShell } from '../ui/shell.tsx'
 import { ChannelCard, VideoCard } from '../ui/cards.tsx'
@@ -11,6 +12,7 @@ export interface HomePageProps {
   query: string
   topic?: string
   results?: Video[]
+  person?: Person | null
 }
 
 function topicHref(topic?: string) {
@@ -124,12 +126,12 @@ function EmptyLibrary() {
 
 export function HomePage(handle: Handle<HomePageProps>) {
   return () => {
-    let { query, topic, results } = handle.props
+    let { query, topic, results, person = null } = handle.props
 
 
     if (videos.length === 0) {
       return (
-        <AppShell current="home">
+        <AppShell current="home" person={person}>
           <EmptyLibrary />
         </AppShell>
       )
@@ -144,7 +146,7 @@ export function HomePage(handle: Handle<HomePageProps>) {
     let earlier = rest.slice(cut)
 
     return (
-      <AppShell current="home" query={query} title={query ? `“${query}”` : undefined}>
+      <AppShell current="home" query={query} title={query ? `“${query}”` : undefined} person={person}>
         <TopicChips active={topic} />
         {results !== undefined ? (
           <Results query={query} topic={topic} results={results} />
@@ -165,7 +167,7 @@ export function HomePage(handle: Handle<HomePageProps>) {
                 </a>
               </header>
               <ul class="channel-row">
-                {channels.map((channel) => (
+                {getChannels().map((channel) => (
                   <li>
                     <ChannelCard channel={channel} />
                   </li>

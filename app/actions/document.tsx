@@ -7,13 +7,14 @@ export interface DocumentProps {
   children?: RemixNode
   head?: RemixNode
   title?: string
+  bodyClass?: string
 }
 
 const DEFAULT_TITLE = 'LanTube'
 
 export function Document(handle: Handle<DocumentProps>) {
   return () => {
-    let { children, head, title = DEFAULT_TITLE } = handle.props
+    let { children, head, title = DEFAULT_TITLE, bodyClass } = handle.props
     let { href, importMap, preloads } = scriptEntry
 
     return (
@@ -40,7 +41,7 @@ export function Document(handle: Handle<DocumentProps>) {
           ))}
           <script type="module" src={href}></script>
         </head>
-        <body>{children}</body>
+        <body class={bodyClass}>{children}</body>
       </html>
     )
   }

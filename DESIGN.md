@@ -55,6 +55,22 @@ typography:
     fontSize: "0.75rem"
     fontWeight: 600
     lineHeight: 1.35
+  who-title:
+    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontSize: "2.25rem"
+    fontWeight: 700
+    lineHeight: 1.15
+    letterSpacing: "-0.025em"
+  who-lede:
+    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontSize: "1.125rem"
+    fontWeight: 400
+    lineHeight: 1.45
+  who-name:
+    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontSize: "1.375rem"
+    fontWeight: 600
+    lineHeight: 1.2
 rounded:
   badge: "4px"
   duration: "5px"
@@ -140,12 +156,49 @@ components:
   avatar-md:
     rounded: "{rounded.circle}"
     size: "36px"
+  avatar-card:
+    rounded: "{rounded.circle}"
+    size: "56px"
   channel-card:
     backgroundColor: "{colors.graphite-surface}"
     rounded: "{rounded.card}"
     padding: "20px 12px 18px"
   channel-card-hover:
     backgroundColor: "{colors.graphite-raised}"
+  signin-btn:
+    backgroundColor: "{colors.graphite-raised}"
+    textColor: "{colors.paper-text}"
+    rounded: "{rounded.pill}"
+    padding: "0 16px 0 12px"
+    height: "40px"
+  account-btn:
+    backgroundColor: "transparent"
+    textColor: "{colors.paper-text}"
+    rounded: "{rounded.pill}"
+    padding: "0 12px 0 4px"
+    height: "40px"
+  account-btn-hover:
+    backgroundColor: "{colors.graphite-raised}"
+  account-menu:
+    backgroundColor: "{colors.graphite-surface}"
+    rounded: "{rounded.card}"
+    padding: "8px"
+    width: "240px"
+  who-card:
+    backgroundColor: "{colors.graphite-surface}"
+    rounded: "{rounded.card}"
+  who-card-open:
+    backgroundColor: "{colors.graphite-raised}"
+    rounded: "{rounded.card}"
+  who-new:
+    backgroundColor: "transparent"
+    rounded: "{rounded.card}"
+  field:
+    backgroundColor: "{colors.field-well}"
+    textColor: "{colors.paper-text}"
+    rounded: "{rounded.pill}"
+    padding: "0 18px"
+    height: "44px"
 ---
 
 # Design System: LanTube
@@ -158,14 +211,14 @@ LanTube looks like the video site everyone in the house already knows how to use
 
 The system is content-first and calm. Thumbnails carry all the colour on screen; chrome is neutral graphite so family footage reads as the brightest thing in the room. The single blue accent is rare by design: it marks where you left off (progress), where you are (focus, active nav icon), what is new, and the one primary action. Everything else is graphite, off-white, or ash grey.
 
-The product is household-only and never needs the public internet, so the design ships its own assets: Inter is self-hosted, icons are inline SVG (Lucide paths, ISC licence), avatars are generated initials rather than fetched photos. LanTube must not look like YouTube's brand: no red, no red-on-white or red-on-black identity.
+The product is household-only and never needs the public internet, so the design ships its own assets: Inter is self-hosted, icons are inline SVG (Lucide paths, ISC licence), avatars are hue-tinted initials or an optional local photo stored on the host, never fetched from the WAN. LanTube must not look like YouTube's brand: no red, no red-on-white or red-on-black identity.
 
 **Key Characteristics:**
 - Category-standard video-site layout; trust through familiarity, not novelty.
 - Dark-only graphite palette with tonal layering instead of shadows.
 - One accent (house blue), used sparingly and functionally.
 - Inter as the single family; weight, not size jumps, carries hierarchy.
-- Soft 12px thumbnails, pill buttons, 8px chips, circular initial avatars tinted per person.
+- Soft 12px thumbnails, pill buttons, 8px chips, circular avatars tinted per person (initials, or a local photo).
 - Fully local assets: fonts, icons, and imagery never come from the WAN.
 - Honest states: empty and not-yet-built screens say plainly what is missing.
 
@@ -180,11 +233,11 @@ A near-black graphite ramp with off-white text and a single cool blue; the thumb
 
 ### Neutral
 - **Graphite Ground** (`graphite-ground`): page background, top bar, sticky chip row. Also the dark text on active chips (`on-chip`).
-- **Graphite Surface** (`graphite-surface`): one step up; channel cards and the mobile navigation drawer.
-- **Graphite Raised** (`graphite-raised`): interactive fills at rest (chips, secondary buttons, search button), hover fill for nav items and icon buttons, active nav row, and the placeholder colour behind loading thumbnails.
+- **Graphite Surface** (`graphite-surface`): one step up; channel cards, who cards, the account popover, and the mobile navigation drawer.
+- **Graphite Raised** (`graphite-raised`): interactive fills at rest (chips, secondary buttons, search button), hover fill for nav items, icon buttons and the account control, active nav row, open who-cards, and the placeholder colour behind loading thumbnails.
 - **Graphite Raised Hover** (`graphite-raised-hover`): hover state for raised fills; also the scrollbar thumb.
-- **Graphite Line** (`graphite-line`): 1px dividers between nav groups and the search field outline.
-- **Field Well** (`field-well`) and **Field Line Hover** (`field-line-hover`): the slightly recessed search input and its hover border.
+- **Graphite Line** (`graphite-line`): 1px dividers between nav groups and field outlines (search, password, join).
+- **Field Well** (`field-well`) and **Field Line Hover** (`field-line-hover`): recessed search and password/join fields, the search hover border, and the dashed outline on the join card and photo well.
 - **Paper** (`paper-text`): primary text, titles, and the active chip fill.
 - **Ash** (`ash-text`): secondary text: channel bylines, relative times, counts, folder paths, empty-state body copy, placeholder text.
 
@@ -206,12 +259,15 @@ Avatar colours are not tokens: each person has a hue, rendered as `hsl(hue 42% 3
 **Character:** One neutral, highly legible family tuned with `cv11` and `ss01` (single-storey a, open digits). Hierarchy comes from weight (400 / 500 / 600 / 700) and tight negative tracking on headings, over a compact rem scale (12 / 13 / 14 / 16 / 20 / 24px).
 
 ### Hierarchy
+- **Who Title** (700, 2.25rem, 1.15, −0.025em): "Who's using LanTube?" on the sign-in route. Steps to 1.75rem at ≤900px and to Headline (1.5rem) at ≤639px.
 - **Headline** (700, 1.5rem, 1.25, −0.02em): empty-state and placeholder page headings only.
 - **Brand** (700, 1.1875rem, −0.025em): the "LanTube" wordmark beside the mark.
 - **Title** (700, 1.25rem, 1.25, −0.015em, balanced wrap): shelf headings ("Continue watching", "Latest in the house").
+- **Who Name** (600, 1.375rem, 1.2): person names on who cards.
+- **Who Lede** (400, 1.125rem, 1.45): the Ash intro under the who title.
 - **Card Title** (600, 1rem, 1.375): video titles, clamped to two lines; channel-card names; nav group headings.
-- **Body** (400, 0.875rem, 1.45): the base size; nav labels, bylines, relative times, chip and button labels (chips 500, buttons 600). Empty-state paragraphs step up to 1rem and cap at 44ch.
-- **Label** (500, 0.8125rem): channel-card subtitles and counts.
+- **Body** (400, 0.875rem, 1.45): the base size; nav labels, bylines, relative times, chip and button labels (chips 500, buttons 600). Empty-state paragraphs step up to 1rem and cap at 44ch. Account names in the header are Body at 600.
+- **Label** (500, 0.8125rem): channel-card subtitles and counts. Password and join field labels use the same size at 600 Ash.
 - **Caption** (600, 0.75rem, 1.35, tabular): duration badges, "New" badges, "Watched", folder paths, host note (folder paths and host note at 400). The mini rail uses 0.625rem labels under icons.
 
 ### Named Rules
@@ -219,13 +275,13 @@ Avatar colours are not tokens: each person has a hue, rendered as `hsl(hue 42% 3
 
 ## Layout
 
-The shell is a sticky 56px top bar over a fixed left navigation and a scrolling content column. The top bar is a three-column grid: menu button + logo, centred search (max 600px), Upload on the right.
+The shell is a sticky 56px top bar over a fixed left navigation and a scrolling content column. The top bar is a three-column grid: menu button + logo, centred search (max 600px), Upload and household identity on the right (Sign in when unsigned; name + Avatar when signed in).
 
 Navigation adapts in three steps:
 - **≥ 1312px:** full 240px sidebar: primary nav (Home, Channels, Playlists, History), then "In this house" people with initial avatars and a blue new-dot, then "Folders" with their paths, then a host note ("Streaming from <host> on your home network"). The menu button hides.
 - **792–1311px:** 72px mini rail; primary nav only, icon stacked over a 0.625rem label, 74px tall targets. Full nav lives in the drawer.
 - **< 792px:** no rail; the menu button opens a 300px (max 86vw) popover drawer on Graphite Surface with a 55% black backdrop.
-- **< 640px:** the top bar becomes two rows (56px + 52px, total 108px): logo and icon-only Upload on top, full-width search below. Gutter drops from 24px to 16px and shelf spacing from 40px to 28px.
+- **< 640px:** the top bar becomes two rows (56px + 52px, total 108px): logo and icon-only Upload plus Sign in or account on top, full-width search below. Gutter drops from 24px to 16px and shelf spacing from 40px to 28px.
 
 Content is a size container. Video shelves use container queries, not viewport media queries, to pick columns: 1 column below 540px, 2 at 540px, 3 at 880px, 4 at 1120px, 5 at 1760px. Grid gaps are 16px horizontal, 40px vertical (28px on phones).
 
@@ -239,16 +295,18 @@ Home shelves, in order:
 
 Search and topic results replace the shelves with one titled grid and a count.
 
+The sign-in route hides the sidebar (`--rail-w: 0`) and uses a 3-column who-grid that collapses to 2 at 900px and 1 at 639px.
+
 ## Elevation & Depth
 
-LanTube is flat. Depth comes from tonal steps on the graphite ramp (Ground → Surface → Raised → Raised Hover), never from drop shadows. The only overlays are functional: the 78% black duration badge on thumbnails, the 28% white track under progress bars, and the 55% black backdrop behind the mobile drawer. The sticky top bar and chip row stay on Graphite Ground with no border or shadow; content simply passes beneath.
+LanTube is flat. Depth comes from tonal steps on the graphite ramp (Ground → Surface → Raised → Raised Hover), never from drop shadows. The only overlays are functional: the 78% black duration badge on thumbnails, the 28% white track under progress bars, the 55% black backdrop behind the mobile drawer, and the account popover sitting on Graphite Surface. The sticky top bar and chip row stay on Graphite Ground with no border or shadow; content simply passes beneath.
 
 ### Named Rules
 **The Tonal Step Rule.** To lift something, move it one step up the graphite ramp. Do not add a box-shadow.
 
 ## Shapes
 
-Soft, friendly geometry. Thumbnails and channel cards round to 12px; chips to 8px; nav rows to 10px; small badges to 4–5px. Every button, the search field, and inline text links are full pills; icon buttons and avatars are circles. Borders are rare: only the search field and the 1px dividers between nav groups. Icons are Lucide outlines drawn at 24px with a 1.75 stroke, round caps and joins (16–20px in dense spots, 40px in empty states).
+Soft, friendly geometry. Thumbnails, channel cards, who cards, and the account popover round to 12px; chips to 8px; nav rows and account-menu rows to 10px; small badges to 4–5px. Every button, the search field, password/join fields, and inline text links are full pills; icon buttons and avatars are circles. Borders are rare: 1px Graphite Line on fields, 1px dividers between nav groups, and a dashed Field Line Hover outline on the join card and photo well. The open who-card uses a 2px House Blue outline (offset 0); the current-page Sign in control uses the same 2px ring at offset 2px. Icons are Lucide outlines drawn at 24px with a 1.75 stroke, round caps and joins (16–20px in dense spots, 40px in empty states).
 
 The logo mark is a rounded house in House Blue whose doorway is a white play triangle, shown at 28px beside the wordmark.
 
@@ -262,6 +320,8 @@ Confident pills; a single primary per view.
 - **Icon button:** 40px transparent circle; Raised fill on hover.
 - **Hover / Focus / Active:** background transitions in 150ms on the standard ease; focus is a 2px House Blue outline offset 2px; press scales to 0.97.
 - **Upload on phones:** collapses to a 40px icon-only pill with a visually hidden label.
+- **Header Sign in:** secondary pill with a 20px user icon and "Sign in" label, padding 12px left / 16px right. On the sign-in route it is the current page and keeps a 2px House Blue outline offset 2px. On ≤639px it collapses to a 40px icon-only pill, same as Upload.
+- **Account button:** transparent 40px pill; 24px Avatar + name (600, truncated to 12ch). Hover fills Graphite Raised. Opens a 240px Graphite Surface popover (12px radius) with "Signed in as", Your channel, and Sign out. On ≤639px it is 40px icon-only (avatar only).
 
 ### Chips
 - **Style:** 32px tall, 8px radius, Graphite Raised fill, Paper text at 500, 12px gaps.
@@ -277,8 +337,14 @@ Confident pills; a single primary per view.
 
 **Channel card:** Graphite Surface, 12px radius, centred 88px initial avatar (72px on narrow containers), name, Ash "n videos" (plus "· folder"), and a House Blue Soft "n new" when relevant. Hover to Graphite Raised.
 
+**Who card** (household identity on the sign-in route):
+- Graphite Surface, 12px radius, min 168px tall. Hover to Graphite Raised.
+- Open: Graphite Raised with a 2px House Blue outline (offset 0). Hue-tinted 56px initials (or local photo), name at 1.375rem/600, Ash video count. The password field and House Blue Ink Sign in sit on the same card.
+- **Join card:** transparent ground, dashed Field Line Hover (#33363b) outline. Open expands in its grid cell (not full-row) with name, password, confirm, optional photo well, and "Create my channel".
+
 ### Inputs / Fields
 - **Search:** a pill split in two: a recessed Field Well input with a 1px Graphite Line border and Ash placeholder ("Search the house"), joined to a 64px Graphite Raised search button.
+- **Password / join fields:** 44px pills, Field Well fill, 1px Graphite Line, 18px side padding. Labels are 0.8125rem/600 Ash. Invalid uses Paper, not red. The optional photo well is a 44px dashed pill.
 - **Hover:** border lightens to Field Line Hover.
 - **Focus:** border turns House Blue with a 1px inset House Blue ring (no outer outline).
 
@@ -288,6 +354,7 @@ Confident pills; a single primary per view.
 - **People:** 24px initial avatars; a 6px House Blue dot marks people with new videos (with a hidden "n new" for screen readers).
 - **Folders:** folder icon, name, and the path in 12px Ash, ellipsised.
 - **Drawer:** slides in from the left over 220ms on the standard ease, with a sticky head holding close and logo.
+- **Account menu:** 240px Graphite Surface popover, 12px radius, 8px padding. "Signed in as" in Ash; rows are 40px, 10px radius, 500 weight; hover Graphite Raised. Sign out is a row with a logout icon, not a destructive red.
 
 ### Empty and placeholder states
 Centred, max 480px, 12vh from the top: a 40px Ash outline icon, a Headline, an Ash paragraph capped at 44ch, and one button. The copy says plainly what is missing and what to do ("No videos in the house yet", "Nothing in the house matches…"). Unbuilt routes use the same frame with "Back to home".
@@ -305,6 +372,7 @@ Centred, max 480px, 12vh from the top: a 40px Ash outline icon, a Headline, an A
 - **Do** time transitions between 120ms and 240ms on cubic-bezier(0.2, 0, 0, 1), and honour prefers-reduced-motion.
 - **Do** self-host every font, icon, and image; nothing on the watch path may require the WAN.
 - **Do** write honest empty and placeholder states that name what is missing.
+- **Do** put household identity in the header: a secondary Sign in when unsigned; name + Avatar opening Your channel and Sign out when signed in.
 
 ### Don't:
 - **Don't** use red, or any red-on-white or red-on-black brand look.
@@ -312,7 +380,7 @@ Centred, max 480px, 12vh from the top: a 40px Ash outline icon, a Headline, an A
 - **Don't** introduce a second accent colour or use blue for decoration.
 - **Don't** add drop shadows to cards, bars, or chips.
 - **Don't** ship a light theme yet; LanTube is dark-only for now.
-- **Don't** add a profile switcher, sign-in, or account avatar; the household identity mechanism is undecided.
+- **Don't** invent a second household-identity pattern: unsigned visitors get a header Sign in; signed-in visitors get name + Avatar with an account popover (Your channel, Sign out).
 - **Don't** render an "Earlier" shelf with less than one full row of videos.
 - **Don't** load fonts, icons, or avatars from a CDN or external service.
 - **Don't** invent novelty layouts where the video-site convention already answers the question.
