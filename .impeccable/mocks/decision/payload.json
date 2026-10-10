@@ -1,0 +1,128 @@
+{
+  "title": "Choose LanTube's visual world",
+  "question": "The roll assigned the Lobby Name Panel. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Lobby Name Panel",
+      "kicker": "THE ROLL",
+      "lineage": "European apartment-entry buzzer panels: brass plate, engraved name strips, lit bell buttons",
+      "thesis": "LanTube is the house's front door: every resident's channel is an engraved name strip, lit when they've posted something you haven't seen.",
+      "palette": ["#16302a", "#c8a457", "#0f0f0e", "#efe6d2", "#ffb43a"],
+      "materials": ["door lacquer green", "brushed brass", "black engraved strips", "warm bell light"],
+      "viewport": "Brass directory rail of residents' name strips (lit = new) beside the feed: Continue watching, New in the house, then each resident's shelf.",
+      "risk": "If the brass is overdone it becomes a costume; it must stay a rail and strips, never skeuomorphic screws everywhere.",
+      "raised": [
+        {"from": "challenger-orienteering", "raise": "Amber is reserved for one job, your own trail: unseen lights and resume bars only, never decoration."},
+        {"from": "challenger-japanese", "raise": "The directory packs tight: every name strip is the same box on a strict hairline grid, no whitespace inflation."},
+        {"from": "challenger-lexicon", "raise": "The header's guide line names the span in view (e.g. 'New in the house · Mia'), recomputed as you scroll."},
+        {"from": "challenger-crouwel", "raise": "One module governs everything: strips, thumbnails and gaps snap to the panel's grid."},
+        {"from": "challenger-ikeda", "raise": "Total palette commitment: no stray greys, every neutral is either lacquer, brass, or engraving ink."}
+      ],
+      "html": ".impeccable/mocks/decision/assigned.html"
+    },
+    {
+      "id": "model-pick",
+      "label": "Family Wall Calendar",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "kitchen wall calendars and chore charts, one marker colour per person",
+      "thesis": "Every person in the house owns a colour, and that colour follows their videos everywhere.",
+      "palette": ["#f4f1ea", "#1c1b19", "#e0482f", "#2f6fd6", "#2a9d5b", "#f2b318"],
+      "materials": ["uncoated calendar stock", "felt-tip marker", "grid rules"],
+      "viewport": "Week-strip of recent uploads coloured by owner across the top, then colour-keyed shelves per person.",
+      "risk": "Familiar: per-person colour coding is common in family-organiser apps, and colour may fight thumbnails.",
+      "html": ".impeccable/mocks/decision/model-pick.html"
+    },
+    {
+      "id": "challenger-streaming",
+      "label": "Streaming Title Wall",
+      "verdict": "competitive",
+      "lineage": "streaming catalog walls of horizontally scrolling poster rows",
+      "thesis": "Rows of thumbnails; the one you land on grows and tells you what it is while the rest dims.",
+      "palette": ["#101114", "#f2f2f2", "#7cc4ff"],
+      "materials": ["full-bleed thumbnails", "deep neutral ground"],
+      "viewport": "Featured video band, then rails: Continue watching, New in the house, one rail per channel.",
+      "case": "Wins product clarity (reads instantly as a video site, great on TV), loses audience identification: it feels like Netflix, not the household.",
+      "risk": "Generic: dark ground plus one accent is the category default.",
+      "html": ".impeccable/mocks/decision/challenger-streaming.html"
+    },
+    {
+      "id": "challenger-orienteering",
+      "label": "Orienteering Map",
+      "verdict": "declined",
+      "lineage": "ISOM orienteering maps",
+      "thesis": "Terrain colours beneath, the course in purple above.",
+      "palette": ["#ffffff", "#f7d34a", "#a0522d", "#8b2fc9"],
+      "materials": ["contour ink", "overprint purple"],
+      "viewport": "Videos as controls on a course.",
+      "case": "Fuses poorly: a household doesn't navigate its videos like terrain; clarity suffers.",
+      "kept": "A colour reserved for exactly one job: your own trail.",
+      "risk": "Reads as a map, not a video site."
+    },
+    {
+      "id": "challenger-japanese",
+      "label": "Japanese High-Density Web",
+      "verdict": "declined",
+      "lineage": "contemporary Japanese portal sites",
+      "thesis": "Hairline-boxed modules packed edge to edge.",
+      "palette": ["#ffffff", "#111111", "#d7262d", "#e6e6e6"],
+      "materials": ["hairline modules", "small red tabs"],
+      "viewport": "A dense mosaic of video modules.",
+      "case": "Fuses poorly: too dense for a TV across the room; no household identity.",
+      "kept": "Density courage: equal boxes on a strict hairline grid.",
+      "risk": "Unreadable from the couch."
+    },
+    {
+      "id": "challenger-lexicon",
+      "label": "Lexicon Page",
+      "verdict": "declined",
+      "lineage": "19th-century dictionary spreads",
+      "thesis": "Guide words name the span you're inside; colour lives only in plates.",
+      "palette": ["#f3ecdc", "#1a1714", "#c8442a", "#1f4fa3"],
+      "materials": ["uncoated stock", "chromolithograph plates"],
+      "viewport": "Videos as entries in columns.",
+      "case": "Fuses poorly: bookish, not a family video site.",
+      "kept": "Guide words: the header names the span in view.",
+      "risk": "Cream-and-serif rut."
+    },
+    {
+      "id": "challenger-crouwel",
+      "label": "Crouwel Grid Specimen",
+      "verdict": "declined",
+      "lineage": "Wim Crouwel gridded posters",
+      "thesis": "The visible construction grid is the design.",
+      "palette": ["#ffffff", "#111111", "#2b59ff"],
+      "materials": ["graph-paper grid", "constructed letters"],
+      "viewport": "Monumental grid lettering over a catalog.",
+      "case": "Fuses poorly: a poster, not a household.",
+      "kept": "One module governs every element.",
+      "risk": "Cold for a family."
+    },
+    {
+      "id": "challenger-ikeda",
+      "label": "Datamatics Field",
+      "verdict": "declined",
+      "lineage": "Ryoji Ikeda data installations",
+      "thesis": "Pure black and white barcode fields.",
+      "palette": ["#000000", "#ffffff"],
+      "materials": ["barcode bars", "monospace numerics"],
+      "viewport": "Videos as data columns.",
+      "case": "Fuses poorly: hostile to thumbnails and to a family audience.",
+      "kept": "Total palette commitment, no stray greys.",
+      "risk": "Strobing art piece, not a video site."
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code"},
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A video site home executed impeccably: thumbnail grid, left nav, topic chips.",
+    "palette": ["#0f1012", "#f1f1f1", "#3d8bff"],
+    "materials": ["clean thumbnail grid", "dark ground"],
+    "viewport": "Search bar on top, left nav, chips, a 4-column grid of thumbnails.",
+    "risk": "Indistinguishable from the platforms it copies, which you said would feel wrong.",
+    "html": ".impeccable/mocks/decision/canon.html"
+  },
+  "steer": true
+}

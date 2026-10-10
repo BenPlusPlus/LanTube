@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>LanTube — Lobby Name Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden}
+body{background:#16302a;color:#efe6d2;font:15px/1.4 Barlow,sans-serif;display:grid;grid-template-columns:288px 1fr}
+.rail{background:linear-gradient(180deg,#d3b367,#b8954a);color:#0f0f0e;padding:24px 20px;display:flex;flex-direction:column;gap:20px;border-right:1px solid #8a6d2f}
+.mark{display:flex;align-items:baseline;gap:8px;font:700 30px/1 "Barlow Condensed";letter-spacing:.06em;text-transform:uppercase}
+.mark small{font:600 11px/1 Barlow;letter-spacing:.14em;opacity:.7}
+.lbl{font:600 11px/1 "Barlow Condensed";letter-spacing:.18em;text-transform:uppercase;opacity:.75}
+.strips{display:grid;gap:6px}
+.strip{display:grid;grid-template-columns:1fr 26px;align-items:center;gap:10px;background:#0f0f0e;color:#efe6d2;height:44px;padding:0 9px 0 14px;border-radius:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.strip b{font:600 19px/1 "Barlow Condensed";letter-spacing:.12em;text-transform:uppercase}
+.strip i{font:500 12px Barlow;font-style:normal;color:#b9ad93;margin-left:8px;letter-spacing:0;text-transform:none}
+.bell{width:24px;height:24px;border-radius:50%;background:#2a2620;border:2px solid #6b5a33}
+.bell.on{background:radial-gradient(circle at 40% 35%,#ffe2a8,#ffb43a 60%,#d8861a);border-color:#8a6d2f;box-shadow:0 0 10px #ffb43a99}
+.strip.me{outline:2px solid #0f0f0e;outline-offset:2px}
+.nav{display:grid;gap:2px;margin-top:4px}
+.nav a{font:600 16px/1 Barlow;color:#0f0f0e;text-decoration:none;padding:10px 12px;border-radius:3px}
+.nav a.cur{background:#0f0f0e1f}
+.foot{margin-top:auto;font:500 12px/1.4 Barlow;color:#3b3020}
+main{padding:22px 40px;overflow:hidden}
+.top{display:flex;align-items:center;gap:16px;height:48px}
+.guide{font:600 13px "Barlow Condensed";letter-spacing:.16em;text-transform:uppercase;color:#c8a457;flex:1}
+.guide span{color:#efe6d2;opacity:.6}
+.search{width:420px;height:44px;border-radius:3px;background:#0f201c;border:1px solid #2c4a42;color:#b9ad93;display:flex;align-items:center;padding:0 16px}
+.btn{height:44px;padding:0 20px;border-radius:3px;background:#c8a457;color:#0f0f0e;font:600 15px Barlow;display:flex;align-items:center}
+h2{font:700 26px/1 "Barlow Condensed";letter-spacing:.06em;text-transform:uppercase;margin:30px 0 14px;display:flex;align-items:baseline;gap:14px}
+h2 small{font:500 14px Barlow;letter-spacing:0;text-transform:none;color:#b9ad93}
+.row{display:grid;gap:24px}
+.r3{grid-template-columns:repeat(3,1fr)}.r4{grid-template-columns:repeat(4,1fr)}
+.th{aspect-ratio:16/9;border-radius:3px;position:relative;overflow:hidden}
+.d{position:absolute;right:8px;bottom:10px;background:#0f0f0ee6;color:#efe6d2;font:600 12px Barlow;padding:2px 6px;border-radius:2px}
+.pr{position:absolute;left:0;bottom:0;height:4px;background:#ffb43a}
+.pr::after{content:"";position:absolute;left:100%;right:-999px;top:0;bottom:0;background:#0f0f0e99}
+.t{font:600 16px/1.3 Barlow;margin-top:10px}
+.o{font:500 13px Barlow;color:#b9ad93;margin-top:3px;display:flex;gap:8px;align-items:center}
+.tag{font:600 11px "Barlow Condensed";letter-spacing:.14em;text-transform:uppercase;background:#0f0f0e;color:#efe6d2;padding:3px 6px;border-radius:2px}
+.new{width:8px;height:8px;border-radius:50%;background:#ffb43a}
+.g1{background:linear-gradient(160deg,#f6b26b,#6d8fb3 55%,#24425b)}
+.g2{background:linear-gradient(200deg,#e9d8b4,#b57a43 60%,#5b3a1f)}
+.g3{background:linear-gradient(170deg,#9cc6a3,#4f7f58 60%,#2b4a33)}
+.g4{background:linear-gradient(150deg,#e8e3da,#9aa7b5 60%,#5e6b78)}
+.g5{background:linear-gradient(190deg,#6aa84f,#3f6b2e 50%,#7e6a48)}
+.g6{background:linear-gradient(160deg,#3b3a5c,#a0566b 60%,#f0b27a)}
+.g7{background:linear-gradient(140deg,#c7ccd1,#7b8590 55%,#3c444c)}
+</style></head>
+<body>
+<aside class="rail">
+  <div class="mark">LanTube <small>at home</small></div>
+  <div class="lbl">Directory · 5 residents</div>
+  <div class="strips">
+    <div class="strip"><b>Mia<i>2 new</i></b><span class="bell on"></span></div>
+    <div class="strip me"><b>Tomás<i>you</i></b><span class="bell"></span></div>
+    <div class="strip"><b>Ruth<i>1 new</i></b><span class="bell on"></span></div>
+    <div class="strip"><b>Leo<i>3 new</i></b><span class="bell on"></span></div>
+    <div class="strip"><b>Priya</b><span class="bell"></span></div>
+    <div class="strip"><b>Home Movies<i>folder</i></b><span class="bell"></span></div>
+  </div>
+  <nav class="nav">
+    <a class="cur" href="#">Home</a><a href="#">Playlists</a><a href="#">History</a><a href="#">Your channel</a>
+  </nav>
+  <div class="foot">Served from <b>den-nas</b> on this network</div>
+</aside>
+<main>
+  <div class="top">
+    <div class="guide">Home <span>·</span> Continue watching <span>→</span> New in the house</div>
+    <div class="search">Search the house…</div>
+    <div class="btn">Upload</div>
+  </div>
+  <h2>Continue watching <small>Pick up where you left off</small></h2>
+  <div class="row r3">
+    <div><div class="th g1"><span class="d">24:37</span><span class="pr" style="width:38%"></span></div><div class="t">Lake Tahoe 2025 — day 2</div><div class="o"><span class="tag">Mia</span>14:02 left</div></div>
+    <div><div class="th g7"><span class="d">41:18</span><span class="pr" style="width:72%"></span></div><div class="t">Camcorder 2009 — Christmas morning</div><div class="o"><span class="tag">Home Movies</span>11:30 left</div></div>
+    <div><div class="th g2"><span class="d">11:02</span><span class="pr" style="width:20%"></span></div><div class="t">Sourdough attempt #4</div><div class="o"><span class="tag">Tomás</span>8:50 left</div></div>
+  </div>
+  <h2>New in the house <small>6 since you last looked</small></h2>
+  <div class="row r4">
+    <div><div class="th g3"><span class="d">2:14</span></div><div class="t">Leo's first ride without training wheels</div><div class="o"><span class="new"></span><span class="tag">Leo</span>Yesterday</div></div>
+    <div><div class="th g6"><span class="d">6:50</span></div><div class="t">Grandma's piano recital</div><div class="o"><span class="new"></span><span class="tag">Ruth</span>Sat</div></div>
+    <div><div class="th g5"><span class="d">18:05</span></div><div class="t">Minecraft castle tour</div><div class="o"><span class="new"></span><span class="tag">Leo</span>Fri</div></div>
+    <div><div class="th g4"><span class="d">9:12</span></div><div class="t">Backyard birds, September</div><div class="o"><span class="tag">Priya</span>Thu</div></div>
+  </div>
+</main>
+</body></html>

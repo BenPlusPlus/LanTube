@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>LanTube — Home</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden;background:#101114;color:#f2f2f2;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.top{position:absolute;inset:0 0 auto 0;height:64px;display:flex;align-items:center;gap:40px;padding:0 56px;z-index:5;background:linear-gradient(#101114ee,#10111400)}
+.mark{font-weight:800;font-size:20px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.mark i{width:22px;height:16px;border-radius:4px;background:#f2f2f2;position:relative}
+.mark i:after{content:"";position:absolute;left:8px;top:4px;border-left:7px solid #101114;border-top:4px solid transparent;border-bottom:4px solid transparent}
+nav{display:flex;gap:28px;font-size:14px;font-weight:600;color:#f2f2f2a0}
+nav b{color:#f2f2f2;font-weight:700;position:relative}
+nav b:after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:2px;background:#f2f2f2;border-radius:2px}
+.sp{flex:1}
+.search{width:300px;height:36px;border-radius:8px;background:#ffffff12;border:1px solid #ffffff14;display:flex;align-items:center;gap:10px;padding:0 12px;font-size:13px;color:#f2f2f280}
+.search i{width:12px;height:12px;border:2px solid #f2f2f280;border-radius:50%;position:relative}
+.search i:after{content:"";position:absolute;width:5px;height:2px;background:#f2f2f280;right:-5px;bottom:-3px;transform:rotate(45deg)}
+.search kbd{margin-left:auto;font:600 11px Manrope;border:1px solid #ffffff22;border-radius:4px;padding:1px 6px}
+.btn{height:36px;border-radius:8px;padding:0 16px;font:700 13px Manrope;display:inline-flex;align-items:center;gap:8px;border:1px solid #ffffff2a;color:#f2f2f2;background:transparent}
+.prof{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#101114}
+.stack{display:flex}.stack .av{width:22px;height:22px;font-size:10px;margin-left:-6px;border:2px solid #101114}
+.hero{position:absolute;top:0;left:0;width:1440px;height:424px;overflow:hidden}
+.hero .art{position:absolute;inset:0;background:
+ radial-gradient(ellipse 220px 70px at 1010px 250px,#ffd9a0cc,#0000 70%),
+ linear-gradient(176deg,#0000 0 58%,#1b2a3a 58.3%,#24425a 66%,#1a3044 80%,#0f1b28 100%),
+ linear-gradient(183deg,#0000 0 50%,#1d2430 50.5% 52%,#2b2f3d 54%,#0000 58.2%),
+ linear-gradient(180deg,#2c3b63 0%,#7a5f86 30%,#e58f6f 48%,#f5c48a 56%,#f5c48a 58%)}
+.hero .art:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#101114 0%,#101114e6 28%,#10111400 62%),linear-gradient(0deg,#101114 0%,#10111400 30%)}
+.hero .txt{position:absolute;left:56px;top:128px;width:520px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#f2f2f2b0;display:flex;align-items:center;gap:10px}
+.hero h1{font-size:48px;line-height:1.04;font-weight:800;letter-spacing:-.03em;margin:14px 0 14px}
+.meta{font-size:14px;color:#f2f2f2b8;display:flex;gap:10px;align-items:center}
+.meta s{width:3px;height:3px;border-radius:50%;background:#f2f2f280}
+.cta{display:flex;gap:12px;margin-top:28px}
+.play{background:#f2f2f2;color:#101114;border:0;height:44px;padding:0 24px;font-size:14px}
+.play:before{content:"";border-left:10px solid #101114;border-top:6px solid transparent;border-bottom:6px solid transparent}
+.cta .btn:not(.play){height:44px;padding:0 20px;font-size:14px;background:#ffffff10}
+.rail{position:absolute;left:56px;right:0}
+.rail h2{font-size:18px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.rail h2 span{font-size:12px;font-weight:600;color:#f2f2f270}
+.row{display:flex;gap:16px;align-items:center}
+.t{flex:none;width:272px;height:153px;border-radius:8px;position:relative;overflow:hidden}
+.dim .t{opacity:.5;filter:saturate(.75)}
+.dim .t.f{opacity:1;filter:none;width:344px;height:194px;outline:2px solid #7cc4ff;outline-offset:3px;box-shadow:0 18px 40px #000a}
+.d{position:absolute;right:8px;bottom:10px;font:700 11px Manrope;background:#000000b3;padding:2px 6px;border-radius:4px}
+.pb{position:absolute;left:0;right:0;bottom:0;height:4px;background:#ffffff30}
+.pb i{display:block;height:100%;background:#f2f2f2}
+.f .pb i{background:#7cc4ff}
+.info{position:absolute;inset:auto 0 0 0;padding:44px 16px 16px;background:linear-gradient(#0000,#000000d9)}
+.info b{display:block;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.info p{font-size:12px;color:#f2f2f2c0;margin-top:4px;display:flex;gap:8px;align-items:center}
+.f .d{bottom:auto;top:10px}
+.cap{position:absolute;left:10px;bottom:10px;font-size:12px;font-weight:600;text-shadow:0 1px 4px #000}
+.dot{width:16px;height:16px;border-radius:50%;display:inline-grid;place-items:center;font-size:9px;font-weight:800;color:#101114}
+/* thumbnails */
+.sour{background:radial-gradient(circle at 55% 60%,#d9a467 0 18%,#a86b38 26%,#0000 34%),radial-gradient(circle at 20% 30%,#ffffff22,#0000 40%),linear-gradient(160deg,#5a4434,#2b211b 60%,#3c2e24)}
+.mine{background:linear-gradient(0deg,#3d7a2e 0 20%,#5f9c45 20% 24%,#0000 24%),linear-gradient(90deg,#0000 0 22%,#8a8a8a 22% 30%,#0000 30% 70%,#8a8a8a 70% 78%,#0000 78%),linear-gradient(180deg,#78b6f0 0 34%,#0000 34%),repeating-linear-gradient(90deg,#949494 0 18px,#7d7d7d 18px 36px)}
+.xmas{background:radial-gradient(circle at 30% 45%,#ffcf6b 0 3%,#0000 6%),radial-gradient(circle at 38% 60%,#ff7a5c 0 2%,#0000 5%),radial-gradient(circle at 25% 68%,#9ce07a 0 2%,#0000 5%),radial-gradient(ellipse 30% 55% at 32% 60%,#1f5a35,#0000 70%),linear-gradient(170deg,#4a2f2a,#2a1c1e 70%);filter:sepia(.25) contrast(.95)}
+.piano{background:linear-gradient(0deg,#0000 0 30%,#111 30% 33%,#0000 33%),repeating-linear-gradient(90deg,#f1ece2 0 14px,#1a1a1a 14px 16px),linear-gradient(180deg,#3b2a4a,#1a1424);background-size:100% 100%,100% 30%,100% 100%;background-repeat:no-repeat;background-position:0 0,0 100%,0 0}
+.kit{background:linear-gradient(0deg,#cfc6b6 0 28%,#0000 28%),linear-gradient(90deg,#0000 0 10%,#e9e4da 10% 46%,#0000 46% 54%,#7a8f86 54% 90%,#0000 90%),linear-gradient(180deg,#f3efe7 0 50%,#b8aa94 50%)}
+.ride{background:radial-gradient(circle at 70% 30%,#fff4c2 0 6%,#0000 20%),linear-gradient(0deg,#6b6f73 0 26%,#4f9b4a 26% 40%,#0000 40%),linear-gradient(180deg,#8fc7f0,#d8eef8)}
+.bird{background:radial-gradient(ellipse 9% 7% at 48% 52%,#c0573a,#0000 70%),radial-gradient(ellipse 14% 9% at 52% 55%,#6b5a48,#0000 72%),linear-gradient(28deg,#0000 0 52%,#5a4127 52% 55%,#0000 55%),radial-gradient(circle at 30% 30%,#9fbf7a,#4d6b3a 55%,#2c3d24)}
+.snow{background:radial-gradient(circle at 80% 22%,#fff8e6 0 5%,#0000 18%),linear-gradient(170deg,#0000 0 60%,#f4f7fb 60.5%),linear-gradient(190deg,#0000 0 52%,#c9d6e6 52.5%),linear-gradient(180deg,#a9c3df,#e7eef6)}
+</style></head><body>
+<header class="top">
+ <div class="mark"><i></i>LanTube</div>
+ <nav><b>Home</b><span>Channels</span><span>Playlists</span><span>History</span></nav>
+ <div class="sp"></div>
+ <div class="search"><i></i>Search the house library<kbd>/</kbd></div>
+ <span class="btn">＋ Upload</span>
+ <div class="prof"><div class="stack"><span class="av" style="background:#f0b37e">T</span><span class="av" style="background:#9fd39a">L</span><span class="av" style="background:#d6b4f0">R</span></div><span class="av" style="background:#f6a6b2">M</span>Mia ▾</div>
+</header>
+<section class="hero"><div class="art"></div>
+ <div class="txt">
+  <div class="eyebrow"><span class="dot" style="background:#f6a6b2">M</span>Newest upload · Mia</div>
+  <h1>Lake Tahoe 2025 — day 2</h1>
+  <div class="meta">Mia<s></s>24:37</div>
+  <div class="cta"><span class="btn play">Play</span><span class="btn">＋ Add to playlist</span></div>
+ </div>
+</section>
+<section class="rail" style="top:444px"><h2>Continue watching <span>Mia's profile</span></h2>
+ <div class="row dim">
+  <div class="t sour"><div class="pb"><i style="width:62%"></i></div><span class="d">11:02</span></div>
+  <div class="t mine f"><span class="d">18:05</span>
+   <div class="info"><b>Minecraft castle tour</b><p><span class="dot" style="background:#9fd39a">L</span>Leo · 18:05 · 7 min left</p></div>
+   <div class="pb"><i style="width:61%"></i></div></div>
+  <div class="t xmas"><div class="pb"><i style="width:23%"></i></div><span class="d">41:18</span></div>
+  <div class="t piano"><div class="pb"><i style="width:80%"></i></div><span class="d">6:50</span></div>
+  <div class="t kit"><div class="pb"><i style="width:35%"></i></div><span class="d">3:40</span></div>
+ </div>
+</section>
+<section class="rail" style="top:700px"><h2>New in the house <span>Uploads and indexed folders</span></h2>
+ <div class="row">
+  <div class="t ride"><span class="cap">Leo's first ride without training wheels</span><span class="d" style="bottom:auto;top:8px">2:14</span></div>
+  <div class="t bird"><span class="cap">Backyard birds, September</span><span class="d" style="bottom:auto;top:8px">9:12</span></div>
+  <div class="t xmas"><span class="cap">Camcorder 2009 — Christmas morning · /Home Movies/2009</span><span class="d" style="bottom:auto;top:8px">41:18</span></div>
+  <div class="t sour"><span class="cap">Sourdough attempt #4</span><span class="d" style="bottom:auto;top:8px">11:02</span></div>
+  <div class="t kit"><span class="cap" style="color:#101114;text-shadow:none">Kitchen remodel timelapse</span><span class="d" style="bottom:auto;top:8px">3:40</span></div>
+ </div>
+</section>
+</body></html>

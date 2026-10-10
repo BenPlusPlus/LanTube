@@ -1,0 +1,23 @@
+{
+  "name": "lantube",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=config/development.env --watch --import remix/node-tsx server.ts",
+    "hmr": "node --env-file=config/development.env hmr.ts",
+    "start": "node --env-file=config/production.env --import remix/node-tsx server.ts",
+    "test": "node --env-file=config/test.env node_modules/remix/dist/cli-entry.js test",
+    "typecheck": "tsc --noEmit"
+  },
+  "packageManager": "pnpm@12.7.0",
+  "engines": {
+    "node": ">=24.3.0"
+  },
+  "dependencies": {
+    "remix": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "typescript": "latest"
+  }
+}
