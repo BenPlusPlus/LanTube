@@ -45,7 +45,7 @@ An item in the household library, posted to a Channel (home, custom, or folder).
 _Avoid_: Clip, media, asset, file (the file on disk is not the Video)
 
 **Tag**:
-A household-wide label on Videos. Anyone who can change a Video may attach an existing Tag or type a new name. Names are unique ignoring case.
+A household-wide label on Videos. Anyone who can change a Video may attach an existing Tag or type a new name; names are unique ignoring case and keep the first spelling.
 _Avoid_: Topic (the mockup’s closed list), category, genre, keyword
 
 **Video owner**:
@@ -61,7 +61,7 @@ One Person’s record of Videos they watched, grouped into sittings. Unsigned wa
 _Avoid_: Analytics, views, log, watch log
 
 **Slug**:
-The stable public name of a Person, Channel, Video, or Playlist in a URL. A Person and their Home channel share a slug. Removing a Person does not free the slug.
+The stable public name of a Person, Channel, Video, Playlist, or Tag in a URL. A Person and their Home channel share a slug. A Tag’s slug comes from its name. Removing a Person does not free the slug.
 _Avoid_: Handle, username, key, id (the row identity is not the slug)
 
 **Host**:
@@ -99,6 +99,6 @@ To everyone else the item does not exist. A private Playlist is visible to its o
 _Avoid_: Hidden, unlisted, only me (only me is private with an empty Audience)
 
 **Audience**:
-The extra People named on a private Video or Playlist as allowed to see it. Channel owner and Managers are not Audience; they already see private Videos on that channel.
+The extra People named on a private Video or Playlist as allowed to see it; a house-visible item has none. Channel owner and Managers are not Audience; they already see private Videos on that channel.
 _Avoid_: Viewers, guests, collaborators, subscribers, shared-with, managers
 
