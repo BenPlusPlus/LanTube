@@ -31,3 +31,26 @@ Refer to ./.agents/skills/remix/SKILL.md for the Remix mental model and how to f
 
 This starter intentionally begins small; add directories like `app/data/`, `app/middleware/`, `app/ui/`, and `test/` only when you need them.
 
+## Special Instructions
+
+### Test writing
+- When writing automated tests, do not create any tautological tests. Ensure unit and end-to-end tests meaningfully verify application logic or component interoperability.
+- Do not write tests for connections to entities or services external to the app (database connections, third party APIs, etc.).
+
+### When committing
+- If you are going to commit changes, never do so on the default (main or master) branch; if the default branch is the current branch, make a new one named in a way relevant to your work.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for BenPlusPlus/LanTube. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical roles map 1:1 to `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context: glossary in `CONTEXT.md`, ADRs in `docs/adr/`. See `docs/agents/domain.md`.
+
