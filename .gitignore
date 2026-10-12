@@ -29,3 +29,4 @@ tmp/
 # Local video files streamed by LanTube (LANTUBE_MEDIA_DIR)
 /media/
 /.impeccable/mocks/decision
+/.agents/skills
