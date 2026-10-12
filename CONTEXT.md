@@ -21,7 +21,7 @@ A Person an Admin has removed. They cannot sign in and they disappear from picke
 _Avoid_: Deleted user, deactivated, banned, archived
 
 **Frozen channel**:
-A Home channel whose Person is removed. Its Videos stay; nobody posts to it.
+A Home channel whose Person is removed. Its Videos stay; nobody posts to it; their titles and Tags stay as they are.
 _Avoid_: Archived, deleted, orphan
 
 **Custom channel**:
@@ -33,7 +33,7 @@ The Person who runs a Custom channel. A Home channel’s owner is that Person.
 _Avoid_: Admin (a different role), poster, host
 
 **Manager**:
-A Person the Channel owner names on a Custom channel to help run it — posting, editing the channel, and changing a Video’s visibility and Audience. The Channel owner is not a Manager; a Home channel has no Managers.
+A Person the Channel owner names on a Custom channel to help run it — posting, editing the channel, and changing a Video’s visibility, Audience, title, and Tags. The Channel owner is not a Manager; a Home channel has no Managers.
 _Avoid_: Poster, contributor, collaborator, editor, member
 
 **Folder**:
@@ -41,11 +41,11 @@ A directory on the Media share that LanTube indexes into house-visible Videos wi
 _Avoid_: Library, collection, directory (except when talking about the real filesystem path)
 
 **Video**:
-An item in the household library, posted to a Channel (home, custom, or folder). Each Video has its own visibility.
+An item in the household library, posted to a Channel (home, custom, or folder). Each Video has its own visibility. Its title may change; its slug does not.
 _Avoid_: Clip, media, asset, file (the file on disk is not the Video)
 
 **Tag**:
-A household-wide label on Videos. Anyone who can change a Video may attach an existing Tag or type a new name; names are unique ignoring case and keep the first spelling.
+A household-wide label on Videos. Names are unique ignoring case and keep the first spelling. On an uploaded Video, the Video owner — and on a Custom channel also the Channel owner and Managers — may attach or remove Tags; on a Folder Video, any signed-in Person may; Frozen Home Videos keep the Tags they have.
 _Avoid_: Topic (the mockup’s closed list), category, genre, keyword
 
 **Video owner**:
