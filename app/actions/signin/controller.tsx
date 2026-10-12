@@ -2,21 +2,14 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { createPerson, listPeople, personFromSession, verifyPassword } from '../../data/household.ts'
+import { getChannel, getChannels } from '../../data/library.ts'
+import { readPhoto } from '../../data/photo.ts'
 import { routes } from '../../routes.ts'
 import { SignInPage } from './page.tsx'
 
 function readText(formData: FormData, name: string) {
   let value = formData.get(name)
   return typeof value === 'string' ? value : ''
-}
-
-async function readPhoto(formData: FormData): Promise<string | undefined | { error: string }> {
-  let file = formData.get('photo')
-  if (!(file instanceof File) || file.size === 0) return undefined
-  if (file.size > 1024 * 1024) return { error: 'Keep the photo under 1 MB.' }
-  if (!file.type.startsWith('image/')) return { error: 'Choose a photo file (JPEG, PNG, or WebP).' }
-  let bytes = Buffer.from(await file.arrayBuffer())
-  return `data:${file.type};base64,${bytes.toString('base64')}`
 }
 
 export default createController(routes.signin, {
@@ -56,7 +49,16 @@ export default createController(routes.signin, {
         if (photo && typeof photo === 'object') {
           return context.render(<SignInPage people={listPeople()} joining error={photo.error} joinName={name} />, { status: 400 })
         }
-        let created = createPerson(name, password, photo)
+        let channelNamed = getChannels().find(
+          (channel) => channel.kind !== 'person' && channel.name.localeCompare(name.trim(), undefined, { sensitivity: 'accent' }) === 0,
+        )
+        if (channelNamed) {
+          return context.render(
+            <SignInPage people={listPeople()} joining error={`There’s already a channel called ${channelNamed.name}. Pick another name.`} joinName={name} />,
+            { status: 400 },
+          )
+        }
+        let created = createPerson(name, password, photo, (id) => getChannel(id) !== undefined)
         if ('error' in created) {
           return context.render(<SignInPage people={listPeople()} joining error={created.error} joinName={name} />, { status: 400 })
         }

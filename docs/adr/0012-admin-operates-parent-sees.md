@@ -1,0 +1,3 @@
+# Admin operates; Parent sees
+
+Admin and Parent are independent flags on a Person; one Person may hold both. Admin is the operator: grant and revoke Admin and Parent, remove People, set passwords, attach Folders. Admin does not, by itself, see private Videos, Playlists, or anyone’s History. Parent sees every Video and Playlist, including private ones, and the History of People who are not Parents; Parent does not change visibility or delete library items from that role. Collapsing these into one superuser would make the household operator a super-viewer. A house of adults may have zero Parents; at least one Admin always remains.

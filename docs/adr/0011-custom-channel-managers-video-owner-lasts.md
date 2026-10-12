@@ -1,0 +1,3 @@
+# Custom channels have Managers; Video owner lasts
+
+A Custom channel has one Channel owner and optional Managers. Owner and Managers may post, edit the channel, see every Video on it (private included), and change a Video’s visibility and Audience. Only the Channel owner names Managers. The Person who posted a Video remains its Video owner after they stop being a Manager: they still see that Video and can change its visibility; they lose other private Videos on that channel. Swallowing the Video into the channel on manager-removal was rejected — people will not post a private clip to a shared channel if losing the role hides it from them. Poster, as a “can dump a video here” role, is gone.

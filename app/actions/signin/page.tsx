@@ -5,7 +5,7 @@ import { channelStats, type Channel } from '../../data/library.ts'
 import { routes } from '../../routes.ts'
 import { AppShell } from '../../ui/shell.tsx'
 import { Avatar } from '../../ui/cards.tsx'
-import { Icon } from '../../ui/icons.tsx'
+import { Icon } from '../../ui/public/icons.tsx'
 
 function asChannel(person: Person): Channel {
   return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
@@ -65,7 +65,7 @@ export function SignInPage(handle: Handle<SignInPageProps>) {
                         autocomplete="current-password"
                         required
                         autofocus
-                        aria-invalid={error ? true : undefined}
+                        aria-invalid={error ? 'true' : undefined}
                         aria-describedby={error ? 'signin-error' : undefined}
                       />
                       {error ? (
@@ -104,7 +104,7 @@ export function SignInPage(handle: Handle<SignInPageProps>) {
                     maxlength={32}
                     required
                     autofocus
-                    aria-invalid={error ? true : undefined}
+                    aria-invalid={error ? 'true' : undefined}
                     aria-describedby={error ? 'signin-error' : undefined}
                   />
                   <label class="field-label" for="join-password">

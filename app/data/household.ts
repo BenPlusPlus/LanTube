@@ -1,3 +1,5 @@
+import { hueFor } from '../ui/public/identity.ts'
+
 export interface Person {
   id: string
   name: string
@@ -43,23 +45,25 @@ export function verifyPassword(id: string, password: string): boolean {
   return row !== undefined && row.password === password
 }
 
-function slugify(name: string): string {
+export function slugify(name: string, fallback = 'person'): string {
   let slug = name
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-  return slug || 'person'
+  return slug || fallback
 }
 
-function hueFor(name: string): number {
-  let hue = 0
-  for (let i = 0; i < name.length; i++) hue = (hue * 31 + name.charCodeAt(i)) % 360
-  return hue
-}
+export { hueFor }
 
-export function createPerson(name: string, password: string, photo?: string): Person | { error: string } {
+/** `isIdTaken` lets callers reserve ids outside the household, such as custom channel URLs. */
+export function createPerson(
+  name: string,
+  password: string,
+  photo?: string,
+  isIdTaken: (id: string) => boolean = () => false,
+): Person | { error: string } {
   let trimmed = name.trim().replace(/\s+/g, ' ')
   if (trimmed.length < 1 || trimmed.length > 32) {
     return { error: 'Use a name between 1 and 32 letters.' }
@@ -75,7 +79,7 @@ export function createPerson(name: string, password: string, photo?: string): Pe
   let base = slugify(trimmed)
   let id = base
   let n = 2
-  while (getPerson(id)) {
+  while (getPerson(id) || isIdTaken(id)) {
     id = `${base}-${n}`
     n++
   }

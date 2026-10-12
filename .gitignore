@@ -25,3 +25,7 @@ tmp/
 **/.impeccable/live/deferred-svelte-component-accepts.json
 **/.impeccable/live/*.png
 # impeccable-ignore-end
+
+# Local video files streamed by LanTube (LANTUBE_MEDIA_DIR)
+/media/
+/.impeccable/mocks/decision

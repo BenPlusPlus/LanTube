@@ -3,7 +3,7 @@ import type { Handle } from 'remix/component'
 import type { Person } from '../data/household.ts'
 import { routes } from '../routes.ts'
 import { AppShell, type Section } from '../ui/shell.tsx'
-import { Icon } from '../ui/icons.tsx'
+import { Icon } from '../ui/public/icons.tsx'
 
 export interface NotBuiltPageProps {
   current: Section
