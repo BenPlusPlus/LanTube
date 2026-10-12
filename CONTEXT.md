@@ -9,7 +9,7 @@ The people and devices on this home network. LanTube serves one household.
 _Avoid_: Tenant, workspace, organization, family (the house may be housemates)
 
 **Person**:
-Someone in the household with a display name, a password, and a home channel. Anyone on the LAN may become a Person; a new Person is neither Admin nor Parent. The display name and photo may change; the slug does not.
+Someone in the household with a display name, a password, and a home channel. Anyone on the LAN may become a Person; the first Person is an Admin and may take Parent on that join, and a Person who joins after that is neither until an Admin names them. The display name and photo may change; the slug does not.
 _Avoid_: User, account, member, profile
 
 **Home channel**:
@@ -81,7 +81,7 @@ A Person who operates LanTube for the household. The first Person to join is an 
 _Avoid_: Superuser, root, operator, parent
 
 **Parent**:
-A Person who can see every Video and Playlist, including private ones, and the History of People who are not Parents. Parent is a role, not a kinship term. A Person may hold Admin and Parent together.
+A Person who can see every Video and Playlist, including private ones, and the History of People who are not Parents. Parent is a role, not a kinship term; the first Person may take it on join, and later joiners wait for an Admin. A Person may hold Admin and Parent together.
 _Avoid_: Guardian, overseer, super-viewer, admin
 
 ## Visibility
