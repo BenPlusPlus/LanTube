@@ -2,11 +2,11 @@ import type { Handle } from 'remix/component'
 
 import type { Person } from '../data/household.ts'
 import type { Video } from '../data/library.ts'
-import { continueWatching, getChannels, getTopic, newestFirst, topics, videos } from '../data/library.ts'
+import { continueWatching, getChannels, getTopic, newestFirst, topics, visibleVideos } from '../data/library.ts'
 import { routes } from '../routes.ts'
 import { AppShell } from '../ui/shell.tsx'
 import { ChannelCard, VideoCard } from '../ui/cards.tsx'
-import { Icon } from '../ui/icons.tsx'
+import { Icon } from '../ui/public/icons.tsx'
 
 export interface HomePageProps {
   query: string
@@ -44,9 +44,9 @@ function TopicChips(handle: Handle<{ active?: string }>) {
   }
 }
 
-function Shelf(handle: Handle<{ id: string; title: string; note?: string; videos: Video[]; showRemaining?: boolean; eager?: boolean; single?: boolean }>) {
+function Shelf(handle: Handle<{ id: string; title: string; note?: string; videos: Video[]; viewerId?: string; showRemaining?: boolean; eager?: boolean; single?: boolean }>) {
   return () => {
-    let { id, title, note, videos: list, showRemaining, eager, single } = handle.props
+    let { id, title, note, videos: list, viewerId, showRemaining, eager, single } = handle.props
     return (
       <section class="shelf" aria-labelledby={id}>
         <header class="shelf-head">
@@ -57,7 +57,7 @@ function Shelf(handle: Handle<{ id: string; title: string; note?: string; videos
         </header>
         <div class={single ? 'video-grid is-single-row' : 'video-grid'}>
           {list.map((video, index) => (
-            <VideoCard video={video} showRemaining={showRemaining} eager={eager && index < 4} />
+            <VideoCard video={video} viewerId={viewerId} showRemaining={showRemaining} eager={eager && index < 4} />
           ))}
         </div>
       </section>
@@ -65,9 +65,9 @@ function Shelf(handle: Handle<{ id: string; title: string; note?: string; videos
   }
 }
 
-function Results(handle: Handle<{ query: string; topic?: string; results: Video[] }>) {
+function Results(handle: Handle<{ query: string; topic?: string; results: Video[]; viewerId?: string }>) {
   return () => {
-    let { query, topic, results } = handle.props
+    let { query, topic, results, viewerId } = handle.props
     let topicLabel = getTopic(topic)?.label
     let heading = query ? `Results for “${query}”` : (topicLabel ?? 'All videos')
     let scope = query && topicLabel ? ` in ${topicLabel}` : ''
@@ -100,7 +100,7 @@ function Results(handle: Handle<{ query: string; topic?: string; results: Video[
         </header>
         <div class="video-grid">
           {results.map((video, index) => (
-            <VideoCard video={video} eager={index < 4} />
+            <VideoCard video={video} viewerId={viewerId} eager={index < 4} />
           ))}
         </div>
       </section>
@@ -116,7 +116,7 @@ function EmptyLibrary() {
       <p>
         Point LanTube at a folder of videos on this machine, or upload one. Everyone on your network will see it here.
       </p>
-      <a class="btn btn-primary" href={routes.upload.href()}>
+      <a class="btn btn-primary" href={routes.upload.index.href()}>
         <Icon name="upload" size={20} />
         Upload a video
       </a>
@@ -127,7 +127,8 @@ function EmptyLibrary() {
 export function HomePage(handle: Handle<HomePageProps>) {
   return () => {
     let { query, topic, results, person = null } = handle.props
-
+    let viewerId = person?.id
+    let videos = visibleVideos(viewerId)
 
     if (videos.length === 0) {
       return (
@@ -137,7 +138,7 @@ export function HomePage(handle: Handle<HomePageProps>) {
       )
     }
 
-    let resume = continueWatching()
+    let resume = continueWatching(viewerId)
     let shelved = new Set(resume.map((video) => video.id))
     let rest = newestFirst(videos).filter((video) => !shelved.has(video.id))
     // Only split off "Earlier" when it can fill at least a row.
@@ -149,14 +150,14 @@ export function HomePage(handle: Handle<HomePageProps>) {
       <AppShell current="home" query={query} title={query ? `“${query}”` : undefined} person={person}>
         <TopicChips active={topic} />
         {results !== undefined ? (
-          <Results query={query} topic={topic} results={results} />
+          <Results query={query} topic={topic} results={results} viewerId={viewerId} />
         ) : (
           <>
             <h1 class="visually-hidden">Home</h1>
             {resume.length > 0 ? (
-              <Shelf id="continue" title="Continue watching" videos={resume} showRemaining eager single />
+              <Shelf id="continue" title="Continue watching" videos={resume} viewerId={viewerId} showRemaining eager single />
             ) : null}
-            <Shelf id="latest" title="Latest in the house" videos={latest} eager={resume.length === 0} />
+            <Shelf id="latest" title="Latest in the house" videos={latest} viewerId={viewerId} eager={resume.length === 0} />
             <section class="shelf" aria-labelledby="people">
               <header class="shelf-head">
                 <h2 class="shelf-title" id="people">
@@ -169,12 +170,12 @@ export function HomePage(handle: Handle<HomePageProps>) {
               <ul class="channel-row">
                 {getChannels().map((channel) => (
                   <li>
-                    <ChannelCard channel={channel} />
+                    <ChannelCard channel={channel} viewerId={viewerId} />
                   </li>
                 ))}
               </ul>
             </section>
-            {earlier.length > 0 ? <Shelf id="earlier" title="Earlier" videos={earlier} /> : null}
+            {earlier.length > 0 ? <Shelf id="earlier" title="Earlier" videos={earlier} viewerId={viewerId} /> : null}
           </>
         )}
       </AppShell>

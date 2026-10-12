@@ -6,7 +6,7 @@ import { getChannels, channelStats, type Channel } from '../data/library.ts'
 import { routes } from '../routes.ts'
 import { Document } from '../actions/document.tsx'
 import { Avatar } from './cards.tsx'
-import { Icon, LogoMark, type IconName } from './icons.tsx'
+import { Icon, LogoMark, type IconName } from './public/icons.tsx'
 
 function asChannel(person: Person): Channel {
   return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
@@ -23,9 +23,9 @@ const primaryNav: { section: Section; label: string; icon: IconName; href: strin
   { section: 'history', label: 'History', icon: 'history', href: routes.history.href() },
 ]
 
-function NavLinks(handle: Handle<{ current: Section; idPrefix: string }>) {
+function NavLinks(handle: Handle<{ current: Section; idPrefix: string; viewerId?: string }>) {
   return () => {
-    let { current, idPrefix } = handle.props
+    let { current, idPrefix, viewerId } = handle.props
     let people = getChannels().filter((channel) => channel.kind === 'person')
     let folders = getChannels().filter((channel) => channel.kind === 'folder')
 
@@ -47,7 +47,7 @@ function NavLinks(handle: Handle<{ current: Section; idPrefix: string }>) {
           </h2>
           <ul class="nav-list">
             {people.map((channel) => {
-              let fresh = channelStats(channel.id).newCount
+              let fresh = channelStats(channel.id, viewerId).newCount
               return (
                 <li>
                   <a
@@ -107,7 +107,7 @@ export interface AppShellProps {
   query?: string
   children?: RemixNode
   person?: Person | null
-  layout?: 'app' | 'signin'
+  layout?: 'app' | 'signin' | 'watch'
 }
 
 export function AppShell(handle: Handle<AppShellProps>) {
@@ -116,9 +116,9 @@ export function AppShell(handle: Handle<AppShellProps>) {
     let signin = layout === 'signin'
 
     return (
-      <Document title={title ? `${title} · LanTube` : 'LanTube'} bodyClass={signin ? 'layout-signin' : undefined}>
+      <Document title={title ? `${title} · LanTube` : 'LanTube'} bodyClass={layout === 'app' ? undefined : `layout-${layout}`}>
         <a class="skip-link" href="#main">
-          {signin ? 'Skip to sign in' : 'Skip to videos'}
+          {signin ? 'Skip to sign in' : layout === 'watch' ? 'Skip to video' : 'Skip to videos'}
         </a>
         <header class="topbar">
           <div class="topbar-start">
@@ -152,7 +152,7 @@ export function AppShell(handle: Handle<AppShellProps>) {
           </form>
           <div class="topbar-end">
             {signin ? null : (
-              <a class="btn btn-primary upload-btn" href={routes.upload.href()}>
+              <a class="btn btn-primary upload-btn" href={routes.upload.index.href()}>
                 <Icon name="upload" size={20} />
                 <span class="upload-label">Upload</span>
               </a>
@@ -192,7 +192,7 @@ export function AppShell(handle: Handle<AppShellProps>) {
         </header>
 
         <nav class="sidebar" aria-label="Main">
-          <NavLinks current={current} idPrefix="side" />
+          <NavLinks current={current} idPrefix="side" viewerId={person?.id} />
         </nav>
 
         <div class="drawer" id="nav-drawer" popover="auto">
@@ -212,7 +212,7 @@ export function AppShell(handle: Handle<AppShellProps>) {
             </a>
           </div>
           <nav aria-label="Main (drawer)">
-            <NavLinks current={current} idPrefix="drawer" />
+            <NavLinks current={current} idPrefix="drawer" viewerId={person?.id} />
           </nav>
         </div>
 

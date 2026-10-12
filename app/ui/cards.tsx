@@ -4,54 +4,75 @@ import type { Channel, Video } from '../data/library.ts'
 import {
   formatAdded,
   formatDuration,
+  formatPlays,
   formatRemaining,
   getChannel,
   isInProgress,
   isNew,
   channelStats,
+  progressPercent,
+  thumbUrl,
 } from '../data/library.ts'
 import { routes } from '../routes.ts'
-import { Icon } from './icons.tsx'
+import { Icon } from './public/icons.tsx'
+import { initialOf as sharedInitialOf } from './public/identity.ts'
 
-export function Avatar(handle: Handle<{ channel: Channel; size?: 'sm' | 'md' | 'lg' | 'card' }>) {
+export type AvatarSize = 'sm' | 'md' | 'lg' | 'card' | 'xl'
+
+export function Avatar(handle: Handle<{ channel: Channel; size?: AvatarSize }>) {
   return () => {
     let { channel, size = 'md' } = handle.props
-    let folderIcon = size === 'lg' ? 40 : size === 'card' ? 24 : 16
+    let folderIcon = size === 'xl' ? 52 : size === 'lg' ? 40 : size === 'card' ? 24 : 16
+    let shape = channel.kind === 'custom' ? ' avatar-channel' : ''
     return (
-      <span class={`avatar avatar-${size}`} style={`--hue:${channel.hue}`} aria-hidden="true">
+      <span class={`avatar avatar-${size}${shape}`} style={`--hue:${channel.hue}`} aria-hidden="true">
         {channel.photo ? (
           <img class="avatar-photo" src={channel.photo} alt="" />
         ) : channel.kind === 'folder' ? (
           <Icon name="folder" size={folderIcon} />
         ) : (
-          channel.name.charAt(0)
+          initialOf(channel.name)
         )}
       </span>
     )
   }
 }
 
-export function VideoCard(handle: Handle<{ video: Video; showRemaining?: boolean; eager?: boolean }>) {
+/** First letter, including accented and non-Latin initials, as one grapheme. */
+function initialOf(name: string): string {
+  return sharedInitialOf(name) || '?'
+}
+
+/** A video's still, or nothing: the thumb box behind it stays Graphite Raised. */
+export function ThumbImage(handle: Handle<{ video: Pick<Video, 'thumb'>; eager?: boolean }>) {
   return () => {
-    let { video, showRemaining = false, eager = false } = handle.props
+    let { video, eager = false } = handle.props
+    let src = thumbUrl(video)
+    return src ? <img src={src} alt="" width={960} height={540} loading={eager ? 'eager' : 'lazy'} decoding="async" /> : null
+  }
+}
+
+/** "24:37", or nothing until the host knows the length. */
+export function DurationBadge(handle: Handle<{ seconds: number }>) {
+  return () => (handle.props.seconds > 0 ? <span class="vcard-duration">{formatDuration(handle.props.seconds)}</span> : null)
+}
+
+export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; showRemaining?: boolean; eager?: boolean; onChannel?: boolean }>) {
+  return () => {
+    let { video, viewerId, showRemaining = false, eager = false, onChannel = false } = handle.props
     let channel = getChannel(video.channelId)!
     let watchHref = routes.watch.href({ videoId: video.id })
     let channelHref = routes.channel.href({ channelId: channel.id })
-    let progress = video.progressSec !== undefined ? Math.min(100, (video.progressSec / video.durationSec) * 100) : null
-    let fresh = isNew(video)
+    let poster = onChannel && channel.kind === 'custom' && video.postedBy ? getChannel(video.postedBy) : undefined
+    let progress = progressPercent(video, viewerId)
+    let inProgress = isInProgress(video, viewerId)
+    let fresh = isNew(video, viewerId)
 
     return (
-      <article class="vcard">
+      <article class={onChannel ? 'vcard vcard-on-channel' : 'vcard'}>
         <a class="vcard-thumb" href={watchHref} tabindex={-1} aria-hidden="true">
-          <img
-            src={`/thumbs/${video.thumb}`}
-            alt=""
-            width={960}
-            height={540}
-            loading={eager ? 'eager' : 'lazy'}
-            decoding="async"
-          />
-          <span class="vcard-duration">{formatDuration(video.durationSec)}</span>
+          <ThumbImage video={video} eager={eager} />
+          <DurationBadge seconds={video.durationSec} />
           {progress !== null ? (
             <span class="vcard-progress">
               <span style={`width:${progress.toFixed(1)}%`} />
@@ -59,20 +80,37 @@ export function VideoCard(handle: Handle<{ video: Video; showRemaining?: boolean
           ) : null}
         </a>
         <div class="vcard-meta">
-          <a class="vcard-avatar" href={channelHref} tabindex={-1} aria-hidden="true">
-            <Avatar channel={channel} />
-          </a>
+          {onChannel ? null : (
+            <a class="vcard-avatar" href={channelHref} tabindex={-1} aria-hidden="true">
+              <Avatar channel={channel} />
+            </a>
+          )}
           <div class="vcard-text">
             <h3 class="vcard-title">
               <a href={watchHref}>{video.title}</a>
             </h3>
-            <p class="vcard-byline">
-              <a href={channelHref}>{channel.name}</a>
-            </p>
+            {onChannel ? (
+              poster ? (
+                <p class="vcard-byline">
+                  <a href={routes.channel.href({ channelId: poster.id })}>{poster.name}</a>
+                </p>
+              ) : null
+            ) : (
+              <p class="vcard-byline">
+                <a href={channelHref}>{channel.name}</a>
+              </p>
+            )}
             <p class="vcard-when">
-              {showRemaining && isInProgress(video) ? formatRemaining(video) : formatAdded(video.addedDaysAgo)}
+              {onChannel ? `${formatPlays(video.plays)} · ` : null}
+              {showRemaining && inProgress ? formatRemaining(video, viewerId) : formatAdded(video.addedDaysAgo)}
               {fresh ? <span class="badge-new">New</span> : null}
-              {!isInProgress(video) && progress !== null ? <span class="vcard-watched">Watched</span> : null}
+              {!inProgress && progress !== null ? <span class="vcard-watched">Watched</span> : null}
+              {video.private ? (
+                <span class="pvis vcard-private">
+                  <Icon name="lock" size={14} />
+                  Private
+                </span>
+              ) : null}
             </p>
           </div>
         </div>
@@ -81,10 +119,10 @@ export function VideoCard(handle: Handle<{ video: Video; showRemaining?: boolean
   }
 }
 
-export function ChannelCard(handle: Handle<{ channel: Channel }>) {
+export function ChannelCard(handle: Handle<{ channel: Channel; viewerId?: string }>) {
   return () => {
-    let { channel } = handle.props
-    let stats = channelStats(channel.id)
+    let { channel, viewerId } = handle.props
+    let stats = channelStats(channel.id, viewerId)
     return (
       <a class="ccard" href={routes.channel.href({ channelId: channel.id })}>
         <Avatar channel={channel} size="lg" />
