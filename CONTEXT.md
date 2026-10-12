@@ -72,6 +72,10 @@ _Avoid_: Server, backend, instance, NAS (the NAS holds bytes; it may or may not 
 The LAN filesystem that holds the bytes — video files, posters, and photos.
 _Avoid_: Bucket, CDN, S3, volume (except as a mount)
 
+**Catalogue**:
+The household records of People, roles, channels, Videos, Playlists, Tags, Audience, and History. Distinct from the bytes on the Media share.
+_Avoid_: Database, library (the Videos you watch), index
+
 **Admin**:
 A Person who operates LanTube for the household. The first Person to join is an Admin; only Admins grant or revoke Admin and Parent; at least one Admin remains. Admin does not, by itself, see private Videos or Playlists.
 _Avoid_: Superuser, root, operator, parent
