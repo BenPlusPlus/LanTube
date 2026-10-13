@@ -131,4 +131,45 @@ describe('catalogue playlists', () => {
     assert.equal(housePlaylists(sam.id)[0]?.id, alexs.id)
     assert.ok(playlistsOwnedBy(sam.id).some((playlist) => playlist.id === sams.id))
   })
+
+  it('keeps both Videos when two saves overlap', async () => {
+    await useEmptyHouse()
+    let owner = await join('Sam')
+    await clipFor(owner, 'issue-21-overlap-a')
+    await clipFor(owner, 'issue-21-overlap-b')
+    let playlist = await createPlaylist(owner.id, { name: 'Overlap', description: '', visibility: 'private' })
+    assert.ok(!('error' in playlist))
+
+    let [addedA, addedB] = await Promise.all([
+      addVideo(playlist, 'issue-21-overlap-a'),
+      addVideo(playlist, 'issue-21-overlap-b'),
+    ])
+    assert.equal(addedA, true)
+    assert.equal(addedB, true)
+    assert.deepEqual([...playlist.videoIds].sort(), ['issue-21-overlap-a', 'issue-21-overlap-b'])
+
+    resetPlaylists()
+    await loadCataloguePlaylists()
+    let restored = getPlaylist(playlist.id)
+    assert.ok(restored)
+    assert.deepEqual([...restored.videoIds].sort(), ['issue-21-overlap-a', 'issue-21-overlap-b'])
+  })
+
+  it('rejects an overlapping create of the same name without duplicating the row', async () => {
+    await useEmptyHouse()
+    let owner = await join('Sam')
+    let [first, second] = await Promise.all([
+      createPlaylist(owner.id, { name: 'Same name', description: '', visibility: 'private' }),
+      createPlaylist(owner.id, { name: 'Same name', description: '', visibility: 'private' }),
+    ])
+    let ok = [first, second].filter((result) => !('error' in result))
+    let failed = [first, second].filter((result) => 'error' in result)
+    assert.equal(ok.length, 1)
+    assert.equal(failed.length, 1)
+    assert.equal(playlistsOwnedBy(owner.id).filter((playlist) => playlist.name === 'Same name').length, 1)
+
+    resetPlaylists()
+    await loadCataloguePlaylists()
+    assert.equal(playlistsOwnedBy(owner.id).filter((playlist) => playlist.name === 'Same name').length, 1)
+  })
 })

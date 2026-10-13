@@ -5,7 +5,6 @@ import { notNull, sql } from 'remix/data-table'
 import { db } from '../db.ts'
 import { hueFor, slugify } from '../ui/public/identity.ts'
 import { hashPassword, verifyPasswordHash } from './password.ts'
-import { clearPlaylists } from './playlists.ts'
 import { resetCatalogueTags } from './tags.ts'
 import {
   channelManagers,
@@ -270,5 +269,4 @@ export async function useEmptyHouse() {
   await db.deleteMany(people, { where: notNull(people.id) })
   await db.deleteMany(tags, { where: notNull(tags.id) })
   resetCatalogueTags()
-  clearPlaylists()
 }
