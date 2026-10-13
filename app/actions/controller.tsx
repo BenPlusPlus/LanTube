@@ -7,7 +7,7 @@ import { assets } from '../assets.ts'
 import { listVisibleVideos } from '../data/catalogue.ts'
 import { listPeople, personFromSession } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
-import { canWatch, getChannel, getTopic, getVideo, recordPlay, searchVideos, type ChannelSort, type Video } from '../data/library.ts'
+import { canWatch, getChannel, getVideo, recordPlay, searchVideos, type ChannelSort, type Video } from '../data/library.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 import { addVideo, canSee, getPlaylist, moveVideo, removeVideo } from '../data/playlists.ts'
 import { routes } from '../routes.ts'
@@ -44,14 +44,14 @@ export default createController(routes, {
       let videos = await listVisibleVideos(person?.id)
       let params = new URL(context.request.url).searchParams
       let query = (params.get('q') ?? '').trim().slice(0, 120)
-      let topic = getTopic(params.get('topic'))?.id
-      let filtering = query !== '' || topic !== undefined
+      let tag = (params.get('tag') ?? '').trim()
+      let filtering = query !== '' || tag !== ''
       return context.render(
         <HomePage
           query={query}
-          topic={topic}
+          tag={tag || undefined}
           videos={videos}
-          results={videos.length > 0 && filtering ? searchVideos(query, topic, person?.id, videos) : undefined}
+          results={videos.length > 0 && filtering ? searchVideos(query, tag || undefined, person?.id, videos) : undefined}
           person={person}
         />,
       )

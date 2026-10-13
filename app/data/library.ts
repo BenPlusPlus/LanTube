@@ -145,19 +145,6 @@ const mockupVideos: Video[] = [
 
 export const videos: Video[] = process.env.NODE_ENV === 'test' ? mockupVideos : []
 
-export const topics: { id: string; label: string }[] = [
-  { id: 'trips', label: 'Trips' },
-  { id: 'kids', label: 'Kids' },
-  { id: 'family', label: 'Family' },
-  { id: 'cooking', label: 'Cooking' },
-  { id: 'projects', label: 'Projects' },
-  { id: 'nature', label: 'Nature' },
-  { id: 'music', label: 'Music' },
-  { id: 'sports', label: 'Sports' },
-  { id: 'games', label: 'Games' },
-  { id: 'home-movies', label: 'Home movies' },
-]
-
 /** A video counts as "new" when it arrived in the last three days and hasn't been started. */
 export const NEW_WINDOW_DAYS = 3
 
@@ -272,10 +259,6 @@ export function getVideo(id: string): Video | undefined {
   return videos.find((video) => video.id === id)
 }
 
-export function getTopic(id: string | null | undefined) {
-  return topics.find((topic) => topic.id === id)
-}
-
 // Where each person stopped in each video: personId -> videoId -> seconds.
 // Watching unsigned is not recorded, so a viewer without an id has no progress.
 const progressByPerson = new Map<string, Map<string, number>>()
@@ -311,11 +294,11 @@ export function continueWatching(viewerId?: string): Video[] {
   return newestFirst(visibleVideos(viewerId).filter((video) => isInProgress(video, viewerId)))
 }
 
-export function searchVideos(query: string, topic?: string, viewerId?: string, list?: Video[]): Video[] {
+export function searchVideos(query: string, tag?: string, viewerId?: string, list?: Video[]): Video[] {
   let q = query.trim().toLocaleLowerCase()
   return newestFirst(
     (list ?? visibleVideos(viewerId)).filter((video) => {
-      if (topic && !video.tags.includes(topic)) return false
+      if (tag && !video.tags.includes(tag)) return false
       if (!q) return true
       let channel = getChannel(video.channelId)
       return (

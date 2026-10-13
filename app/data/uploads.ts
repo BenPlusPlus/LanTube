@@ -4,9 +4,10 @@ import * as path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import { insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
+import { attachVideoTags, insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
 import { slugify } from './household.ts'
-import { addUploadedVideo, canPost, channelsFor, getChannel, getVideo, topics, type Channel, type Video } from './library.ts'
+import { addUploadedVideo, canPost, channelsFor, getChannel, getVideo, type Channel, type Video } from './library.ts'
+import { findOrCreateTags, parseTagNames } from './tags.ts'
 import { mediaDir, videoExtensions } from './media.ts'
 import { addVideo, getPlaylist } from './playlists.ts'
 
@@ -136,7 +137,7 @@ export interface UploadInput {
   uploadId: string
   channelId: string
   title: string
-  topics: string[]
+  tags: string[]
   playlistId: string
   visibility: UploadVisibility
   durationSec: number
@@ -144,7 +145,7 @@ export interface UploadInput {
   poster?: Blob
 }
 
-export type UploadField = 'file' | 'channel' | 'title' | 'playlist' | 'poster'
+export type UploadField = 'file' | 'channel' | 'title' | 'playlist' | 'poster' | 'tags'
 
 export type UploadResult = { video: Video } | { error: string; field: UploadField }
 
@@ -195,8 +196,10 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     if (!isJpeg(poster)) return { error: 'That poster frame didn’t come through. Pick it again.', field: 'poster' }
   }
 
-  let known = new Set(topics.map((topic) => topic.id))
-  let tags = [...new Set(input.topics)].filter((id) => known.has(id))
+  let parsed = parseTagNames(input.tags ?? [])
+  if ('error' in parsed) return { error: parsed.error, field: 'tags' }
+  let tagRows = await findOrCreateTags(parsed.names)
+  let tags = tagRows.map((tag) => tag.slug)
   let id = await uniqueVideoId(title)
   let relative = path.posix.join('uploads', channel.id, `${id}${upload.ext}`)
   let destination = path.join(uploadsDir, channel.id, `${id}${upload.ext}`)
@@ -229,7 +232,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     postedBy: personId,
     private: input.visibility === 'private' ? true : undefined,
   })
-  await insertUploadedVideo({
+  let inserted = await insertUploadedVideo({
     slug: id,
     title,
     channelSlug: channel.id,
@@ -239,6 +242,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     posterPath: thumb || null,
     visibility: input.visibility,
   })
+  if (inserted) await attachVideoTags(inserted.id, tagRows.map((tag) => tag.id))
   if (playlist) addVideo(playlist, video.id)
   return { video }
 }
