@@ -57,7 +57,7 @@ export function SignInToCreatePlaylist() {
 
 const visibilityOptions: { value: Visibility; label: string; detail: string; icon: IconName }[] = [
   { value: 'private', label: 'Private', detail: 'Only you can see it', icon: 'lock' },
-  { value: 'public', label: 'Public', detail: 'Anyone in the house can see it', icon: 'channels' },
+  { value: 'public', label: 'Everyone in the house', detail: 'Anyone in the house can see it', icon: 'channels' },
 ]
 
 export function PlaylistFormPage(handle: Handle<PlaylistFormPageProps>) {

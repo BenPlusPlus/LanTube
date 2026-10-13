@@ -18,14 +18,14 @@ export default createController(routes.playlistNew, {
         <PlaylistFormPage person={person} video={video} values={{ name: '', description: '', visibility: 'private' }} />,
       )
     },
-    action(context) {
+    async action(context) {
       let person = personFromSession(context.session)
       if (!person) return context.render(<SignInToCreatePlaylist />, { status: 401 })
       let videoField = context.formData.get('video')
       let video = typeof videoField === 'string' ? getVideo(videoField) : undefined
       if (video && !canWatch(video, person.id)) video = undefined
       let values = readPlaylistForm(context.formData)
-      let created = createPlaylist(person.id, values, video?.id)
+      let created = await createPlaylist(person.id, values, video?.id)
       if ('error' in created) {
         return context.render(
           <PlaylistFormPage person={person} video={video} values={values} error={created.error} errorField={created.field} />,

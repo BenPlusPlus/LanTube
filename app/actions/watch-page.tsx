@@ -98,7 +98,7 @@ function ListPanel(handle: Handle<{ playlist: Playlist; video: Video; person: Pe
     let prev = videos[index - 1]
     let next = videos[index + 1]
     let owner = ownerOf(playlist)
-    let ownerName = owner && person?.id === owner.id ? 'You' : owner?.name
+    let ownerName = owner && person?.id === playlist.ownerId ? 'You' : owner?.name
 
     return (
       <section class="wlist" aria-labelledby="wlist-title">

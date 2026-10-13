@@ -1,8 +1,9 @@
-// Synthetic household playlists used until real persistence exists. Names, contents
-// and activity times are illustrative, like the rest of the seeded library.
+import { randomUUID } from 'node:crypto'
 
+import { db } from '../db.ts'
 import { getPerson, slugify } from './household.ts'
 import { canWatch, getVideo, NEW_WINDOW_DAYS, type Video } from './library.ts'
+import { people, playlistVideos as playlistVideoTable, playlists as playlistTable, videos } from './tables.ts'
 
 export type Visibility = 'private' | 'public'
 
@@ -41,6 +42,7 @@ const MERGE_ADDS_MS = 30 * 60_000
 
 export const playlistLimits = { name: NAME_MAX, description: DESCRIPTION_MAX } as const
 
+/** Test fixture; production catalogue starts empty. */
 function seed(): Playlist[] {
   let now = Date.now()
   let ago = (days: number) => now - days * DAY
@@ -141,10 +143,10 @@ function seed(): Playlist[] {
   ]
 }
 
-let playlists: Playlist[] = seed()
+let playlists: Playlist[] = process.env.NODE_ENV === 'test' ? seed() : []
 
 export function resetPlaylists() {
-  playlists = seed()
+  playlists = process.env.NODE_ENV === 'test' ? seed() : []
 }
 
 function newestActivityFirst(list: Playlist[]): Playlist[] {
@@ -169,7 +171,7 @@ export function playlistsOwnedBy(personId: string): Playlist[] {
   return newestActivityFirst(playlists.filter((playlist) => playlist.ownerId === personId))
 }
 
-/** Public playlists of everyone except the viewer, most recently changed first. */
+/** House-visible playlists of everyone except the viewer, most recently changed first. */
 export function housePlaylists(viewerId?: string | null): Playlist[] {
   return newestActivityFirst(
     playlists.filter((playlist) => playlist.visibility === 'public' && playlist.ownerId !== viewerId && getPerson(playlist.ownerId)),
@@ -238,8 +240,94 @@ export function savedIn(videoId: string, ownerId: string): Playlist[] {
   return playlistsOwnedBy(ownerId).filter((playlist) => playlist.videoIds.includes(videoId))
 }
 
-function touch(playlist: Playlist, kind: ActivityKind, videoIds: string[] = []) {
-  playlist.activity = { kind, at: Date.now(), videoIds }
+function activityOf(kind: ActivityKind, videoIds: string[] = [], at = Date.now()): PlaylistActivity {
+  return { kind, at, videoIds }
+}
+
+const writes = new Map<string, Promise<unknown>>()
+
+/** Overlapping Save would persist a stale join list. */
+function serialize<T>(id: string, work: () => Promise<T>): Promise<T> {
+  let prior = writes.get(id) ?? Promise.resolve()
+  let next = prior.then(work, work)
+  writes.set(id, next.then(() => undefined, () => undefined))
+  return next
+}
+
+async function videoUuidsFor(slugs: string[]) {
+  if (slugs.length === 0) return []
+  let rows = await db.findMany(videos)
+  let idBySlug = new Map(rows.map((row) => [row.slug, row.id]))
+  return slugs.flatMap((slug) => {
+    let id = idBySlug.get(slug)
+    return id ? [id] : []
+  })
+}
+
+async function persistPlaylist(playlist: Playlist) {
+  let person = getPerson(playlist.ownerId)
+  if (!person || person.id === person.slug) return
+  let owner = await db.findOne(people, { where: { id: playlist.ownerId } })
+  if (!owner) return
+  let row = await db.findOne(playlistTable, { where: { slug: playlist.id } })
+  if (!row || row.owner_id !== playlist.ownerId) return
+  let videoUuids = await videoUuidsFor(playlist.videoIds)
+  await db.transaction(async (tx) => {
+    await tx.update(playlistTable, row.id, {
+      name: playlist.name,
+      visibility: playlist.visibility,
+      description: playlist.description ?? null,
+      activity_kind: playlist.activity.kind,
+      activity_at: new Date(playlist.activity.at),
+      activity_video_ids: playlist.activity.videoIds.join(','),
+    })
+    await tx.deleteMany(playlistVideoTable, { where: { playlist_id: row.id } })
+    if (videoUuids.length) {
+      await tx.createMany(
+        playlistVideoTable,
+        videoUuids.map((video_id, position) => ({ playlist_id: row.id, video_id, position })),
+      )
+    }
+  })
+}
+
+export async function loadCataloguePlaylists() {
+  let rows = await db.findMany(playlistTable)
+  let joins = await db.findMany(playlistVideoTable, {
+    orderBy: [
+      ['playlist_id', 'asc'],
+      ['position', 'asc'],
+    ],
+  })
+  let videoRows = await db.findMany(videos)
+  let slugById = new Map(videoRows.map((row) => [row.id, row.slug]))
+  let videosByPlaylist = new Map<string, string[]>()
+  for (let join of joins) {
+    let slug = slugById.get(join.video_id)
+    if (!slug) continue
+    let list = videosByPlaylist.get(join.playlist_id)
+    if (list) list.push(slug)
+    else videosByPlaylist.set(join.playlist_id, [slug])
+  }
+  let present = new Set(playlists.map((playlist) => playlist.id))
+  for (let row of rows) {
+    if (present.has(row.slug)) continue
+    let at = row.activity_at instanceof Date ? row.activity_at.getTime() : Date.parse(String(row.activity_at))
+    playlists.push({
+      id: row.slug,
+      name: row.name,
+      ownerId: row.owner_id,
+      visibility: row.visibility === 'public' ? 'public' : 'private',
+      description: row.description ?? undefined,
+      videoIds: videosByPlaylist.get(row.id) ?? [],
+      activity: {
+        kind: row.activity_kind as ActivityKind,
+        at: Number.isFinite(at) ? at : Date.now(),
+        videoIds: row.activity_video_ids ? row.activity_video_ids.split(',').filter(Boolean) : [],
+      },
+    })
+    present.add(row.slug)
+  }
 }
 
 type Invalid = { error: string; field: 'name' | 'description' }
@@ -264,86 +352,158 @@ function clean(input: PlaylistInput, ownerId: string, editingId?: string): Playl
   return { name, description, visibility }
 }
 
-export function createPlaylist(ownerId: string, input: PlaylistInput, firstVideoId?: string): Playlist | Invalid {
+export async function createPlaylist(ownerId: string, input: PlaylistInput, firstVideoId?: string): Promise<Playlist | Invalid> {
   let valid = clean(input, ownerId)
   if ('error' in valid) return valid
 
-  let base = slugify(valid.name, 'playlist')
-  let id = base
-  let n = 2
-  while (getPlaylist(id) || id === 'new') {
-    id = `${base}-${n}`
-    n++
-  }
+  return serialize(`owner:${ownerId}`, async () => {
+    let again = clean(input, ownerId)
+    if ('error' in again) return again
 
-  let first = firstVideoId && getVideo(firstVideoId) ? [firstVideoId] : []
-  let playlist: Playlist = {
-    id,
-    name: valid.name,
-    ownerId,
-    visibility: valid.visibility,
-    description: valid.description || undefined,
-    videoIds: first,
-    activity: { kind: 'created', at: Date.now(), videoIds: [] },
-  }
-  playlists.push(playlist)
-  return playlist
-}
-
-export function updatePlaylist(playlist: Playlist, input: PlaylistInput): Playlist | Invalid {
-  let valid = clean(input, playlist.ownerId, playlist.id)
-  if ('error' in valid) return valid
-  let shared = playlist.visibility === 'private' && valid.visibility === 'public'
-  let unshared = playlist.visibility === 'public' && valid.visibility === 'private'
-  let renamed = playlist.name !== valid.name
-  let described = (playlist.description ?? '') !== valid.description
-  playlist.name = valid.name
-  playlist.description = valid.description || undefined
-  playlist.visibility = valid.visibility
-  if (shared) touch(playlist, 'shared')
-  else if (unshared) touch(playlist, 'unshared')
-  else if (renamed) touch(playlist, 'renamed')
-  else if (described) touch(playlist, 'described')
-  return playlist
-}
-
-export function deletePlaylist(playlist: Playlist) {
-  playlists = playlists.filter((other) => other.id !== playlist.id)
-}
-
-export function addVideo(playlist: Playlist, videoId: string): boolean {
-  if (!getVideo(videoId) || playlist.videoIds.includes(videoId)) return false
-  playlist.videoIds.push(videoId)
-  let last = playlist.activity
-  if (last.kind === 'added' && Date.now() - last.at < MERGE_ADDS_MS) {
-    touch(playlist, 'added', [...last.videoIds, videoId])
-  } else {
-    touch(playlist, 'added', [videoId])
-  }
-  return true
-}
-
-export function removeVideo(playlist: Playlist, videoId: string): boolean {
-  if (!playlist.videoIds.includes(videoId)) return false
-  playlist.videoIds = playlist.videoIds.filter((id) => id !== videoId)
-  if (playlist.activity.kind === 'added' && playlist.activity.videoIds.includes(videoId)) {
-    let left = playlist.activity.videoIds.filter((id) => id !== videoId)
-    if (left.length > 0) {
-      playlist.activity = { ...playlist.activity, videoIds: left }
-      return true
+    let base = slugify(again.name, 'playlist')
+    let id = base
+    let n = 2
+    while (getPlaylist(id) || id === 'new') {
+      id = `${base}-${n}`
+      n++
     }
-  }
-  touch(playlist, 'removed')
-  return true
+
+    let first = firstVideoId && getVideo(firstVideoId) ? [firstVideoId] : []
+    let playlist: Playlist = {
+      id,
+      name: again.name,
+      ownerId,
+      visibility: again.visibility,
+      description: again.description || undefined,
+      videoIds: first,
+      activity: activityOf('created'),
+    }
+
+    let person = getPerson(ownerId)
+    if (person && person.id !== person.slug && (await db.findOne(people, { where: { id: ownerId } }))) {
+      if (await db.findOne(playlistTable, { where: { slug: id } })) {
+        return { error: `You already have a playlist called ${again.name}.`, field: 'name' }
+      }
+      let videoUuids = await videoUuidsFor(playlist.videoIds)
+      let rowId = randomUUID()
+      try {
+        await db.transaction(async (tx) => {
+          await tx.create(playlistTable, {
+            id: rowId,
+            slug: id,
+            owner_id: ownerId,
+            name: playlist.name,
+            visibility: playlist.visibility,
+            description: playlist.description ?? null,
+            activity_kind: playlist.activity.kind,
+            activity_at: new Date(playlist.activity.at),
+            activity_video_ids: playlist.activity.videoIds.join(','),
+          })
+          if (videoUuids.length) {
+            await tx.createMany(
+              playlistVideoTable,
+              videoUuids.map((video_id, position) => ({ playlist_id: rowId, video_id, position })),
+            )
+          }
+        })
+      } catch (error) {
+        if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+          return { error: `You already have a playlist called ${again.name}.`, field: 'name' }
+        }
+        throw error
+      }
+    }
+    playlists.push(playlist)
+    return playlist
+  })
 }
 
-export function moveVideo(playlist: Playlist, videoId: string, delta: -1 | 1): boolean {
-  let from = playlist.videoIds.indexOf(videoId)
-  let to = from + delta
-  if (from < 0 || to < 0 || to >= playlist.videoIds.length) return false
-  let ids = [...playlist.videoIds]
-  ;[ids[from], ids[to]] = [ids[to], ids[from]]
-  playlist.videoIds = ids
-  touch(playlist, 'reordered')
-  return true
+export async function updatePlaylist(playlist: Playlist, input: PlaylistInput): Promise<Playlist | Invalid> {
+  return serialize(playlist.id, async () => {
+    let valid = clean(input, playlist.ownerId, playlist.id)
+    if ('error' in valid) return valid
+    let shared = playlist.visibility === 'private' && valid.visibility === 'public'
+    let unshared = playlist.visibility === 'public' && valid.visibility === 'private'
+    let renamed = playlist.name !== valid.name
+    let described = (playlist.description ?? '') !== valid.description
+    let activity = playlist.activity
+    if (shared) activity = activityOf('shared')
+    else if (unshared) activity = activityOf('unshared')
+    else if (renamed) activity = activityOf('renamed')
+    else if (described) activity = activityOf('described')
+    let next: Playlist = {
+      ...playlist,
+      name: valid.name,
+      description: valid.description || undefined,
+      visibility: valid.visibility,
+      activity,
+    }
+    await persistPlaylist(next)
+    playlist.name = next.name
+    playlist.description = next.description
+    playlist.visibility = next.visibility
+    playlist.activity = next.activity
+    return playlist
+  })
+}
+
+export async function deletePlaylist(playlist: Playlist) {
+  return serialize(playlist.id, async () => {
+    let row = await db.findOne(playlistTable, { where: { slug: playlist.id } })
+    if (row && row.owner_id === playlist.ownerId) await db.delete(playlistTable, row.id)
+    playlists = playlists.filter((other) => other.id !== playlist.id)
+  })
+}
+
+export async function addVideo(playlist: Playlist, videoId: string): Promise<boolean> {
+  if (!getVideo(videoId)) return false
+  return serialize(playlist.id, async () => {
+    if (playlist.videoIds.includes(videoId)) return false
+    let now = Date.now()
+    let last = playlist.activity
+    let activity =
+      last.kind === 'added' && now - last.at < MERGE_ADDS_MS
+        ? activityOf('added', [...last.videoIds, videoId], now)
+        : activityOf('added', [videoId], now)
+    let next: Playlist = { ...playlist, videoIds: [...playlist.videoIds, videoId], activity }
+    await persistPlaylist(next)
+    playlist.videoIds = next.videoIds
+    playlist.activity = next.activity
+    return true
+  })
+}
+
+export async function removeVideo(playlist: Playlist, videoId: string): Promise<boolean> {
+  return serialize(playlist.id, async () => {
+    if (!playlist.videoIds.includes(videoId)) return false
+    let videoIds = playlist.videoIds.filter((id) => id !== videoId)
+    let activity = playlist.activity
+    if (activity.kind === 'added' && activity.videoIds.includes(videoId)) {
+      let left = activity.videoIds.filter((id) => id !== videoId)
+      if (left.length > 0) activity = { ...activity, videoIds: left }
+      else activity = activityOf('removed')
+    } else {
+      activity = activityOf('removed')
+    }
+    let next: Playlist = { ...playlist, videoIds, activity }
+    await persistPlaylist(next)
+    playlist.videoIds = next.videoIds
+    playlist.activity = next.activity
+    return true
+  })
+}
+
+export async function moveVideo(playlist: Playlist, videoId: string, delta: -1 | 1): Promise<boolean> {
+  return serialize(playlist.id, async () => {
+    let from = playlist.videoIds.indexOf(videoId)
+    let to = from + delta
+    if (from < 0 || to < 0 || to >= playlist.videoIds.length) return false
+    let ids = [...playlist.videoIds]
+    ;[ids[from], ids[to]] = [ids[to], ids[from]]
+    let next: Playlist = { ...playlist, videoIds: ids, activity: activityOf('reordered') }
+    await persistPlaylist(next)
+    playlist.videoIds = next.videoIds
+    playlist.activity = next.activity
+    return true
+  })
 }
