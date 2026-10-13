@@ -3096,6 +3096,32 @@ label.poster:hover {
   text-wrap: pretty;
 }
 
+input.watch-title {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #121316;
+  caret-color: var(--text);
+  outline: none;
+  text-wrap: unset;
+}
+
+input.watch-title:hover {
+  border-color: #33363b;
+}
+
+input.watch-title:focus-visible {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.watch-info > .field-error {
+  margin: 8px 0 0;
+}
+
 .watch-channel {
   display: flex;
   flex-wrap: wrap;
@@ -3176,6 +3202,18 @@ label.poster:hover {
 .watch-tags .chip {
   height: 28px;
   font-size: var(--fs-sm);
+}
+
+.watch-facts .upload-tags {
+  margin-top: 12px;
+}
+
+.watch-facts .upload-tags .field {
+  margin-bottom: 0;
+}
+
+.watch-facts .upload-tags .field-error {
+  margin: 8px 0 0;
 }
 
 .watch-source {
