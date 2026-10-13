@@ -2,7 +2,11 @@
 // Names, titles, progress and dates are illustrative; thumbnails are licensed
 // Wikimedia Commons photos (see public/thumbs/CREDITS.json).
 
+import { randomUUID } from 'node:crypto'
+
+import { db } from '../db.ts'
 import { hueFor, isParent, listPeople, getPerson as getHouseholdPerson, slugify, type Person } from './household.ts'
+import { channelManagers, channels, people } from './tables.ts'
 
 /** `person`: everyone's home channel. `custom`: a named channel someone runs. `folder`: an indexed share. */
 export type ChannelKind = 'person' | 'custom' | 'folder'
@@ -19,8 +23,8 @@ export interface Channel {
   photo?: string
   /** Custom channels: the person who runs it. */
   ownerId?: string
-  /** Custom channels: everyone else the owner lets post. */
-  posterIds?: string[]
+  /** Custom channels: everyone else the owner names as a Manager. The owner is not a Manager. */
+  managerIds?: string[]
   description?: string
 }
 
@@ -44,13 +48,24 @@ export interface Video {
   audience?: string[]
 }
 
-/** A private Video exists for its owner, named Audience, and any Parent — not Admin alone. */
+/** A private Video exists for its Video owner, named Audience, any Parent, and — on a Custom channel — the Channel owner and Managers. */
 export function canWatch(video: Video, viewerId: string | undefined | null): boolean {
   if (!video.private) return true
   if (viewerId == null) return false
   if (video.postedBy === viewerId) return true
   if (video.audience?.includes(viewerId)) return true
-  return isParent(viewerId)
+  if (isParent(viewerId)) return true
+  let channel = getChannel(video.channelId)
+  return channel?.kind === 'custom' && canPost(channel, viewerId)
+}
+
+/** Title, Tags, visibility, and Audience: Video owner, and on a Custom channel the Channel owner and Managers. */
+export function canEditVideo(video: Video, personId: string | undefined | null): boolean {
+  if (!personId) return false
+  let channel = getChannel(video.channelId)
+  if (!channel || channel.kind === 'folder') return false
+  if (video.postedBy === personId) return true
+  return channel.kind === 'custom' && canPost(channel, personId)
 }
 
 /** Drops the owner and anyone who is not a Person in the house. */
@@ -102,7 +117,7 @@ function seedCustomChannels(): Channel[] {
       kind: 'custom',
       hue: 326,
       ownerId: 'mia',
-      posterIds: ['priya'],
+      managerIds: ['priya'],
       description: 'Concert clips, dance practice, and every comeback stage we can catch.',
     },
     {
@@ -111,7 +126,7 @@ function seedCustomChannels(): Channel[] {
       kind: 'custom',
       hue: 14,
       ownerId: 'tomas',
-      posterIds: [],
+      managerIds: [],
       description: 'Live footage and garage covers. Turn it up.',
     },
     {
@@ -120,7 +135,7 @@ function seedCustomChannels(): Channel[] {
       kind: 'custom',
       hue: 196,
       ownerId: 'leo',
-      posterIds: ['mia', 'tomas'],
+      managerIds: ['mia', 'tomas'],
       description: 'Boss fights, family cups, and the occasional rage quit.',
     },
   ]
@@ -165,11 +180,12 @@ export function getChannel(id: string): Channel | undefined {
   return customChannels.find((channel) => channel.id === id) ?? folderChannels.find((channel) => channel.id === id)
 }
 
-/** Custom channels this person runs or may post to, in the order they were made. */
+/** Custom channels this person runs or may post to, in the order they were made. Accepts a Person id or slug. */
 export function channelsFor(personId: string): { runs: Channel[]; postsTo: Channel[] } {
+  let id = getHouseholdPerson(personId)?.id ?? personId
   return {
-    runs: customChannels.filter((channel) => channel.ownerId === personId),
-    postsTo: customChannels.filter((channel) => channel.posterIds?.includes(personId)),
+    runs: customChannels.filter((channel) => channel.ownerId === id),
+    postsTo: customChannels.filter((channel) => channel.managerIds?.includes(id)),
   }
 }
 
@@ -179,7 +195,7 @@ export function canPost(channel: Channel, personId: string | undefined): boolean
     let person = getHouseholdPerson(personId)
     return person != null && channel.id === person.slug
   }
-  if (channel.kind === 'custom') return channel.ownerId === personId || (channel.posterIds?.includes(personId) ?? false)
+  if (channel.kind === 'custom') return channel.ownerId === personId || (channel.managerIds?.includes(personId) ?? false)
   return false
 }
 
@@ -192,7 +208,7 @@ export function byLatestActivity(list: Channel[]): Channel[] {
 export interface ChannelInput {
   name: string
   description: string
-  posterIds: string[]
+  managerIds: string[]
   photo?: string
 }
 
@@ -217,12 +233,51 @@ function cleanInput(input: ChannelInput, ownerId: string, editingId?: string): C
   if (description.length > DESCRIPTION_MAX) {
     return { error: `Keep the description under ${DESCRIPTION_MAX} characters.`, field: 'description' }
   }
-  let people = new Set(listPeople().map((person) => person.id))
-  let posterIds = [...new Set(input.posterIds)].filter((id) => id !== ownerId && people.has(id))
-  return { name, description, posterIds, photo: input.photo }
+  let known = new Set(listPeople().map((person) => person.id))
+  let managerIds = [...new Set(input.managerIds)].filter((id) => id !== ownerId && known.has(id))
+  return { name, description, managerIds, photo: input.photo }
 }
 
-export function createChannel(ownerId: string, input: ChannelInput): Channel | { error: string; field: 'name' | 'description' } {
+async function persistCustomChannel(channel: Channel) {
+  if (!channel.ownerId) return
+  let cataloguePeople = await db.findMany(people)
+  let known = new Set(cataloguePeople.map((row) => row.id))
+  if (!known.has(channel.ownerId)) return
+  let row = await db.findOne(channels, { where: { slug: channel.id } })
+  if (row && row.kind !== 'custom') return
+  let managerIds = (channel.managerIds ?? []).filter((id) => known.has(id))
+  await db.transaction(async (tx) => {
+    let channelId = row?.id ?? randomUUID()
+    if (row) {
+      await tx.update(channels, row.id, {
+        name: channel.name,
+        description: channel.description ?? null,
+        photo_path: channel.photo ?? null,
+        hue: channel.hue,
+      })
+      await tx.deleteMany(channelManagers, { where: { channel_id: row.id } })
+    } else {
+      await tx.create(channels, {
+        id: channelId,
+        slug: channel.id,
+        name: channel.name,
+        kind: 'custom',
+        hue: channel.hue,
+        photo_path: channel.photo ?? null,
+        owner_id: channel.ownerId,
+        description: channel.description ?? null,
+      })
+    }
+    if (managerIds.length) {
+      await tx.createMany(
+        channelManagers,
+        managerIds.map((person_id) => ({ channel_id: channelId, person_id })),
+      )
+    }
+  })
+}
+
+export async function createChannel(ownerId: string, input: ChannelInput): Promise<Channel | { error: string; field: 'name' | 'description' }> {
   let clean = cleanInput(input, ownerId)
   if ('error' in clean) return clean
 
@@ -240,24 +295,58 @@ export function createChannel(ownerId: string, input: ChannelInput): Channel | {
     kind: 'custom',
     hue: hueFor(clean.name),
     ownerId,
-    posterIds: clean.posterIds,
+    managerIds: clean.managerIds,
     description: clean.description || undefined,
     photo: clean.photo,
   }
+  await persistCustomChannel(channel)
   customChannels.push(channel)
   return channel
 }
 
-/** Owners rename, re-describe, re-picture, and change who can post; the channel's URL stays put. */
-export function updateChannel(channel: Channel, input: ChannelInput & { removePhoto?: boolean }): Channel | { error: string; field: 'name' | 'description' } {
+/** The URL stays put. */
+export async function updateChannel(channel: Channel, input: ChannelInput & { removePhoto?: boolean }): Promise<Channel | { error: string; field: 'name' | 'description' }> {
   let clean = cleanInput(input, channel.ownerId!, channel.id)
   if ('error' in clean) return clean
-  channel.name = clean.name
-  channel.description = clean.description || undefined
-  channel.posterIds = clean.posterIds
-  if (clean.photo) channel.photo = clean.photo
-  else if (input.removePhoto) channel.photo = undefined
+  let next: Channel = {
+    ...channel,
+    name: clean.name,
+    description: clean.description || undefined,
+    managerIds: clean.managerIds,
+    photo: clean.photo ? clean.photo : input.removePhoto ? undefined : channel.photo,
+  }
+  await persistCustomChannel(next)
+  channel.name = next.name
+  channel.description = next.description
+  channel.managerIds = next.managerIds
+  channel.photo = next.photo
   return channel
+}
+
+export async function loadCatalogueChannels() {
+  let rows = await db.findMany(channels)
+  let joins = await db.findMany(channelManagers)
+  let managersByChannel = new Map<string, string[]>()
+  for (let join of joins) {
+    let list = managersByChannel.get(join.channel_id)
+    if (list) list.push(join.person_id)
+    else managersByChannel.set(join.channel_id, [join.person_id])
+  }
+  let present = new Set(customChannels.map((channel) => channel.id))
+  for (let row of rows) {
+    if (row.kind !== 'custom' || present.has(row.slug)) continue
+    customChannels.push({
+      id: row.slug,
+      name: row.name,
+      kind: 'custom',
+      hue: row.hue,
+      ownerId: row.owner_id ?? undefined,
+      managerIds: managersByChannel.get(row.id) ?? [],
+      description: row.description ?? undefined,
+      photo: row.photo_path ?? undefined,
+    })
+    present.add(row.slug)
+  }
 }
 
 export function resetChannels() {

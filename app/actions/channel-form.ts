@@ -8,7 +8,7 @@ export function readChannelForm(formData: FormData): ChannelFormValues & { remov
   return {
     name: text('name'),
     description: text('description'),
-    posterIds: formData.getAll('posters').filter((value): value is string => typeof value === 'string'),
+    managerIds: formData.getAll('managers').filter((value): value is string => typeof value === 'string'),
     removePhoto: text('removePhoto') === '1',
   }
 }
