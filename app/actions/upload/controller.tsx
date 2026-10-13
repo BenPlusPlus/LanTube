@@ -22,7 +22,7 @@ function readValues(formData: FormData, uploadId: string): UploadFormValues {
   return {
     channelId: text('channel'),
     title: text('title'),
-    topics: formData.getAll('topics').filter((value): value is string => typeof value === 'string'),
+    tags: formData.getAll('tags').filter((value): value is string => typeof value === 'string'),
     playlistId: text('playlist'),
     visibility: text('visibility') === 'private' ? 'private' : 'house',
     uploadId,

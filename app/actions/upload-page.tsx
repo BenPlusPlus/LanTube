@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
 
 import { getPerson, type Person } from '../data/household.ts'
-import { channelsFor, channelVideos, formatAdded, formatPlays, getChannel, thumbUrl, topics, type Channel } from '../data/library.ts'
+import { channelsFor, channelVideos, formatAdded, formatPlays, getChannel, thumbUrl, type Channel } from '../data/library.ts'
 import { videoExtensions } from '../data/media.ts'
 import { playlistsOwnedBy } from '../data/playlists.ts'
 import { destinationsFor, uploadLimits, type UploadField } from '../data/uploads.ts'
@@ -67,7 +67,7 @@ function destinationOf(channel: Channel, person: Person, runs: Set<string>): Upl
 export function defaultUploadValues(person: Person, requested: string | null): UploadFormValues {
   let channels = destinationsFor(person.id)
   let channelId = channels.find((channel) => channel.id === requested)?.id ?? channels[0]?.id ?? person.slug
-  return { channelId, title: '', topics: [], playlistId: '', visibility: 'house', uploadId: '', durationSec: 0 }
+  return { channelId, title: '', tags: [], playlistId: '', visibility: 'house', uploadId: '', durationSec: 0 }
 }
 
 const typesLabel = videoExtensions.map((ext) => (ext === '.webm' ? 'WebM' : ext.slice(1).toUpperCase())).join(', ')
@@ -95,7 +95,6 @@ export function UploadPage(handle: Handle<UploadPageProps>) {
             cancelHref={cancel}
             personName={person.name}
             destinations={destinations}
-            topics={topics}
             playlists={playlistsOwnedBy(person.id).map((playlist) => ({
               id: playlist.id,
               name: playlist.name,

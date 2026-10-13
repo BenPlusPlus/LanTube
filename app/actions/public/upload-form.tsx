@@ -32,14 +32,14 @@ export type UploadVisibility = 'house' | 'private'
 export interface UploadFormValues {
   channelId: string
   title: string
-  topics: string[]
+  tags: string[]
   playlistId: string
   visibility: UploadVisibility
   uploadId: string
   durationSec: number
 }
 
-export type UploadFormField = 'file' | 'channel' | 'title' | 'playlist' | 'poster'
+export type UploadFormField = 'file' | 'channel' | 'title' | 'playlist' | 'poster' | 'tags'
 
 export interface UploadFormProps {
   action: string
@@ -50,7 +50,6 @@ export interface UploadFormProps {
   cancelHref: string
   personName: string
   destinations: UploadDestination[]
-  topics: { id: string; label: string }[]
   playlists: { id: string; name: string; private: boolean }[]
   values: UploadFormValues
   /** A file that already reached the host, when the form comes back with a problem. */
@@ -160,7 +159,9 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
   let title = initial.title
   /** Until they type a title, each new file suggests one from its name. */
   let titleTouched = initial.title.trim() !== ''
-  let chosenTopics = new Set(initial.topics)
+  let chosenTags = [...initial.tags]
+  let tagDraft = initial.tags.join(', ')
+  let enhanced = false
   let playlistId = initial.playlistId
   let visibility: UploadVisibility = initial.visibility
   let uploadId = initial.uploadId
@@ -188,9 +189,13 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
   let form: HTMLFormElement | undefined
   let fileInput: HTMLInputElement | undefined
   let posterInput: HTMLInputElement | undefined
+  let tagsInput: HTMLInputElement | undefined
   let preview: HTMLVideoElement | undefined
   let sampler: HTMLVideoElement | undefined
   handle.queueTask(() => {
+    enhanced = true
+    tagDraft = ''
+    handle.update()
     // The form came back from the host with a problem: take focus to it so it is heard.
     if (handle.props.error) {
       document.querySelector<HTMLElement>('.upload [aria-invalid="true"], .upload-side-error')?.focus()
@@ -379,7 +384,39 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
     handle.update()
   }
 
+  const TAG_MAX = 40
+
+  function takeToken(raw: string) {
+    let name = raw.trim().replace(/\s+/g, ' ')
+    if (!name) {
+      tagDraft = ''
+      handle.update()
+      return
+    }
+    if (name.length > TAG_MAX) {
+      handle.update()
+      return
+    }
+    let key = name.toLocaleLowerCase()
+    if (!chosenTags.some((entry) => entry.toLocaleLowerCase() === key)) chosenTags = [...chosenTags, name]
+    tagDraft = ''
+    if (tagsInput) tagsInput.value = ''
+    handle.update()
+  }
+
+  function submitTags() {
+    let leftover = (tagsInput?.value ?? tagDraft).trim().replace(/\s+/g, ' ')
+    if (leftover && leftover.length <= TAG_MAX) {
+      let key = leftover.toLocaleLowerCase()
+      if (!chosenTags.some((entry) => entry.toLocaleLowerCase() === key)) chosenTags = [...chosenTags, leftover]
+      leftover = ''
+      tagDraft = ''
+    }
+    if (tagsInput) tagsInput.value = leftover ? [...chosenTags, leftover].join(', ') : chosenTags.join(', ')
+  }
+
   function submit(event: Event) {
+    submitTags()
     if (publishing) {
       event.preventDefault()
       return
@@ -409,7 +446,6 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
       cancelHref,
       personName,
       destinations,
-      topics,
       playlists,
       error,
       errorField,
@@ -739,31 +775,68 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
           />
           {errorFor('title')}
 
-          <fieldset class="upload-topics">
+          <fieldset class="upload-tags">
             <legend class="field-label">
-              Topics <span class="field-optional">(optional)</span>
+              Tags <span class="field-optional">(optional)</span>
             </legend>
-            <div class="upload-chips">
-              {topics.map((topic) => (
-                <label class="chip upload-chip">
-                  <input
-                    class="poster-input"
-                    type="checkbox"
-                    name="topics"
-                    value={topic.id}
-                    checked={chosenTopics.has(topic.id)}
-                    mix={[
-                      on('change', (event) => {
-                        if ((event.currentTarget as HTMLInputElement).checked) chosenTopics.add(topic.id)
-                        else chosenTopics.delete(topic.id)
-                        handle.update()
-                      }),
-                    ]}
-                  />
-                  {topic.label}
-                </label>
-              ))}
-            </div>
+            <p class="field-hint" id="upload-tags-hint">
+              Separate names with commas.
+            </p>
+            {enhanced && chosenTags.length > 0 ? (
+              <div class="upload-chips">
+                {chosenTags.map((name) => (
+                  <span class="chip upload-chip">
+                    {name}
+                    <button
+                      class="upload-chip-remove"
+                      type="button"
+                      aria-label={`Remove ${name}`}
+                      mix={[
+                        on('click', () => {
+                          chosenTags = chosenTags.filter((entry) => entry !== name)
+                          handle.update()
+                        }),
+                      ]}
+                    >
+                      <Icon name="close" size={14} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <input
+              id="upload-tags"
+              class="field"
+              type="text"
+              name="tags"
+              value={enhanced ? tagDraft : tagDraft || chosenTags.join(', ')}
+              autocomplete="off"
+              placeholder="Kids, trips"
+              aria-invalid={invalid('tags')}
+              aria-describedby={describedBy('tags', 'upload-tags-hint')}
+              mix={[
+                ref((node) => (tagsInput = node as HTMLInputElement)),
+                on('keydown', (event) => {
+                  if (event.key !== 'Enter' && event.key !== ',') return
+                  event.preventDefault()
+                  takeToken((event.currentTarget as HTMLInputElement).value)
+                }),
+                on('input', (event) => {
+                  let value = (event.currentTarget as HTMLInputElement).value
+                  if (value.includes(',')) {
+                    let parts = value.split(',')
+                    takeToken(parts[0] ?? '')
+                    tagDraft = parts.slice(1).join(',').replace(/^\s+/, '')
+                    if (tagsInput) tagsInput.value = tagDraft
+                    handle.update()
+                    return
+                  }
+                  tagDraft = value
+                  handle.update()
+                }),
+              ]}
+            />
+            {errorFor('tags')}
           </fieldset>
 
           {playlists.length > 0 ? (
