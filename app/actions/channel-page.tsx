@@ -163,7 +163,7 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
     let stats = channelStats(channel.id, person?.id)
     let list = channelVideos(channel.id, sort, person?.id)
     let canEdit = channel.kind === 'custom' && canPost(channel, person?.id)
-    let isHome = channel.kind === 'person' && person?.id === channel.id
+    let isHome = channel.kind === 'person' && canPost(channel, person?.id)
     let current: Section = channel.kind === 'custom' ? 'channels' : `channel:${channel.id}`
 
     return (
