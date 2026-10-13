@@ -4,6 +4,7 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
+import { listVisibleVideos } from '../data/catalogue.ts'
 import { personFromSession } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
 import { canWatch, getChannel, getTopic, getVideo, recordPlay, searchVideos, type ChannelSort, type Video } from '../data/library.ts'
@@ -37,7 +38,9 @@ export default createController(routes, {
     async assets(context) {
       return (await assets.fetch(context.request)) ?? new Response('Not Found', { status: 404 })
     },
-    home(context) {
+    async home(context) {
+      let person = personFromSession(context.session)
+      let videos = await listVisibleVideos(person?.id)
       let params = new URL(context.request.url).searchParams
       let query = (params.get('q') ?? '').trim().slice(0, 120)
       let topic = getTopic(params.get('topic'))?.id
@@ -46,8 +49,9 @@ export default createController(routes, {
         <HomePage
           query={query}
           topic={topic}
-          results={filtering ? searchVideos(query, topic, personFromSession(context.session)?.id) : undefined}
-          person={personFromSession(context.session)}
+          videos={videos}
+          results={videos.length > 0 && filtering ? searchVideos(query, topic, person?.id) : undefined}
+          person={person}
         />,
       )
     },

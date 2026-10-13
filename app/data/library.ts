@@ -78,9 +78,10 @@ function personChannel(person: Person): Channel {
   return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
-const folderChannels: Channel[] = [
-  { id: 'home-movies', name: 'Home Movies', kind: 'folder', path: '/media/Home Movies', hue: 214 },
-]
+const folderChannels: Channel[] =
+  process.env.NODE_ENV === 'test'
+    ? [{ id: 'home-movies', name: 'Home Movies', kind: 'folder', path: '/media/Home Movies', hue: 214 }]
+    : []
 
 function seedCustomChannels(): Channel[] {
   return [
@@ -114,13 +115,13 @@ function seedCustomChannels(): Channel[] {
   ]
 }
 
-let customChannels: Channel[] = seedCustomChannels()
+let customChannels: Channel[] = process.env.NODE_ENV === 'test' ? seedCustomChannels() : []
 
 export function getChannels(): Channel[] {
   return [...listPeople().map(personChannel), ...customChannels, ...folderChannels]
 }
 
-export const videos: Video[] = [
+const mockupVideos: Video[] = [
   { id: 'tahoe-day-2', title: 'Lake Tahoe 2025, day 2: Emerald Bay at sunset', channelId: 'mia', durationSec: 1477, addedDaysAgo: 0.2, thumb: 'tahoe.jpg', tags: ['trips'], plays: 3 },
   { id: 'no-training-wheels', title: "Leo's first ride without training wheels", channelId: 'leo', durationSec: 134, addedDaysAgo: 0.8, thumb: 'bike.jpg', tags: ['kids'], plays: 9 },
   { id: 'sourdough-4', title: 'Sourdough attempt #4 (finally got an ear)', channelId: 'tomas', durationSec: 662, addedDaysAgo: 1.4, thumb: 'bread.jpg', tags: ['cooking'], plays: 4 },
@@ -141,6 +142,8 @@ export const videos: Video[] = [
   { id: 'boss-attempt-14', title: 'Boss fight, attempt 14 (I finally got him)', channelId: 'video-games', postedBy: 'leo', durationSec: 731, addedDaysAgo: 4, thumb: 'boss-fight.jpg', tags: ['games'], plays: 8 },
   { id: 'first-place', title: 'First place out of 99, with commentary', channelId: 'video-games', postedBy: 'mia', durationSec: 389, addedDaysAgo: 13, thumb: 'tetris-win.jpg', tags: ['games'], plays: 2 },
 ]
+
+export const videos: Video[] = process.env.NODE_ENV === 'test' ? mockupVideos : []
 
 export const topics: { id: string; label: string }[] = [
   { id: 'trips', label: 'Trips' },
@@ -257,7 +260,7 @@ export function updateChannel(channel: Channel, input: ChannelInput & { removePh
 }
 
 export function resetChannels() {
-  customChannels = seedCustomChannels()
+  customChannels = process.env.NODE_ENV === 'test' ? seedCustomChannels() : []
 }
 
 export const channelLimits = { name: NAME_MAX, description: DESCRIPTION_MAX } as const
