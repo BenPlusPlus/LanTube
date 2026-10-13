@@ -174,6 +174,75 @@ export async function createPerson(
   return person
 }
 
+function recordOf(id: string): Record | undefined {
+  return records().find((entry) => entry.person.id === id)
+}
+
+/** Display name and photo may change; the slug does not. Home channel name follows the display name. */
+export async function updatePersonDetails(
+  id: string,
+  input: { name: string; photo?: string; removePhoto?: boolean },
+): Promise<Person | { error: string; field: 'name' | 'photo' }> {
+  let row = recordOf(id)
+  if (!row) return { error: 'Sign in to change your details.', field: 'name' }
+
+  let trimmed = input.name.trim().replace(/\s+/g, ' ')
+  if (trimmed.length < 1 || trimmed.length > 32) {
+    return { error: 'Use a name between 1 and 32 letters.', field: 'name' }
+  }
+  let taken = records().some(
+    (entry) =>
+      entry.person.id !== row.person.id &&
+      entry.person.name.localeCompare(trimmed, undefined, { sensitivity: 'accent' }) === 0,
+  )
+  if (taken) {
+    return { error: 'Someone in the house already uses that name.', field: 'name' }
+  }
+
+  let photo = row.person.photo
+  if (input.photo) photo = input.photo
+  else if (input.removePhoto) photo = undefined
+
+  row.person.name = trimmed
+  row.person.photo = photo
+
+  if (catalogueRecords.some((entry) => entry.person.id === row.person.id)) {
+    await db.update(people, row.person.id, { name: trimmed, photo_path: photo ?? null })
+    await db.updateMany(
+      channels,
+      { name: trimmed, photo_path: photo ?? null },
+      { where: { owner_id: row.person.id, kind: 'person' } },
+    )
+  }
+
+  return row.person
+}
+
+/** A Person may change their own password; the current password must match. */
+export async function changeOwnPassword(
+  id: string,
+  current: string,
+  next: string,
+): Promise<true | { error: string; field: 'current' | 'password' }> {
+  if (next.length < 4) {
+    return { error: 'Choose a password of at least 4 characters.', field: 'password' }
+  }
+  let row = recordOf(id)
+  if (!row) return { error: 'Sign in to change your details.', field: 'current' }
+  if (!verifyPassword(id, current)) {
+    return { error: 'That isn’t your current password. Try again.', field: 'current' }
+  }
+
+  let passwordHash = hashPassword(next)
+  row.passwordHash = passwordHash
+  delete row.password
+
+  if (catalogueRecords.some((entry) => entry.person.id === row.person.id)) {
+    await db.update(people, row.person.id, { password_hash: passwordHash })
+  }
+  return true
+}
+
 export function resetHousehold() {
   extras = []
   catalogueRecords = []

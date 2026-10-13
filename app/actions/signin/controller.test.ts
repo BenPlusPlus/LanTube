@@ -1,7 +1,7 @@
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
-import { getPerson, resetHousehold, useEmptyHouse } from '../../data/household.ts'
+import { getPerson, resetHousehold, useEmptyHouse, verifyPassword } from '../../data/household.ts'
 import { getChannel } from '../../data/library.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
@@ -402,3 +402,217 @@ describe('occupied house', () => {
     assert.match(html, /signin-btn/)
   })
 })
+
+function postDetails(fields: [string, string][], cookie?: string, file?: File) {
+  let body = new FormData()
+  for (let [key, value] of fields) body.append(key, value)
+  if (file) body.set('photo', file)
+  return router.fetch(
+    new Request(new URL(routes.details.action.href(), 'http://localhost'), {
+      method: 'POST',
+      headers: cookie ? { Cookie: cookie } : undefined,
+      body,
+      redirect: 'manual',
+    }),
+  )
+}
+
+const png = new File(
+  [Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')],
+  'me.png',
+  { type: 'image/png' },
+)
+
+describe('your details', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  async function joinFirst() {
+    await useEmptyHouse()
+    return postSignin('intent=join&name=Sam&password=lantern&confirm=lantern')
+  }
+
+  it('redirects signed-out visitors to sign-in', async () => {
+    let { response } = await get(routes.details.index.href())
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), routes.signin.index.href())
+  })
+
+  it('offers Your details in the account menu for every signed-in Person', async () => {
+    let first = await joinFirst()
+    let later = await postSignin('intent=join&name=Alex&password=lantern&confirm=lantern')
+    let admin = await get(routes.home.href(), cookieFrom(first))
+    let member = await get(routes.home.href(), cookieFrom(later))
+
+    assert.match(admin.html, /class="account-menu-item"[^>]*>Your details</)
+    assert.match(admin.html, /class="account-menu-item"[^>]*>House</)
+    assert.match(member.html, /class="account-menu-item"[^>]*>Your details</)
+    assert.match(member.html, /href="\/details"/)
+    assert.doesNotMatch(member.html, /class="account-menu-item"[^>]*>House</)
+    assert.doesNotMatch(admin.html, /Your account/)
+    assert.doesNotMatch(member.html, /Your account/)
+  })
+
+  it('shows the signed-in Person’s name, photo well, read-only slug, and password fields', async () => {
+    let first = await joinFirst()
+    let { response, html } = await get(routes.details.index.href(), cookieFrom(first))
+
+    assert.equal(response.status, 200)
+    assert.match(html, /<title>Your details/)
+    assert.match(html, /<h1[^>]*class="page-title"[^>]*>Your details<\/h1>/)
+    assert.match(html, /id="details-name"[^>]*value="Sam"|value="Sam"[^>]*id="details-name"/)
+    assert.match(html, /\/channel\/sam/)
+    assert.match(html, /id="details-photo"/)
+    assert.match(html, /id="details-current"/)
+    assert.match(html, /id="details-password"/)
+    assert.match(html, /id="details-confirm"/)
+    assert.doesNotMatch(html, /Your account/)
+    assert.doesNotMatch(html, /name="person"/)
+  })
+
+  it('keeps showing the signed-in Person when a person query is present', async () => {
+    let first = await joinFirst()
+    let later = await postSignin('intent=join&name=Alex&password=lantern&confirm=lantern')
+    let { html } = await get(`${routes.details.index.href()}?person=sam`, cookieFrom(later))
+
+    assert.match(html, /id="details-name"[^>]*value="Alex"|value="Alex"[^>]*id="details-name"/)
+    assert.doesNotMatch(html, /value="Sam"/)
+  })
+
+  it('updates the display name, keeps the Home channel in lockstep, and leaves the slug', async () => {
+    let first = await joinFirst()
+    let cookie = cookieFrom(first)
+    let personId = (await sessionFrom(first)).get('personId') as string
+
+    let response = await postDetails(
+      [
+        ['intent', 'details'],
+        ['name', 'Samantha'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), routes.details.index.href())
+
+    let person = getPerson(personId)
+    assert.ok(person)
+    assert.equal(person.name, 'Samantha')
+    assert.equal(person.slug, 'sam')
+
+    let home = getChannel('sam')
+    assert.ok(home)
+    assert.equal(home.kind, 'person')
+    assert.equal(home.name, 'Samantha')
+    assert.equal(home.id, 'sam')
+
+    let { html } = await get(routes.details.index.href(), cookie)
+    assert.match(html, /account-name">Samantha</)
+    assert.match(html, /id="details-name"[^>]*value="Samantha"|value="Samantha"[^>]*id="details-name"/)
+    assert.match(html, /\/channel\/sam/)
+
+    let channel = await get(routes.channel.href({ channelId: 'sam' }), cookie)
+    assert.match(channel.html, /<h1 class="chhead-name">Samantha<\/h1>/)
+  })
+
+  it('stores a new photo on the Person and Home channel', async () => {
+    let first = await joinFirst()
+    let cookie = cookieFrom(first)
+    let personId = (await sessionFrom(first)).get('personId') as string
+
+    let response = await postDetails(
+      [
+        ['intent', 'details'],
+        ['name', 'Sam'],
+      ],
+      cookie,
+      png,
+    )
+    assert.equal(response.status, 303)
+
+    let person = getPerson(personId)
+    assert.ok(person?.photo)
+    assert.match(person.photo, /^data:image\/png;base64,/)
+    assert.equal(getChannel('sam')?.photo, person.photo)
+
+    let { html } = await get(routes.details.index.href(), cookie)
+    assert.match(html, /class="avatar-photo"/)
+    assert.match(html, /src="data:image\/png;base64,/)
+  })
+
+  it('changes the stored hash only when current, new, and confirm match', async () => {
+    let first = await joinFirst()
+    let cookie = cookieFrom(first)
+    let personId = (await sessionFrom(first)).get('personId') as string
+
+    let mismatch = await postDetails(
+      [
+        ['intent', 'password'],
+        ['current', 'lantern'],
+        ['password', 'lantern2'],
+        ['confirm', 'lantern3'],
+      ],
+      cookie,
+    )
+    assert.equal(mismatch.status, 400)
+    assert.match(await mismatch.text(), /Those passwords don’t match/)
+    assert.equal(verifyPassword(personId, 'lantern'), true)
+
+    let wrong = await postDetails(
+      [
+        ['intent', 'password'],
+        ['current', 'nope'],
+        ['password', 'lantern2'],
+        ['confirm', 'lantern2'],
+      ],
+      cookie,
+    )
+    assert.equal(wrong.status, 400)
+    assert.match(await wrong.text(), /That isn’t your current password/)
+    assert.equal(verifyPassword(personId, 'lantern'), true)
+
+    let changed = await postDetails(
+      [
+        ['intent', 'password'],
+        ['current', 'lantern'],
+        ['password', 'lantern2'],
+        ['confirm', 'lantern2'],
+      ],
+      cookie,
+    )
+    assert.equal(changed.status, 303)
+    assert.equal(verifyPassword(personId, 'lantern'), false)
+    assert.equal(verifyPassword(personId, 'lantern2'), true)
+
+    let login = await postSignin(`intent=signin&personId=${encodeURIComponent(personId)}&password=lantern2`)
+    assert.equal(login.status, 303)
+    assert.equal(login.headers.get('Location'), routes.home.href())
+  })
+
+  it('rejects a display name already used in the house', async () => {
+    await joinFirst()
+    let later = await postSignin('intent=join&name=Alex&password=lantern&confirm=lantern')
+    let response = await postDetails(
+      [
+        ['intent', 'details'],
+        ['name', 'Sam'],
+      ],
+      cookieFrom(later),
+    )
+
+    assert.equal(response.status, 400)
+    assert.match(await response.text(), /Someone in the house already uses that name/)
+    assert.equal(getPerson((await sessionFrom(later)).get('personId') as string)?.name, 'Alex')
+  })
+
+  it('redirects a signed-out POST to sign-in', async () => {
+    let response = await postDetails([
+      ['intent', 'details'],
+      ['name', 'Sam'],
+    ])
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), routes.signin.index.href())
+  })
+})
+
