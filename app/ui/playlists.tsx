@@ -54,7 +54,7 @@ export function PlaylistCover(handle: Handle<{ playlist: Playlist; size?: 'md' |
   }
 }
 
-/** "Private" with its lock, or "Public". Never coloured: privacy is a fact, not a warning. */
+/** Private with a lock, or Everyone in the house. Never coloured: privacy is a fact, not a warning. */
 export function VisibilityLabel(handle: Handle<{ playlist: Playlist }>) {
   return () =>
     handle.props.playlist.visibility === 'private' ? (
@@ -63,6 +63,6 @@ export function VisibilityLabel(handle: Handle<{ playlist: Playlist }>) {
         Private
       </span>
     ) : (
-      <span class="pvis">Public</span>
+      <span class="pvis">Everyone in the house</span>
     )
 }

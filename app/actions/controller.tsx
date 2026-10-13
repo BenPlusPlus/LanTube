@@ -229,7 +229,7 @@ export default createController(routes, {
       }
       return context.render(<PlaylistPage playlist={playlist} person={person} />)
     },
-    playlistItems(context) {
+    async playlistItems(context) {
       let form = context.formData
       let quiet = form.get('async') === '1'
       let result = playlistAccess(context.params.playlistId, personFromSession(context.session))
@@ -241,10 +241,10 @@ export default createController(routes, {
       let videoId = form.get('videoId')
       let intent = form.get('intent')
       if (typeof videoId !== 'string' || !watchable(videoId, result.person?.id)) return new Response('Bad Request', { status: 400 })
-      if (intent === 'add') addVideo(playlist, videoId)
-      else if (intent === 'remove') removeVideo(playlist, videoId)
-      else if (intent === 'up') moveVideo(playlist, videoId, -1)
-      else if (intent === 'down') moveVideo(playlist, videoId, 1)
+      if (intent === 'add') await addVideo(playlist, videoId)
+      else if (intent === 'remove') await removeVideo(playlist, videoId)
+      else if (intent === 'up') await moveVideo(playlist, videoId, -1)
+      else if (intent === 'down') await moveVideo(playlist, videoId, 1)
       else return new Response('Bad Request', { status: 400 })
       if (quiet) return new Response(null, { status: 204 })
       return redirect(safeReturn(form.get('returnTo')) ?? routes.playlist.href({ playlistId: playlist.id }), 303)

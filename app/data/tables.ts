@@ -87,3 +87,29 @@ export const channelManagers = table({
     person_id: c.uuid().notNull(),
   },
 })
+
+export const playlists = table({
+  name: 'playlists',
+  columns: {
+    id: c.uuid().primaryKey(),
+    slug: c.text().notNull().unique(),
+    name: c.text().notNull(),
+    owner_id: c.uuid().notNull(),
+    visibility: c.text().notNull(),
+    description: c.text().nullable(),
+    activity_kind: c.text().notNull(),
+    activity_at: c.timestamp({ withTimezone: true }).notNull(),
+    activity_video_ids: c.text().notNull().default(''),
+    created_at: c.timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+})
+
+export const playlistVideos = table({
+  name: 'playlist_videos',
+  primaryKey: ['playlist_id', 'video_id'],
+  columns: {
+    playlist_id: c.uuid().notNull(),
+    video_id: c.uuid().notNull(),
+    position: c.integer().notNull(),
+  },
+})

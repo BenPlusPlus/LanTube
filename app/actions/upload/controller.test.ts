@@ -297,7 +297,7 @@ describe('publishing', () => {
     let id = videoIdFrom(response)
     let playlist = getPlaylist('twice-best-stages')
     assert.ok(playlist)
-    addVideo(playlist, id)
+    await addVideo(playlist, id)
 
     let tomas = await signIn('tomas')
     let page = await get(routes.playlist.href({ playlistId: playlist.id }), tomas)

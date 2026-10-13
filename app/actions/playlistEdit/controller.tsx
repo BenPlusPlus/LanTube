@@ -24,7 +24,7 @@ export default createController(routes.playlistEdit, {
         />,
       )
     },
-    action(context) {
+    async action(context) {
       let result = playlistAccess(context.params.playlistId, personFromSession(context.session))
       if ('status' in result) {
         return context.render(<NotBuiltPage current="playlists" title={result.title} detail={result.detail} person={result.person} />, { status: result.status })
@@ -44,12 +44,12 @@ export default createController(routes.playlistEdit, {
             { status: 400 },
           )
         }
-        deletePlaylist(playlist)
+        await deletePlaylist(playlist)
         return redirect(routes.playlists.href(), 303)
       }
 
       let values = readPlaylistForm(context.formData)
-      let updated = updatePlaylist(playlist, values)
+      let updated = await updatePlaylist(playlist, values)
       if ('error' in updated) {
         return context.render(
           <PlaylistFormPage person={person} playlist={playlist} values={values} error={updated.error} errorField={updated.field} />,
