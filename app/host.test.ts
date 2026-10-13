@@ -101,10 +101,15 @@ describe('host start', () => {
     )
   })
 
-  it('leaves People, Videos, and Folders empty after migrate', async () => {
+  it('does not insert People, Videos, or Folders when applying migrations', async () => {
+    let before = {
+      people: await db.count(people),
+      videos: await db.count(videos),
+      folders: await db.count(channels, { where: { kind: 'folder' } }),
+    }
     await prepareHost()
-    assert.equal(await db.count(people), 0)
-    assert.equal(await db.count(videos), 0)
-    assert.equal(await db.count(channels, { where: { kind: 'folder' } }), 0)
+    assert.equal(await db.count(people), before.people)
+    assert.equal(await db.count(videos), before.videos)
+    assert.equal(await db.count(channels, { where: { kind: 'folder' } }), before.folders)
   })
 })

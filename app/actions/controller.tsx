@@ -5,7 +5,7 @@ import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
 import { listVisibleVideos } from '../data/catalogue.ts'
-import { personFromSession } from '../data/household.ts'
+import { listPeople, personFromSession } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
 import { canWatch, getChannel, getTopic, getVideo, recordPlay, searchVideos, type ChannelSort, type Video } from '../data/library.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
@@ -15,6 +15,7 @@ import { ChannelPage } from './channel-page.tsx'
 import { ChannelsPage } from './channels-page.tsx'
 import { HistoryPage } from './history-page.tsx'
 import { HomePage } from './home-page.tsx'
+import { HouseForbidden, HousePage } from './house-page.tsx'
 import { NotBuiltPage } from './not-built-page.tsx'
 import { getStaged, posterPathFor, stageUpload, UploadTooLargeError } from '../data/uploads.ts'
 import { playlistAccess } from './playlist-access.ts'
@@ -191,6 +192,14 @@ export default createController(routes, {
     signout(context) {
       context.session.destroy()
       return redirect(routes.home.href(), 303)
+    },
+    house(context) {
+      let person = personFromSession(context.session)
+      if (!person) return redirect(routes.signin.index.href(), 303)
+      if (!person.isAdmin) {
+        return context.render(<HouseForbidden person={person} />, { status: 403 })
+      }
+      return context.render(<HousePage person={person} people={listPeople()} />)
     },
   },
 })
