@@ -164,16 +164,25 @@ export async function insertUploadedVideo(input: {
   return { id, slug: input.slug }
 }
 
-export async function saveVideoVisibility(
-  slug: string,
-  visibility: 'house' | 'private',
-  audienceIds: string[],
-): Promise<boolean> {
-  let row = await db.findOne(videos, { where: { slug } })
+export async function saveUploadedVideo(input: {
+  slug: string
+  title: string
+  visibility: 'house' | 'private'
+  audienceIds: string[]
+  tagIds: string[]
+}): Promise<boolean> {
+  let row = await db.findOne(videos, { where: { slug: input.slug } })
   if (!row) return false
-  let named = visibility === 'private' ? audienceIds : []
+  let named = input.visibility === 'private' ? input.audienceIds : []
   await db.transaction(async (tx) => {
-    await tx.update(videos, row.id, { visibility })
+    await tx.update(videos, row.id, { title: input.title, visibility: input.visibility })
+    await tx.deleteMany(videoTags, { where: { video_id: row.id } })
+    if (input.tagIds.length) {
+      await tx.createMany(
+        videoTags,
+        input.tagIds.map((tagId) => ({ video_id: row.id, tag_id: tagId })),
+      )
+    }
     await tx.deleteMany(videoAudience, { where: { video_id: row.id } })
     if (named.length) {
       await tx.createMany(
