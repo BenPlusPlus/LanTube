@@ -25,7 +25,7 @@ export interface ChannelFormPageProps {
 }
 
 function asChannel(person: Person): Channel {
-  return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
+  return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
 /** What an unsigned visitor sees on /channels/new: why, and the one way forward. */

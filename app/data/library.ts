@@ -75,7 +75,7 @@ export function deleteVideo(id: string) {
 }
 
 function personChannel(person: Person): Channel {
-  return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
+  return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
 const folderChannels: Channel[] =
@@ -177,7 +177,10 @@ export function channelsFor(personId: string): { runs: Channel[]; postsTo: Chann
 
 export function canPost(channel: Channel, personId: string | undefined): boolean {
   if (!personId) return false
-  if (channel.kind === 'person') return channel.id === personId
+  if (channel.kind === 'person') {
+    let person = getHouseholdPerson(personId)
+    return person != null && channel.id === person.slug
+  }
   if (channel.kind === 'custom') return channel.ownerId === personId || (channel.posterIds?.includes(personId) ?? false)
   return false
 }

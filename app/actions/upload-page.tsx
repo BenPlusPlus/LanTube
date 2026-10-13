@@ -36,7 +36,7 @@ export function SignInToUpload() {
 }
 
 function roleFor(channel: Channel, person: Person, runs: Set<string>): string {
-  if (channel.id === person.id) return 'Your channel'
+  if (channel.id === person.slug) return 'Your channel'
   if (runs.has(channel.id)) return 'You run it'
   let owner = channel.ownerId ? getPerson(channel.ownerId) : undefined
   return owner ? `${owner.name}’s` : 'You post here'
@@ -50,7 +50,7 @@ function destinationOf(channel: Channel, person: Person, runs: Set<string>): Upl
     hue: channel.hue,
     photo: channel.photo,
     role: roleFor(channel, person, runs),
-    home: channel.id === person.id,
+    home: channel.id === person.slug,
     recent: channelVideos(channel.id, 'latest', person.id)
       .slice(0, 2)
       .map((video) => ({
@@ -66,7 +66,7 @@ function destinationOf(channel: Channel, person: Person, runs: Set<string>): Upl
 /** Where a fresh upload page points: the channel asked for, if they can post there, else their own. */
 export function defaultUploadValues(person: Person, requested: string | null): UploadFormValues {
   let channels = destinationsFor(person.id)
-  let channelId = channels.find((channel) => channel.id === requested)?.id ?? channels[0]?.id ?? person.id
+  let channelId = channels.find((channel) => channel.id === requested)?.id ?? channels[0]?.id ?? person.slug
   return { channelId, title: '', topics: [], playlistId: '', visibility: 'house', uploadId: '', durationSec: 0 }
 }
 
@@ -77,7 +77,7 @@ export function UploadPage(handle: Handle<UploadPageProps>) {
     let { person, values, staged, error, errorField } = handle.props
     let runs = new Set(channelsFor(person.id).runs.map((channel) => channel.id))
     let destinations = destinationsFor(person.id).map((channel) => destinationOf(channel, person, runs))
-    let cancel = values.channelId === person.id ? routes.home.href() : routes.channel.href({ channelId: values.channelId })
+    let cancel = values.channelId === person.slug ? routes.home.href() : routes.channel.href({ channelId: values.channelId })
 
     return (
       <AppShell current="upload" title="Upload a video" person={person}>
