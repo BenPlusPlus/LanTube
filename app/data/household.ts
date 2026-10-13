@@ -6,7 +6,7 @@ import { db } from '../db.ts'
 import { hueFor, slugify } from '../ui/public/identity.ts'
 import { hashPassword, verifyPasswordHash } from './password.ts'
 import { resetCatalogueTags } from './tags.ts'
-import { channels, people, tags, videoAudience, videoTags, videos } from './tables.ts'
+import { channelManagers, channels, people, tags, videoAudience, videoTags, videos } from './tables.ts'
 
 export interface Person {
   id: string
@@ -252,6 +252,7 @@ export async function useEmptyHouse() {
   await db.deleteMany(videoTags, { where: notNull(videoTags.video_id) })
   await db.deleteMany(videoAudience, { where: notNull(videoAudience.video_id) })
   await db.deleteMany(videos, { where: notNull(videos.id) })
+  await db.deleteMany(channelManagers, { where: notNull(channelManagers.channel_id) })
   await db.deleteMany(channels, { where: notNull(channels.id) })
   await db.deleteMany(people, { where: notNull(people.id) })
   await db.deleteMany(tags, { where: notNull(tags.id) })

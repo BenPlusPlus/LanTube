@@ -35,20 +35,20 @@ function listNames(names: string[]) {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
-/** Who stands behind a row: a custom channel's runner and posters, or what a person runs. */
+/** Who stands behind a row: a custom channel's runner and Managers, or what a person runs. */
 function RowPeople(handle: Handle<{ channel: Channel }>) {
   return () => {
     let { channel } = handle.props
     if (channel.kind === 'custom') {
       let owner = channel.ownerId ? getChannel(channel.ownerId) : undefined
-      let posters = (channel.posterIds ?? []).map((id) => getChannel(id)?.name).filter((name): name is string => !!name)
+      let managers = (channel.managerIds ?? []).map((id) => getChannel(id)?.name).filter((name): name is string => !!name)
       if (!owner) return null
       return (
         <p class="chrow-people">
           <Avatar channel={owner} size="sm" />
           <span>
             Run by {owner.name}
-            {posters.length > 0 ? <span class="chrow-with"> with {listNames(posters)}</span> : null}
+            {managers.length > 0 ? <span class="chrow-with"> · Managers {listNames(managers)}</span> : null}
           </span>
         </p>
       )
@@ -60,7 +60,7 @@ function RowPeople(handle: Handle<{ channel: Channel }>) {
         <p class="chrow-people chrow-people-plain">
           {runs.length > 0 ? `Runs ${listNames(runs.map((c) => c.name))}` : null}
           {runs.length > 0 && postsTo.length > 0 ? ' · ' : null}
-          {postsTo.length > 0 ? `Posts to ${listNames(postsTo.map((c) => c.name))}` : null}
+          {postsTo.length > 0 ? `Manages ${listNames(postsTo.map((c) => c.name))}` : null}
         </p>
       )
     }
@@ -183,7 +183,7 @@ export function ChannelsPage(handle: Handle<ChannelsPageProps>) {
             <div class="chlist-empty">
               <p>
                 Nobody has started one yet. A channel collects videos about one thing, like a band, a hobby, or a game, and its
-                owner picks who can post.
+                owner names Managers.
               </p>
               <a class="btn btn-secondary" href={newHref}>
                 <Icon name="plus" size={20} />

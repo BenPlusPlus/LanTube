@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 
-import type { Person } from '../data/household.ts'
+import { getPerson, type Person } from '../data/household.ts'
 import type { Channel, Video } from '../data/library.ts'
 import {
   channelStats,
@@ -174,7 +174,8 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
     let playable = media?.exists === true
     let expectedFile = media?.displayPath ?? video.file ?? `${video.id}.mp4`
     let here = list ? watchInList(video.id, list.id) : routes.watch.href({ videoId: video.id })
-    let others = people.filter((other) => other.id !== person?.id)
+    let videoOwner = (video.postedBy ? getPerson(video.postedBy) : undefined) ?? person
+    let others = people.filter((other) => other.id !== video.postedBy)
     let edit = handle.props.edit ?? {
       title: video.title,
       tags: tagsInUse([video]).map((tag) => tag.name),
@@ -342,13 +343,17 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                     </label>
                   </div>
                   <div class="audience-picker">
-                    <p class="field-hint">You can always see it. Pick anyone else in the house.</p>
+                    <p class="field-hint">
+                      {videoOwner && videoOwner.id === person.id
+                        ? 'You can always see it. Pick anyone else in the house.'
+                        : `${videoOwner?.name ?? 'The Video owner'} can always see it. Pick anyone else in the house.`}
+                    </p>
                     <ul class="poster-list">
                       <li>
                         <span class="poster poster-owner">
-                          <Avatar channel={asChannel(person)} size="md" />
-                          <span class="poster-name">{person.name}</span>
-                          <span class="poster-role">You · owner</span>
+                          <Avatar channel={asChannel(videoOwner ?? person)} size="md" />
+                          <span class="poster-name">{videoOwner?.name ?? person.name}</span>
+                          <span class="poster-role">{videoOwner?.id === person.id ? 'You · owner' : 'Owner'}</span>
                         </span>
                       </li>
                       {others.map((other) => (

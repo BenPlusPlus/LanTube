@@ -78,3 +78,12 @@ export const videoAudience = table({
     person_id: c.uuid().notNull(),
   },
 })
+
+export const channelManagers = table({
+  name: 'channel_managers',
+  primaryKey: ['channel_id', 'person_id'],
+  columns: {
+    channel_id: c.uuid().notNull(),
+    person_id: c.uuid().notNull(),
+  },
+})
