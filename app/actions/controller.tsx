@@ -4,7 +4,7 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
-import { listVisibleVideos, saveVideoVisibility } from '../data/catalogue.ts'
+import { listVisibleVideos, saveUploadedVideo } from '../data/catalogue.ts'
 import { listPeople, personFromSession } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
 import {
@@ -19,6 +19,8 @@ import {
 } from '../data/library.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 import { addVideo, canSee, getPlaylist, moveVideo, removeVideo } from '../data/playlists.ts'
+import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
+import { getStaged, posterPathFor, stageUpload, UploadTooLargeError, uploadLimits } from '../data/uploads.ts'
 import { routes } from '../routes.ts'
 import { ChannelPage } from './channel-page.tsx'
 import { ChannelsPage } from './channels-page.tsx'
@@ -26,7 +28,6 @@ import { HistoryPage } from './history-page.tsx'
 import { HomePage } from './home-page.tsx'
 import { HouseForbidden, HousePage } from './house-page.tsx'
 import { NotBuiltPage } from './not-built-page.tsx'
-import { getStaged, posterPathFor, stageUpload, UploadTooLargeError } from '../data/uploads.ts'
 import { playlistAccess } from './playlist-access.ts'
 import { PlaylistPage } from './playlist-page.tsx'
 import { PlaylistsPage } from './playlists-page.tsx'
@@ -78,6 +79,7 @@ export default createController(routes, {
       let listId = new URL(context.request.url).searchParams.get('list')
       let list = listId ? getPlaylist(listId) : undefined
       if (list && (!canSee(list, person?.id) || !list.videoIds.includes(video.id))) list = undefined
+      let channel = getChannel(video.channelId)
       return context.render(
         <WatchPage
           video={video}
@@ -86,10 +88,11 @@ export default createController(routes, {
           person={person}
           people={listPeople()}
           list={list}
+          canEdit={Boolean(person && video.postedBy === person.id && channel?.kind !== 'folder')}
         />,
       )
     },
-    async watchVisibility(context) {
+    async watchSave(context) {
       let person = personFromSession(context.session)
       let video = watchable(context.params.videoId, person?.id)
       if (!video) {
@@ -103,6 +106,9 @@ export default createController(routes, {
         return new Response('Forbidden', { status: 403 })
       }
       let form = context.formData
+      let rawTitle = form.get('title')
+      let title = typeof rawTitle === 'string' ? rawTitle.trim().replace(/\s+/g, ' ') : ''
+      let parsed = parseTagNames(form.getAll('tags').filter((value): value is string => typeof value === 'string'))
       let visibility: 'house' | 'private' = form.get('visibility') === 'private' ? 'private' : 'house'
       let audienceIds =
         visibility === 'private'
@@ -111,6 +117,48 @@ export default createController(routes, {
               form.getAll('audience').filter((value): value is string => typeof value === 'string'),
             )
           : []
+      let edit = {
+        title: typeof rawTitle === 'string' ? rawTitle : '',
+        tags: parsed.names,
+        tagDraft: parsed.leftover,
+        visibility,
+        audienceIds,
+      }
+      let fail = (error: string, errorField: 'title' | 'tags') =>
+        context.render(
+          <WatchPage
+            video={video}
+            media={mediaFileFor(video)}
+            theater={/(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')}
+            person={person}
+            people={listPeople()}
+            canEdit
+            edit={edit}
+            error={error}
+            errorField={errorField}
+          />,
+          { status: 400 },
+        )
+      if (title.length < 1 || title.length > uploadLimits.title) {
+        return fail(`Give the video a title between 1 and ${uploadLimits.title} characters.`, 'title')
+      }
+      if (parsed.error) return fail(parsed.error, 'tags')
+      let tagRows = await findOrCreateTags(parsed.names)
+      let saved = await saveUploadedVideo({
+        slug: video.id,
+        title,
+        visibility,
+        audienceIds,
+        tagIds: tagRows.map((tag) => tag.id),
+      })
+      if (!saved) {
+        return context.render(
+          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
+          { status: 404 },
+        )
+      }
+      video.title = title
+      video.tags = tagRows.map((tag) => tag.slug)
       if (visibility === 'private') {
         video.private = true
         video.audience = audienceIds
@@ -118,7 +166,6 @@ export default createController(routes, {
         video.private = undefined
         video.audience = undefined
       }
-      await saveVideoVisibility(video.id, visibility, audienceIds)
       return redirect(routes.watch.href({ videoId: video.id }), 303)
     },
     async media(context) {
