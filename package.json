@@ -14,10 +14,12 @@
     "node": ">=24.3.0"
   },
   "dependencies": {
+    "pg": "^8.23.1",
     "remix": "^3.0.0"
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/pg": "^8.23.1",
     "typescript": "latest"
   }
 }
