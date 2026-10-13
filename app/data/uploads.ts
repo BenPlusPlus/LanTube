@@ -6,7 +6,16 @@ import { pipeline } from 'node:stream/promises'
 
 import { insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
 import { slugify } from './household.ts'
-import { addUploadedVideo, canPost, channelsFor, getChannel, getVideo, type Channel, type Video } from './library.ts'
+import {
+  addUploadedVideo,
+  canPost,
+  channelsFor,
+  getChannel,
+  getVideo,
+  namedAudience,
+  type Channel,
+  type Video,
+} from './library.ts'
 import { findOrCreateTags, parseTagNames } from './tags.ts'
 import { mediaDir, videoExtensions } from './media.ts'
 import { addVideo, getPlaylist } from './playlists.ts'
@@ -140,6 +149,7 @@ export interface UploadInput {
   tags: string[]
   playlistId: string
   visibility: UploadVisibility
+  audienceIds: string[]
   durationSec: number
   /** A JPEG still picked in the browser. */
   poster?: Blob
@@ -221,6 +231,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
   }
 
   let duration = Number.isFinite(input.durationSec) ? Math.round(Math.min(Math.max(input.durationSec, 0), 86_400)) : 0
+  let audienceIds = input.visibility === 'private' ? namedAudience(personId, input.audienceIds ?? []) : []
   let video = addUploadedVideo({
     id,
     title,
@@ -231,6 +242,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     file: relative,
     postedBy: personId,
     private: input.visibility === 'private' ? true : undefined,
+    audience: input.visibility === 'private' ? audienceIds : undefined,
   })
   await insertUploadedVideo({
     slug: id,
@@ -242,6 +254,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     posterPath: thumb || null,
     visibility: input.visibility,
     tagIds: tagRows.map((tag) => tag.id),
+    audienceIds,
   })
   if (playlist) addVideo(playlist, video.id)
   return { video }

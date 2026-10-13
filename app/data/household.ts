@@ -6,7 +6,7 @@ import { db } from '../db.ts'
 import { hueFor, slugify } from '../ui/public/identity.ts'
 import { hashPassword, verifyPasswordHash } from './password.ts'
 import { resetCatalogueTags } from './tags.ts'
-import { channels, people, tags, videoTags, videos } from './tables.ts'
+import { channels, people, tags, videoAudience, videoTags, videos } from './tables.ts'
 
 export interface Person {
   id: string
@@ -70,6 +70,10 @@ export function listPeople(): Person[] {
 
 export function getPerson(id: string): Person | undefined {
   return records().find((row) => row.person.id === id || row.person.slug === id)?.person
+}
+
+export function isParent(personId: string | undefined | null): boolean {
+  return personId != null && getPerson(personId)?.isParent === true
 }
 
 export function personFromSession(session: { get(key: string): unknown }): Person | null {
@@ -246,6 +250,7 @@ export async function useEmptyHouse() {
   catalogueRecords = []
   includeMockup = false
   await db.deleteMany(videoTags, { where: notNull(videoTags.video_id) })
+  await db.deleteMany(videoAudience, { where: notNull(videoAudience.video_id) })
   await db.deleteMany(videos, { where: notNull(videos.id) })
   await db.deleteMany(channels, { where: notNull(channels.id) })
   await db.deleteMany(people, { where: notNull(people.id) })
