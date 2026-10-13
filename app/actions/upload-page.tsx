@@ -93,7 +93,6 @@ export function UploadPage(handle: Handle<UploadPageProps>) {
             fileAction={routes.uploadFile.href()}
             stagedBase={`${routes.uploadFile.href()}/`}
             cancelHref={cancel}
-            personName={person.name}
             person={person}
             people={listPeople()}
             destinations={destinations}

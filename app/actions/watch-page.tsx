@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
 
 import type { Person } from '../data/household.ts'
-import type { Video } from '../data/library.ts'
+import type { Channel, Video } from '../data/library.ts'
 import {
   channelStats,
   formatAdded,
@@ -24,7 +24,6 @@ import { ownerOf, watchInList } from '../ui/playlists.tsx'
 import { AppShell } from '../ui/shell.tsx'
 import { Player } from './public/player.tsx'
 import { SaveMenu } from './public/save-menu.tsx'
-import { WatchVisibility } from './public/watch-visibility.tsx'
 
 export interface WatchPageProps {
   video: Video
@@ -37,6 +36,10 @@ export interface WatchPageProps {
 }
 
 const longDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' })
+
+function asChannel(person: Person): Channel {
+  return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
+}
 
 function RelatedCard(handle: Handle<{ video: Video; viewerId?: string }>) {
   return () => {
@@ -157,6 +160,8 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
     let playable = media?.exists === true
     let expectedFile = media?.displayPath ?? video.file ?? `${video.id}.mp4`
     let here = list ? watchInList(video.id, list.id) : routes.watch.href({ videoId: video.id })
+    let others = people.filter((other) => other.id !== person?.id)
+    let audienceIds = video.audience ?? []
 
     return (
       <AppShell current={null} title={video.title} person={person} layout="watch">
@@ -257,13 +262,67 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               {isFolder && channel.path ? <p class="watch-source">Indexed from {channel.path}</p> : null}
             </div>
             {person && video.postedBy === person.id && !isFolder ? (
-              <WatchVisibility
-                action={routes.watchVisibility.href({ videoId: video.id })}
-                person={person}
-                people={people}
-                visibility={video.private ? 'private' : 'house'}
-                audienceIds={video.audience ?? []}
-              />
+              <form class="watch-access" method="post" action={routes.watchVisibility.href({ videoId: video.id })}>
+                <fieldset class="chform-posters upload-who">
+                  <legend class="field-label">Who can see it</legend>
+                  <div class="pvis-options">
+                    <label class="poster pvis-option">
+                      <input class="poster-input" type="radio" name="visibility" value="house" checked={!video.private} />
+                      <Icon name="channels" size={20} />
+                      <span class="pvis-option-text">
+                        <span class="poster-name">Everyone in the house</span>
+                        <span class="poster-role">On Home and on the channel</span>
+                      </span>
+                      <span class="radio" aria-hidden="true" />
+                    </label>
+                    <label class="poster pvis-option">
+                      <input class="poster-input" type="radio" name="visibility" value="private" checked={!!video.private} />
+                      <Icon name="lock" size={20} />
+                      <span class="pvis-option-text">
+                        <span class="poster-name">Private</span>
+                        <span class="poster-role">You choose who else can see it</span>
+                      </span>
+                      <span class="radio" aria-hidden="true" />
+                    </label>
+                  </div>
+                  <div class="audience-picker">
+                    <p class="field-hint">You can always see it. Pick anyone else in the house.</p>
+                    <ul class="poster-list">
+                      <li>
+                        <span class="poster poster-owner">
+                          <Avatar channel={asChannel(person)} size="md" />
+                          <span class="poster-name">{person.name}</span>
+                          <span class="poster-role">You · owner</span>
+                        </span>
+                      </li>
+                      {others.map((other) => (
+                        <li>
+                          <label class="poster">
+                            <input
+                              class="poster-input"
+                              type="checkbox"
+                              name="audience"
+                              value={other.id}
+                              checked={audienceIds.includes(other.id)}
+                            />
+                            <Avatar channel={asChannel(other)} size="md" />
+                            <span class="poster-name">{other.name}</span>
+                            <span class="check" aria-hidden="true">
+                              <Icon name="check" size={14} />
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    {others.length === 0 ? <p class="field-hint">Nobody else has joined the house yet.</p> : null}
+                  </div>
+                </fieldset>
+                <div class="chform-actions">
+                  <button class="btn btn-primary" type="submit">
+                    Save
+                  </button>
+                </div>
+              </form>
             ) : null}
           </section>
 

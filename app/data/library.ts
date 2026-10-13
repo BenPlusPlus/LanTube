@@ -59,16 +59,6 @@ export function namedAudience(ownerId: string, ids: Iterable<string>): string[] 
   return [...new Set(ids)].filter((id) => id !== ownerId && known.has(id))
 }
 
-export function setVideoAccess(video: Video, visibility: 'house' | 'private', audienceIds: string[]) {
-  if (visibility === 'private') {
-    video.private = true
-    video.audience = audienceIds
-  } else {
-    video.private = undefined
-    video.audience = undefined
-  }
-}
-
 /** Seeded thumbs live in public/thumbs; uploads carry their own path; some videos have none yet. */
 export function thumbUrl(video: Pick<Video, 'thumb'>): string | null {
   if (!video.thumb) return null

@@ -814,7 +814,8 @@ describe('private Video with Audience', () => {
     let ownerWatch = await get(routes.watch.href({ videoId: slug }), ownerCookie)
     assert.equal(ownerWatch.response.status, 200)
     assert.match(ownerWatch.html, /Everyone in the house/)
-    assert.doesNotMatch(ownerWatch.html, /name="audience"/)
+    assert.match(ownerWatch.html, /value="house"[^>]*checked|checked[^>]*value="house"/)
+    assert.match(ownerWatch.html, /name="audience"/)
     assert.doesNotMatch(ownerWatch.html, /Only me/)
 
     let unsignedHome = await get(routes.home.href())
