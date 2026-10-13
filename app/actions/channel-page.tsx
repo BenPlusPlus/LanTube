@@ -51,7 +51,7 @@ function Lineage(handle: Handle<{ channel: Channel }>) {
     let { channel } = handle.props
     if (channel.kind === 'custom') {
       let owner = channel.ownerId ? getChannel(channel.ownerId) : undefined
-      let posters = present(channel.posterIds ?? [])
+      let managers = present(channel.managerIds ?? [])
       return (
         <dl class="chhead-people">
           {owner ? (
@@ -62,12 +62,12 @@ function Lineage(handle: Handle<{ channel: Channel }>) {
               </dd>
             </div>
           ) : null}
-          {posters.length > 0 ? (
+          {managers.length > 0 ? (
             <div>
-              <dt>Also posting</dt>
+              <dt>Managers</dt>
               <dd>
-                {posters.map((poster) => (
-                  <PersonLink channel={poster} />
+                {managers.map((manager) => (
+                  <PersonLink channel={manager} />
                 ))}
               </dd>
             </div>
@@ -92,7 +92,7 @@ function Lineage(handle: Handle<{ channel: Channel }>) {
           ) : null}
           {postsTo.length > 0 ? (
             <div>
-              <dt>Posts to</dt>
+              <dt>Manages</dt>
               <dd>
                 {postsTo.map((other) => (
                   <PersonLink channel={other} />
@@ -132,7 +132,7 @@ function Empty(handle: Handle<{ channel: Channel; person: Person | null }>) {
         ? 'Upload a video and everyone on the home network can watch it here.'
         : `When ${channel.name} uploads something, it will show up here.`
     } else {
-      let names = [channel.ownerId, ...(channel.posterIds ?? [])]
+      let names = [channel.ownerId, ...(channel.managerIds ?? [])]
         .map((id) => (id === person?.id ? 'you' : id ? getChannel(id)?.name : undefined))
         .filter((name): name is string => !!name)
       heading = `Nothing on ${channel.name} yet`
@@ -162,7 +162,7 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
     let { channel, sort, person = null } = handle.props
     let stats = channelStats(channel.id, person?.id)
     let list = channelVideos(channel.id, sort, person?.id)
-    let isOwner = channel.kind === 'custom' && person?.id === channel.ownerId
+    let canEdit = channel.kind === 'custom' && canPost(channel, person?.id)
     let isHome = channel.kind === 'person' && person?.id === channel.id
     let current: Section = channel.kind === 'custom' ? 'channels' : `channel:${channel.id}`
 
@@ -187,9 +187,9 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
             <Lineage channel={channel} />
             {channel.description ? <p class="chhead-desc">{channel.description}</p> : null}
           </div>
-          {isOwner || isHome ? (
+          {canEdit || isHome ? (
             <div class="chhead-actions">
-              {isOwner ? (
+              {canEdit ? (
                 <a class="btn btn-secondary" href={routes.channelEdit.index.href({ channelId: channel.id })}>
                   <Icon name="pencil" size={20} />
                   Edit channel

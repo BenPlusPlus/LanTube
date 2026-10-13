@@ -8,6 +8,7 @@ import { listVisibleVideos, saveUploadedVideo } from '../data/catalogue.ts'
 import { listPeople, personFromSession } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
 import {
+  canEditVideo,
   canWatch,
   getChannel,
   getVideo,
@@ -79,7 +80,6 @@ export default createController(routes, {
       let listId = new URL(context.request.url).searchParams.get('list')
       let list = listId ? getPlaylist(listId) : undefined
       if (list && (!canSee(list, person?.id) || !list.videoIds.includes(video.id))) list = undefined
-      let channel = getChannel(video.channelId)
       return context.render(
         <WatchPage
           video={video}
@@ -88,7 +88,7 @@ export default createController(routes, {
           person={person}
           people={listPeople()}
           list={list}
-          canEdit={Boolean(person && video.postedBy === person.id && channel?.kind !== 'folder')}
+          canEdit={canEditVideo(video, person?.id)}
         />,
       )
     },
@@ -101,8 +101,7 @@ export default createController(routes, {
           { status: 404 },
         )
       }
-      let channel = getChannel(video.channelId)
-      if (!person || video.postedBy !== person.id || channel?.kind === 'folder') {
+      if (!person || !canEditVideo(video, person.id)) {
         return new Response('Forbidden', { status: 403 })
       }
       let form = context.formData
@@ -113,7 +112,7 @@ export default createController(routes, {
       let audienceIds =
         visibility === 'private'
           ? namedAudience(
-              person.id,
+              video.postedBy ?? person.id,
               form.getAll('audience').filter((value): value is string => typeof value === 'string'),
             )
           : []

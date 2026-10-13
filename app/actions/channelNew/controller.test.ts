@@ -50,6 +50,8 @@ describe('channels directory', () => {
     assert.match(html, />Skillet<\/a>/)
     assert.match(html, />Video Games<\/a>/)
     assert.match(html, /Run by Mia/)
+    assert.match(html, /Managers Priya/)
+    assert.doesNotMatch(html, /Also posting|who can post|with Priya/)
     assert.match(html, /New channel/)
   })
 })
@@ -61,7 +63,9 @@ describe('channel page', () => {
     assert.equal(response.status, 200)
     assert.match(html, /<h1 class="chhead-name">Twice<\/h1>/)
     assert.match(html, /<dt>Run by<\/dt>/)
-    assert.match(html, /<dt>Also posting<\/dt>/)
+    assert.match(html, /<dt>Managers<\/dt>/)
+    assert.match(html, /Priya/)
+    assert.doesNotMatch(html, /Also posting|Who can post|posters/)
     assert.doesNotMatch(html, /Edit channel/)
   })
 
@@ -71,9 +75,13 @@ describe('channel page', () => {
     assert.match(html, /aria-current="page"[^>]*>Most played/)
   })
 
-  it('offers editing only to the owner', async () => {
-    let { html } = await get(routes.channel.href({ channelId: 'twice' }), await signIn('mia'))
-    assert.match(html, /Edit channel/)
+  it('offers editing to the Channel owner and Managers', async () => {
+    let owner = await get(routes.channel.href({ channelId: 'twice' }), await signIn('mia'))
+    assert.match(owner.html, /Edit channel/)
+    let manager = await get(routes.channel.href({ channelId: 'twice' }), await signIn('priya'))
+    assert.match(manager.html, /Edit channel/)
+    let outsider = await get(routes.channel.href({ channelId: 'twice' }), await signIn('leo'))
+    assert.doesNotMatch(outsider.html, /Edit channel/)
   })
 
   it('404s unknown channels', async () => {
@@ -88,16 +96,23 @@ describe('new channel', () => {
 
     assert.equal(response.status, 200)
     assert.match(html, /Sign in to start a channel/)
+    assert.match(html, /name Managers/)
+    assert.doesNotMatch(html, /who else can post|Who can post/)
   })
 
-  it('creates a channel and redirects to it', async () => {
+  it('creates a channel, names Managers, and redirects to it', async () => {
     let cookie = await signIn('leo')
+    let form = await get(routes.channelNew.index.href(), cookie)
+    assert.match(form.html, /<legend class="field-label">Managers<\/legend>/)
+    assert.match(form.html, /name="managers"/)
+    assert.doesNotMatch(form.html, /Who can post|name="posters"/)
+
     let response = await post(
       routes.channelNew.action.href(),
       [
         ['name', 'Board Games'],
         ['description', 'Catan nights.'],
-        ['posters', 'priya'],
+        ['managers', 'priya'],
       ],
       cookie,
     )
@@ -108,6 +123,8 @@ describe('new channel', () => {
     let { html } = await get(routes.channel.href({ channelId: 'board-games' }), cookie)
     assert.match(html, /Catan nights\./)
     assert.match(html, /Edit channel/)
+    assert.match(html, /<dt>Managers<\/dt>/)
+    assert.match(html, /Priya/)
     resetChannels()
   })
 
@@ -121,11 +138,76 @@ describe('new channel', () => {
 })
 
 describe('edit channel', () => {
-  it('forbids people who don’t own it', async () => {
+  it('forbids people who are neither owner nor Manager', async () => {
     let { response, html } = await get(routes.channelEdit.index.href({ channelId: 'twice' }), await signIn('leo'))
 
     assert.equal(response.status, 403)
-    assert.match(html, /Only Mia can edit Twice/)
+    assert.match(html, /You can’t edit Twice/)
+    assert.match(html, /name you a Manager/)
+    assert.doesNotMatch(html, /who can post/)
+  })
+
+  it('lets a Manager edit the channel without naming Managers', async () => {
+    let cookie = await signIn('priya')
+    let { response, html } = await get(routes.channelEdit.index.href({ channelId: 'twice' }), cookie)
+    assert.equal(response.status, 200)
+    assert.match(html, /Edit Twice/)
+    assert.doesNotMatch(html, /<legend class="field-label">Managers<\/legend>/)
+    assert.doesNotMatch(html, /name="managers"/)
+
+    let saved = await post(
+      routes.channelEdit.action.href({ channelId: 'twice' }),
+      [
+        ['name', 'Twice'],
+        ['description', 'Practice takes.'],
+        ['managers', 'leo'],
+      ],
+      cookie,
+    )
+    assert.equal(saved.status, 303)
+    let channel = await get(routes.channel.href({ channelId: 'twice' }))
+    assert.match(channel.html, /Practice takes\./)
+    assert.match(channel.html, /<dt>Managers<\/dt>/)
+    assert.equal((await get(routes.channelEdit.index.href({ channelId: 'twice' }), cookie)).response.status, 200)
+    assert.equal((await get(routes.channelEdit.index.href({ channelId: 'twice' }), await signIn('leo'))).response.status, 403)
+    resetChannels()
+  })
+
+  it('lets the Channel owner name and remove Managers', async () => {
+    let cookie = await signIn('mia')
+    let form = await get(routes.channelEdit.index.href({ channelId: 'twice' }), cookie)
+    assert.match(form.html, /<legend class="field-label">Managers<\/legend>/)
+    assert.match(form.html, /name="managers"/)
+    assert.match(form.html, /You · owner/)
+
+    let named = await post(
+      routes.channelEdit.action.href({ channelId: 'twice' }),
+      [
+        ['name', 'Twice'],
+        ['description', 'Concert clips.'],
+        ['managers', 'tomas'],
+      ],
+      cookie,
+    )
+    assert.equal(named.status, 303)
+    let withTomas = await get(routes.channel.href({ channelId: 'twice' }))
+    assert.match(withTomas.html, /<dt>Managers<\/dt>/)
+    assert.match(withTomas.html, /Tomás/)
+    assert.equal((await get(routes.channelEdit.index.href({ channelId: 'twice' }), await signIn('tomas'))).response.status, 200)
+    assert.equal((await get(routes.channelEdit.index.href({ channelId: 'twice' }), await signIn('priya'))).response.status, 403)
+
+    let cleared = await post(
+      routes.channelEdit.action.href({ channelId: 'twice' }),
+      [
+        ['name', 'Twice'],
+        ['description', 'Concert clips.'],
+      ],
+      cookie,
+    )
+    assert.equal(cleared.status, 303)
+    let none = await get(routes.channel.href({ channelId: 'twice' }))
+    assert.doesNotMatch(none.html, /<dt>Managers<\/dt>/)
+    resetChannels()
   })
 
   it('saves the owner’s changes', async () => {
@@ -142,12 +224,19 @@ describe('edit channel', () => {
     assert.equal(response.status, 303)
     let { html } = await get(routes.channel.href({ channelId: 'twice' }))
     assert.match(html, /<h1 class="chhead-name">TWICE<\/h1>/)
-    assert.doesNotMatch(html, /<dt>Also posting<\/dt>/)
+    assert.doesNotMatch(html, /<dt>Managers<\/dt>/)
     resetChannels()
   })
 
-  it('404s for people and folders', async () => {
-    let { response } = await get(routes.channelEdit.index.href({ channelId: 'mia' }), await signIn('mia'))
+  it('404s for Home channels and folders, with no Managers control', async () => {
+    let cookie = await signIn('mia')
+    let { response, html } = await get(routes.channelEdit.index.href({ channelId: 'mia' }), cookie)
     assert.equal(response.status, 404)
+    assert.doesNotMatch(html, /<legend class="field-label">Managers<\/legend>/)
+    assert.doesNotMatch(html, /name="managers"/)
+
+    let home = await get(routes.channel.href({ channelId: 'mia' }), cookie)
+    assert.doesNotMatch(home.html, /<dt>Managers<\/dt>/)
+    assert.doesNotMatch(home.html, /name="managers"/)
   })
 })

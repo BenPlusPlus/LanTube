@@ -11,7 +11,7 @@ import { ChannelPicture } from './public/channel-picture.tsx'
 export interface ChannelFormValues {
   name: string
   description: string
-  posterIds: string[]
+  managerIds: string[]
 }
 
 export interface ChannelFormPageProps {
@@ -20,6 +20,8 @@ export interface ChannelFormPageProps {
   /** Present when editing an existing channel. */
   channel?: Channel
   values: ChannelFormValues
+  /** Only the Channel owner names Managers. Hidden when a Manager edits. */
+  canNameManagers?: boolean
   error?: string
   errorField?: 'name' | 'description' | 'photo'
 }
@@ -35,7 +37,7 @@ export function SignInToCreate() {
       <section class="empty" aria-labelledby="page-title">
         <Icon name="user" size={40} />
         <h1 id="page-title">Sign in to start a channel</h1>
-        <p>Channels belong to people in the house. Sign in, and you can name one and choose who else can post.</p>
+        <p>Channels belong to people in the house. Sign in, and you can start one and name Managers.</p>
         <a class="btn btn-secondary" href={routes.signin.index.href()}>
           <Icon name="user" size={20} />
           Sign in
@@ -49,6 +51,7 @@ export function ChannelFormPage(handle: Handle<ChannelFormPageProps>) {
   return () => {
     let { person, people, channel, values, error, errorField } = handle.props
     let editing = channel !== undefined
+    let canNameManagers = handle.props.canNameManagers ?? true
     let action = channel ? routes.channelEdit.action.href({ channelId: channel.id }) : routes.channelNew.action.href()
     let cancel = channel ? routes.channel.href({ channelId: channel.id }) : routes.channels.href()
     let heading = channel ? `Edit ${channel.name}` : 'New channel'
@@ -71,8 +74,10 @@ export function ChannelFormPage(handle: Handle<ChannelFormPageProps>) {
             </h1>
             <p class="page-lede">
               {editing
-                ? 'Rename it, change the picture, or change who can post. Its address stays the same.'
-                : 'A channel collects videos about one thing: a band, a hobby, a game. You run it, and you choose who else can post.'}
+                ? canNameManagers
+                  ? 'Rename it, change the picture, or change the Managers. Its address stays the same.'
+                  : 'Rename it or change the picture. Its address stays the same.'
+                : 'A channel collects videos about one thing: a band, a hobby, a game. You run it, and you name Managers.'}
             </p>
           </header>
 
@@ -129,38 +134,40 @@ export function ChannelFormPage(handle: Handle<ChannelFormPageProps>) {
             <p class="field-hint">Without one, the channel shows its first letter. Under 1 MB, kept on this machine.</p>
             {errorField === 'photo' ? errorMessage : null}
 
-            <fieldset class="chform-posters">
-              <legend class="field-label">Who can post</legend>
-              <p class="field-hint">You can always post here. Pick anyone else in the house.</p>
-              <ul class="poster-list">
-                <li>
-                  <span class="poster poster-owner">
-                    <Avatar channel={asChannel(person)} size="md" />
-                    <span class="poster-name">{person.name}</span>
-                    <span class="poster-role">You · owner</span>
-                  </span>
-                </li>
-                {others.map((other) => (
+            {canNameManagers ? (
+              <fieldset class="chform-posters">
+                <legend class="field-label">Managers</legend>
+                <p class="field-hint">You run this channel. Name anyone else in the house as a Manager.</p>
+                <ul class="poster-list">
                   <li>
-                    <label class="poster">
-                      <input
-                        class="poster-input"
-                        type="checkbox"
-                        name="posters"
-                        value={other.id}
-                        checked={values.posterIds.includes(other.id)}
-                      />
-                      <Avatar channel={asChannel(other)} size="md" />
-                      <span class="poster-name">{other.name}</span>
-                      <span class="check" aria-hidden="true">
-                        <Icon name="check" size={14} />
-                      </span>
-                    </label>
+                    <span class="poster poster-owner">
+                      <Avatar channel={asChannel(person)} size="md" />
+                      <span class="poster-name">{person.name}</span>
+                      <span class="poster-role">You · owner</span>
+                    </span>
                   </li>
-                ))}
-              </ul>
-              {others.length === 0 ? <p class="field-hint">Nobody else has joined the house yet.</p> : null}
-            </fieldset>
+                  {others.map((other) => (
+                    <li>
+                      <label class="poster">
+                        <input
+                          class="poster-input"
+                          type="checkbox"
+                          name="managers"
+                          value={other.id}
+                          checked={values.managerIds.includes(other.id)}
+                        />
+                        <Avatar channel={asChannel(other)} size="md" />
+                        <span class="poster-name">{other.name}</span>
+                        <span class="check" aria-hidden="true">
+                          <Icon name="check" size={14} />
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                {others.length === 0 ? <p class="field-hint">Nobody else has joined the house yet.</p> : null}
+              </fieldset>
+            ) : null}
 
             {error && !errorField ? errorMessage : null}
 
