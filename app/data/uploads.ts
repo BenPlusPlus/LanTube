@@ -256,7 +256,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     tagIds: tagRows.map((tag) => tag.id),
     audienceIds,
   })
-  if (playlist) addVideo(playlist, video.id)
+  if (playlist) await addVideo(playlist, video.id)
   return { video }
 }
 
