@@ -19,14 +19,16 @@ export default createController(routes.signin, {
         return redirect(routes.home.href(), 303)
       }
 
+      let people = listPeople()
       let params = new URL(context.request.url).searchParams
-      let joining = params.get('join') === '1'
+      let firstRun = people.length === 0
+      let joining = firstRun || params.get('join') === '1'
       let selectedId = joining ? undefined : (params.get('person') ?? undefined)
-      if (selectedId && !listPeople().some((person) => person.id === selectedId)) {
+      if (selectedId && !people.some((person) => person.id === selectedId)) {
         selectedId = undefined
       }
 
-      return context.render(<SignInPage people={listPeople()} selectedId={selectedId} joining={joining} />)
+      return context.render(<SignInPage people={people} selectedId={selectedId} joining={joining} />)
     },
     async action(context) {
       if (personFromSession(context.session)) {
@@ -58,13 +60,19 @@ export default createController(routes.signin, {
             { status: 400 },
           )
         }
-        let created = createPerson(name, password, photo, (id) => getChannel(id) !== undefined)
+        let created = await createPerson(
+          name,
+          password,
+          photo,
+          (id) => getChannel(id) !== undefined,
+          readText(context.formData, 'parent') === 'on',
+        )
         if ('error' in created) {
           return context.render(<SignInPage people={listPeople()} joining error={created.error} joinName={name} />, { status: 400 })
         }
         context.session.regenerateId()
         context.session.set('personId', created.id)
-        return redirect(routes.home.href(), 303)
+        return redirect(created.isAdmin ? routes.house.href() : routes.home.href(), 303)
       }
 
       let personId = readText(context.formData, 'personId')
