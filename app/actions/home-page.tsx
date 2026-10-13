@@ -109,16 +109,47 @@ function Results(handle: Handle<{ query: string; topic?: string; results: Video[
   }
 }
 
-function EmptyLibrary() {
-  return () => (
-    <section class="empty empty-library" aria-labelledby="empty-title">
-      <Icon name="folder" size={40} />
-      <h2 id="empty-title">No videos in the house yet</h2>
-      <p>
-        People in the house can upload, or an Admin can index a folder. Anyone on this network can watch once something is here.
-      </p>
-    </section>
-  )
+function emptyLibraryCopy(person: Person | null) {
+  if (person?.isAdmin) {
+    return {
+      lede: (
+        <>
+          Index a folder on <a href={routes.house.href()}>House</a>, or upload a video. House-visible videos show here for everyone on this network.
+        </>
+      ),
+      upload: true,
+    }
+  }
+  if (person) {
+    return {
+      lede: 'Upload a video and everyone on this network can watch it here. An Admin can also index a folder on the Media share.',
+      upload: true,
+    }
+  }
+  return {
+    lede: 'People in the house can upload, or an Admin can index a folder. Anyone on this network can watch once something is here.',
+    upload: false,
+  }
+}
+
+function EmptyLibrary(handle: Handle<{ person: Person | null }>) {
+  return () => {
+    let { person } = handle.props
+    let { lede, upload } = emptyLibraryCopy(person)
+    return (
+      <section class="empty empty-library" aria-labelledby="empty-title">
+        <Icon name="folder" size={40} />
+        <h2 id="empty-title">No videos in the house yet</h2>
+        <p>{lede}</p>
+        {upload ? (
+          <a class="btn btn-primary" href={routes.upload.index.href()}>
+            <Icon name="upload" size={20} />
+            Upload a video
+          </a>
+        ) : null}
+      </section>
+    )
+  }
 }
 
 export function HomePage(handle: Handle<HomePageProps>) {
@@ -129,7 +160,7 @@ export function HomePage(handle: Handle<HomePageProps>) {
     if (videos.length === 0) {
       return (
         <AppShell current="home" title="Home" person={person}>
-          <EmptyLibrary />
+          <EmptyLibrary person={person} />
         </AppShell>
       )
     }
