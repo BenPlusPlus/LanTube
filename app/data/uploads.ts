@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
+import { insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
 import { slugify } from './household.ts'
 import { addUploadedVideo, canPost, channelsFor, getChannel, getVideo, topics, type Channel, type Video } from './library.ts'
 import { mediaDir, videoExtensions } from './media.ts'
@@ -158,11 +159,11 @@ function isJpeg(bytes: Uint8Array) {
   return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
 }
 
-function uniqueVideoId(title: string): string {
+async function uniqueVideoId(title: string): Promise<string> {
   let base = slugify(title, 'video').slice(0, 60).replace(/-+$/, '') || 'video'
   let id = base
   let n = 2
-  while (getVideo(id)) {
+  while (getVideo(id) || (await videoSlugTaken(id))) {
     id = `${base}-${n}`
     n++
   }
@@ -196,7 +197,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
 
   let known = new Set(topics.map((topic) => topic.id))
   let tags = [...new Set(input.topics)].filter((id) => known.has(id))
-  let id = uniqueVideoId(title)
+  let id = await uniqueVideoId(title)
   let relative = path.posix.join('uploads', channel.id, `${id}${upload.ext}`)
   let destination = path.join(uploadsDir, channel.id, `${id}${upload.ext}`)
 
@@ -227,6 +228,16 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     file: relative,
     postedBy: personId,
     private: input.visibility === 'private' ? true : undefined,
+  })
+  await insertUploadedVideo({
+    slug: id,
+    title,
+    channelSlug: channel.id,
+    ownerId: personId,
+    durationSec: duration,
+    filePath: relative,
+    posterPath: thumb || null,
+    visibility: input.visibility,
   })
   if (playlist) addVideo(playlist, video.id)
   return { video }
