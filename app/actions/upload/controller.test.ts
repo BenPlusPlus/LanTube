@@ -8,8 +8,9 @@ import { notNull } from 'remix/data-table'
 
 import { listVisibleVideos, loadCatalogueVideos } from '../../data/catalogue.ts'
 import { db } from '../../db.ts'
-import { resetHousehold, useEmptyHouse } from '../../data/household.ts'
-import { deleteVideo, getVideo, searchVideos } from '../../data/library.ts'
+import { listPeople, resetHousehold, useEmptyHouse } from '../../data/household.ts'
+import { canWatch, deleteVideo, getVideo, searchVideos } from '../../data/library.ts'
+import { addVideo, getPlaylist } from '../../data/playlists.ts'
 import { findOrCreateTags, getTag, listTags, resetCatalogueTags } from '../../data/tags.ts'
 import { mediaDir } from '../../data/media.ts'
 import { tags as tagRows, videoTags, videos as videoRows } from '../../data/tables.ts'
@@ -102,7 +103,10 @@ describe('upload page', () => {
     assert.doesNotMatch(html, /value="skillet"/)
     assert.match(html, /Everyone in the house/)
     assert.match(html, /value="house"[^>]*checked|checked[^>]*value="house"/)
+    assert.match(html, /poster-name">Private</)
+    assert.doesNotMatch(html, /Only me/)
     assert.doesNotMatch(html, /Public/)
+    assert.doesNotMatch(html, /name="audience"/)
     assert.match(html, /<legend class="field-label">Tags /)
     assert.match(html, /name="tags"/)
     assert.doesNotMatch(html, /name="topics"|Topics/)
@@ -211,14 +215,82 @@ describe('publishing', () => {
     let own = await get(watch, mia)
     assert.equal(own.response.status, 200)
     assert.match(own.html, /Private/)
+    assert.match(own.html, /name="audience"/)
+    assert.match(own.html, new RegExp(`action="${routes.watchVisibility.href({ videoId: id })}"`))
+    assert.doesNotMatch(own.html, /Only me/)
+    assert.deepEqual(getVideo(id)?.audience ?? [], [])
 
     let tomas = await signIn('tomas')
     assert.equal((await get(watch, tomas)).response.status, 404)
     assert.equal((await get(watch)).response.status, 404)
     assert.equal((await get(poster, tomas)).response.status, 404)
+    assert.equal((await get(routes.media.href({ videoId: id }), tomas)).response.status, 404)
     assert.equal(searchVideos('Only mine', undefined, 'tomas').length, 0)
     assert.equal(searchVideos('Only mine', undefined, 'mia').length, 1)
     assert.doesNotMatch((await get(routes.channel.href({ channelId: 'mia' }), tomas)).html, /Only mine/)
+  })
+
+  it('shows the Audience picker in HTML only when Private is selected', async () => {
+    let cookie = await signIn('mia')
+    let { body } = await sendFile('clip.mp4', cookie)
+    let privateForm = await publish(
+      [
+        ['uploadId', body.id!],
+        ['channel', 'mia'],
+        ['title', '   '],
+        ['visibility', 'private'],
+        ['audience', 'tomas'],
+        ['audience', 'mia'],
+      ],
+      cookie,
+    )
+    assert.equal(privateForm.status, 400)
+    let html = await privateForm.text()
+    assert.match(html, /Give the video a title/)
+    assert.match(html, /poster-name">Private</)
+    assert.match(html, /name="audience"/)
+    assert.match(html, /value="tomas"/)
+    assert.match(html, /"audienceIds":\["tomas"\]/)
+    assert.doesNotMatch(html, /"audienceIds":\["tomas,/)
+    assert.doesNotMatch(html, /name="audience"[^>]*value="mia"|value="mia"[^>]*name="audience"/)
+    assert.doesNotMatch(html, /Only me/)
+
+    let houseForm = await publish(
+      [
+        ['uploadId', body.id!],
+        ['channel', 'mia'],
+        ['title', '   '],
+        ['visibility', 'house'],
+        ['audience', 'tomas'],
+      ],
+      cookie,
+    )
+    assert.equal(houseForm.status, 400)
+    assert.doesNotMatch(await houseForm.text(), /name="audience"/)
+  })
+
+  it('does not let a Playlist grant sight of a private Video', async () => {
+    let mia = await signIn('mia')
+    let { body } = await sendFile('secret.mp4', mia)
+    let response = await publish(
+      [
+        ['uploadId', body.id!],
+        ['channel', 'mia'],
+        ['title', 'Playlist secret'],
+        ['visibility', 'private'],
+      ],
+      mia,
+    )
+    let id = videoIdFrom(response)
+    let playlist = getPlaylist('twice-best-stages')
+    assert.ok(playlist)
+    addVideo(playlist, id)
+
+    let tomas = await signIn('tomas')
+    let page = await get(routes.playlist.href({ playlistId: playlist.id }), tomas)
+    assert.equal(page.response.status, 200)
+    assert.doesNotMatch(page.html, /Playlist secret/)
+    assert.equal((await get(routes.watch.href({ videoId: id }), tomas)).response.status, 404)
   })
 
   it('won’t post to a channel the person can’t post on, and keeps the sent file', async () => {
@@ -538,5 +610,274 @@ describe('publishing a house-visible Video to the catalogue', () => {
     let watch = await get(routes.watch.href({ videoId: slug }))
     assert.match(watch.html, />Garden</)
     assert.match(watch.html, new RegExp(`href="${routes.home.href()}\\?tag=garden"`))
+  })
+})
+
+describe('private Video with Audience', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  async function join(name: string, parent = false) {
+    let body = `intent=join&name=${encodeURIComponent(name)}&password=lantern&confirm=lantern`
+    if (parent) body += '&parent=on'
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(response.status, 303)
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    let person = listPeople().find((entry) => entry.name === name)
+    assert.ok(person)
+    return { cookie: header.split(';', 1)[0], person }
+  }
+
+  function saveVisibility(videoId: string, fields: [string, string][], cookie: string) {
+    let body = new FormData()
+    for (let [key, value] of fields) body.append(key, value)
+    return router.fetch(
+      new Request(new URL(routes.watchVisibility.href({ videoId }), 'http://localhost'), {
+        method: 'POST',
+        headers: { Cookie: cookie },
+        body,
+        redirect: 'manual',
+      }),
+    )
+  }
+
+  it('lets named Audience watch, 404s everyone else, and restores after reload', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie, person: owner } = await join('Sam')
+    let { cookie: namedCookie, person: named } = await join('Alex')
+    let { cookie: otherCookie, person: other } = await join('Riley')
+
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'secret.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Backyard'],
+        ['visibility', 'private'],
+        ['audience', named.id],
+        ['audience', owner.id],
+        ['audience', 'not-a-person'],
+      ],
+      ownerCookie,
+    )
+    assert.equal(response.status, 303)
+    let slug = videoIdFrom(response)
+    let watch = routes.watch.href({ videoId: slug })
+    let poster = routes.poster.href({ videoId: slug })
+    let media = routes.media.href({ videoId: slug })
+
+    assert.equal(canWatch(getVideo(slug)!, named.id), true)
+    assert.deepEqual(getVideo(slug)?.audience, [named.id])
+
+    let ownerWatch = await get(watch, ownerCookie)
+    assert.equal(ownerWatch.response.status, 200)
+    assert.match(ownerWatch.html, /Private/)
+    assert.match(ownerWatch.html, /pvis vcard-private|class="pvis"/)
+    assert.match(ownerWatch.html, /name="audience"/)
+    assert.match(ownerWatch.html, new RegExp(`value="${named.id}"[^>]*checked|checked[^>]*value="${named.id}"`))
+    assert.doesNotMatch(ownerWatch.html, /Only me|Public/)
+
+    let namedWatch = await get(watch, namedCookie)
+    assert.equal(namedWatch.response.status, 200)
+    assert.match(namedWatch.html, /<h1[^>]*>Backyard<\/h1>/)
+    assert.match(namedWatch.html, /Private/)
+    assert.doesNotMatch(namedWatch.html, /name="audience"/)
+    assert.doesNotMatch(namedWatch.html, new RegExp(`action="${routes.watchVisibility.href({ videoId: slug })}"`))
+
+    assert.equal((await get(watch, otherCookie)).response.status, 404)
+    assert.equal((await get(watch)).response.status, 404)
+    assert.equal((await get(poster, otherCookie)).response.status, 404)
+    assert.equal((await get(media, otherCookie)).response.status, 404)
+
+    let namedHome = await get(routes.home.href(), namedCookie)
+    assert.match(namedHome.html, /Backyard/)
+    assert.match(namedHome.html, /pvis vcard-private/)
+    assert.doesNotMatch(namedHome.html, /No videos in the house yet/)
+
+    let otherHome = await get(routes.home.href(), otherCookie)
+    assert.match(otherHome.html, /No videos in the house yet/)
+    assert.doesNotMatch(otherHome.html, /Backyard/)
+
+    let emptySearch = await get(`${routes.home.href()}?q=Backyard`, otherCookie)
+    assert.match(emptySearch.html, /No videos in the house yet/)
+    assert.doesNotMatch(emptySearch.html, /Nothing in the house matches/)
+    assert.doesNotMatch(emptySearch.html, /Backyard/)
+
+    let tagged = await get(`${routes.home.href()}?tag=kids`, otherCookie)
+    assert.match(tagged.html, /No videos in the house yet/)
+
+    assert.doesNotMatch((await get(routes.channel.href({ channelId: 'sam' }), otherCookie)).html, /Backyard/)
+    assert.match((await get(routes.channel.href({ channelId: 'sam' }), namedCookie)).html, /Backyard/)
+
+    let listed = await listVisibleVideos(named.id)
+    assert.equal(listed.length, 1)
+    assert.equal(listed[0]?.id, slug)
+    assert.deepEqual(listed[0]?.audience, [named.id])
+    assert.equal((await listVisibleVideos(other.id)).length, 0)
+    assert.equal((await listVisibleVideos()).length, 0)
+
+    deleteVideo(slug)
+    assert.equal(getVideo(slug), undefined)
+    await loadCatalogueVideos()
+    assert.deepEqual(getVideo(slug)?.audience, [named.id])
+    assert.equal((await get(watch, namedCookie)).response.status, 200)
+    assert.equal((await get(watch, otherCookie)).response.status, 404)
+  })
+
+  it('lets a Parent watch a private Video they are not named on', async () => {
+    await useEmptyHouse()
+    let { cookie: parentCookie, person: parent } = await join('Sam', true)
+    let { cookie: ownerCookie } = await join('Alex')
+    assert.equal(parent.isAdmin, true)
+    assert.equal(parent.isParent, true)
+
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'secret.mp4'],
+        ['channel', 'alex'],
+        ['title', 'Parent can see'],
+        ['visibility', 'private'],
+      ],
+      ownerCookie,
+    )
+    let slug = videoIdFrom(response)
+    let watch = await get(routes.watch.href({ videoId: slug }), parentCookie)
+    assert.equal(watch.response.status, 200)
+    assert.match(watch.html, /Parent can see/)
+    assert.match(watch.html, /Private/)
+    assert.doesNotMatch(watch.html, /name="audience"/)
+    assert.match((await get(routes.home.href(), parentCookie)).html, /Parent can see/)
+  })
+
+  it('does not let an Admin who is not Parent, owner, or Audience watch', async () => {
+    await useEmptyHouse()
+    let { cookie: adminCookie, person: admin } = await join('Sam')
+    let { cookie: ownerCookie } = await join('Alex')
+    assert.equal(admin.isAdmin, true)
+    assert.equal(admin.isParent, false)
+
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'secret.mp4'],
+        ['channel', 'alex'],
+        ['title', 'Admin cannot see'],
+        ['visibility', 'private'],
+      ],
+      ownerCookie,
+    )
+    let slug = videoIdFrom(response)
+    assert.equal((await get(routes.watch.href({ videoId: slug }), adminCookie)).response.status, 404)
+    assert.doesNotMatch((await get(routes.home.href(), adminCookie)).html, /Admin cannot see/)
+    assert.match((await get(routes.home.href(), adminCookie)).html, /No videos in the house yet/)
+  })
+
+  it('clears named Audience when saving as house-visible', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie } = await join('Sam')
+    let { cookie: namedCookie, person: named } = await join('Alex')
+
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Now for the house'],
+        ['visibility', 'private'],
+        ['audience', named.id],
+      ],
+      ownerCookie,
+    )
+    let slug = videoIdFrom(response)
+    let saved = await saveVisibility(
+      slug,
+      [
+        ['visibility', 'house'],
+        ['audience', named.id],
+      ],
+      ownerCookie,
+    )
+    assert.equal(saved.status, 303)
+    assert.equal(saved.headers.get('Location'), routes.watch.href({ videoId: slug }))
+
+    let video = getVideo(slug)
+    assert.equal(video?.private, undefined)
+    assert.equal(video?.audience, undefined)
+
+    let ownerWatch = await get(routes.watch.href({ videoId: slug }), ownerCookie)
+    assert.equal(ownerWatch.response.status, 200)
+    assert.match(ownerWatch.html, /Everyone in the house/)
+    assert.doesNotMatch(ownerWatch.html, /name="audience"/)
+    assert.doesNotMatch(ownerWatch.html, /Only me/)
+
+    let unsignedHome = await get(routes.home.href())
+    assert.match(unsignedHome.html, /Now for the house/)
+    assert.doesNotMatch(unsignedHome.html, /No videos in the house yet/)
+    assert.equal((await get(routes.watch.href({ videoId: slug }))).response.status, 200)
+
+    let backToPrivate = await saveVisibility(slug, [['visibility', 'private']], ownerCookie)
+    assert.equal(backToPrivate.status, 303)
+    assert.deepEqual(getVideo(slug)?.audience ?? [], [])
+    assert.equal((await get(routes.watch.href({ videoId: slug }), namedCookie)).response.status, 404)
+    assert.equal((await get(routes.watch.href({ videoId: slug }))).response.status, 404)
+  })
+
+  it('lets the owner name Audience on Watch Save', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie } = await join('Sam')
+    let { cookie: namedCookie, person: named } = await join('Alex')
+    let { cookie: otherCookie } = await join('Riley')
+
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Later shared'],
+        ['visibility', 'private'],
+      ],
+      ownerCookie,
+    )
+    let slug = videoIdFrom(response)
+    assert.equal((await get(routes.watch.href({ videoId: slug }), namedCookie)).response.status, 404)
+
+    let saved = await saveVisibility(slug, [['visibility', 'private'], ['audience', named.id]], ownerCookie)
+    assert.equal(saved.status, 303)
+    assert.deepEqual(getVideo(slug)?.audience, [named.id])
+    assert.equal((await get(routes.watch.href({ videoId: slug }), namedCookie)).response.status, 200)
+    assert.equal((await get(routes.watch.href({ videoId: slug }), otherCookie)).response.status, 404)
+    assert.equal((await saveVisibility(slug, [['visibility', 'house']], namedCookie)).status, 403)
+    assert.match((await get(routes.home.href(), namedCookie)).html, /Later shared/)
+  })
+
+  it('ignores posted Audience when publishing as house-visible', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie } = await join('Sam')
+    let { person: named } = await join('Alex')
+
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Open clip'],
+        ['visibility', 'house'],
+        ['audience', named.id],
+      ],
+      ownerCookie,
+    )
+    let slug = videoIdFrom(response)
+    assert.equal(getVideo(slug)?.private, undefined)
+    assert.equal(getVideo(slug)?.audience, undefined)
+
+    let saved = await saveVisibility(slug, [['visibility', 'private']], ownerCookie)
+    assert.equal(saved.status, 303)
+    assert.deepEqual(getVideo(slug)?.audience ?? [], [])
+    assert.equal((await get(routes.watch.href({ videoId: slug }))).response.status, 404)
   })
 })

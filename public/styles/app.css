@@ -2006,6 +2006,18 @@ label.poster:hover {
   white-space: normal;
 }
 
+.audience-picker {
+  margin-top: 16px;
+}
+
+.watch-access {
+  margin-top: 16px;
+}
+
+.watch-access .chform-actions {
+  margin-top: 16px;
+}
+
 .radio {
   flex: none;
   width: 22px;

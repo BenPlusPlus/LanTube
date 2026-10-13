@@ -24,12 +24,14 @@ import { ownerOf, watchInList } from '../ui/playlists.tsx'
 import { AppShell } from '../ui/shell.tsx'
 import { Player } from './public/player.tsx'
 import { SaveMenu } from './public/save-menu.tsx'
+import { WatchVisibility } from './public/watch-visibility.tsx'
 
 export interface WatchPageProps {
   video: Video
   media: MediaFile | null
   theater: boolean
   person?: Person | null
+  people?: Person[]
   /** Playing through a playlist that holds this video. */
   list?: Playlist
 }
@@ -146,7 +148,7 @@ function ListPanel(handle: Handle<{ playlist: Playlist; video: Video; person: Pe
 
 export function WatchPage(handle: Handle<WatchPageProps>) {
   return () => {
-    let { video, media, theater, person = null, list } = handle.props
+    let { video, media, theater, person = null, people = [], list } = handle.props
     let channel = getChannel(video.channelId)!
     let stats = channelStats(channel.id, person?.id)
     let published = publishedAt(video)
@@ -234,7 +236,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                 {video.private ? (
                   <>
                     <span aria-hidden="true">·</span>
-                    <span class="pvis" title="Only you can see this video">
+                    <span class="pvis">
                       <Icon name="lock" size={14} />
                       Private
                     </span>
@@ -254,6 +256,15 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               ) : null}
               {isFolder && channel.path ? <p class="watch-source">Indexed from {channel.path}</p> : null}
             </div>
+            {person && video.postedBy === person.id && !isFolder ? (
+              <WatchVisibility
+                action={routes.watchVisibility.href({ videoId: video.id })}
+                person={person}
+                people={people}
+                visibility={video.private ? 'private' : 'house'}
+                audienceIds={video.audience ?? []}
+              />
+            ) : null}
           </section>
 
           <div class="watch-rail">
