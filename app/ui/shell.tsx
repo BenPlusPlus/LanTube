@@ -9,7 +9,7 @@ import { Avatar } from './cards.tsx'
 import { Icon, LogoMark, type IconName } from './public/icons.tsx'
 
 function asChannel(person: Person): Channel {
-  return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
+  return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
 export type Section = 'home' | 'channels' | 'playlists' | 'history' | 'upload' | `channel:${string}` | null
@@ -167,9 +167,14 @@ export function AppShell(handle: Handle<AppShellProps>) {
                   <p class="account-menu-who">
                     Signed in as <strong>{person.name}</strong>
                   </p>
-                  <a class="account-menu-item" href={routes.channel.href({ channelId: person.id })}>
+                  <a class="account-menu-item" href={routes.channel.href({ channelId: person.slug })}>
                     Your channel
                   </a>
+                  {person.isAdmin ? (
+                    <a class="account-menu-item" href={routes.house.href()}>
+                      House
+                    </a>
+                  ) : null}
                   <form method="post" action={routes.signout.href()}>
                     <button class="account-menu-item account-menu-signout" type="submit">
                       <Icon name="logout" size={18} />

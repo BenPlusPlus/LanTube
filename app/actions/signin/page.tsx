@@ -8,7 +8,7 @@ import { Avatar } from '../../ui/cards.tsx'
 import { Icon } from '../../ui/public/icons.tsx'
 
 function asChannel(person: Person): Channel {
-  return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
+  return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
 export interface SignInPageProps {
@@ -23,22 +23,25 @@ export function SignInPage(handle: Handle<SignInPageProps>) {
   return () => {
     let { people, selectedId, joining = false, error, joinName = '' } = handle.props
     let selected = selectedId ? people.find((person) => person.id === selectedId) : undefined
+    let firstRun = people.length === 0
 
     return (
-      <AppShell title="Sign in" current={null} layout="signin">
+      <AppShell title={firstRun ? 'Start this house' : 'Sign in'} current={null} layout="signin">
         <section class="who" aria-labelledby="who-title">
           <h1 class="who-title" id="who-title">
-            Who’s using LanTube?
+            {firstRun ? 'Start this house' : 'Who’s using LanTube?'}
           </h1>
           <p class="who-lede">
-            Pick yourself, then enter your password. Anyone on this network can still watch unsigned.
+            {firstRun
+              ? 'You’re the first Person. You’ll run LanTube for the house. Other people on this network can join later.'
+              : 'Pick yourself, then enter your password. Anyone on this network can still watch unsigned.'}
           </p>
 
           <ul class="who-grid">
             {people.map((person) => {
               let open = person.id === selected?.id
               let href = `${routes.signin.index.href()}?person=${encodeURIComponent(person.id)}`
-              let videos = channelStats(person.id).count
+              let videos = channelStats(person.slug).count
               return (
                 <li class={open ? 'who-card is-open' : 'who-card'}>
                   <a class="who-pick" href={href} aria-current={open ? 'true' : undefined}>
@@ -139,6 +142,23 @@ export function SignInPage(handle: Handle<SignInPageProps>) {
                     <span>Add a photo</span>
                   </label>
                   <input class="visually-hidden" id="join-photo" type="file" name="photo" accept="image/*" />
+                  {firstRun ? (
+                    <>
+                      <p class="who-admin-note">You’ll be an Admin: attach folders, name Parents, and add other Admins.</p>
+                      <label class="who-parent" for="join-parent">
+                        <input class="poster-input" id="join-parent" type="checkbox" name="parent" value="on" />
+                        <span class="check" aria-hidden="true">
+                          <Icon name="check" size={14} />
+                        </span>
+                        <span class="who-parent-text">
+                          <span class="who-parent-label">Parent</span>
+                          <span class="field-hint" id="join-parent-hint">
+                            See private videos and playlists, and the History of people who aren’t Parents.
+                          </span>
+                        </span>
+                      </label>
+                    </>
+                  ) : null}
                   {error ? (
                     <p class="field-error" id="signin-error" role="alert">
                       {error}

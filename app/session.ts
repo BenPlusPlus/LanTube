@@ -12,6 +12,7 @@ export const sessionCookie = createCookie('lt_session', {
   httpOnly: true,
   sameSite: 'lax',
   path: '/',
+  maxAge: 400 * 24 * 60 * 60,
   secrets: [secret],
 })
 

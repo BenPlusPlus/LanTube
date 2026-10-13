@@ -1,13 +1,18 @@
 import * as assert from 'remix/assert'
-import { describe, it } from 'remix/test'
+import { afterEach, describe, it } from 'remix/test'
 
-import { resetHousehold } from '../../data/household.ts'
+import { getPerson, resetHousehold, useEmptyHouse } from '../../data/household.ts'
+import { getChannel } from '../../data/library.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
+import { sessionCookie, sessionStorage } from '../../session.ts'
 
 async function get(path: string, cookie?: string) {
   let response = await router.fetch(
-    new Request(new URL(path, 'http://localhost'), cookie ? { headers: { Cookie: cookie } } : undefined),
+    new Request(new URL(path, 'http://localhost'), {
+      redirect: 'manual',
+      ...(cookie ? { headers: { Cookie: cookie } } : undefined),
+    }),
   )
   return { response, html: await response.text() }
 }
@@ -109,5 +114,142 @@ describe('header when unsigned', () => {
     assert.match(html, /signin-btn/)
     assert.match(html, /Sign in/)
     assert.match(html, /Upload/)
+  })
+})
+
+async function sessionFrom(response: Response) {
+  let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+  assert.ok(header, 'Expected an lt_session cookie')
+  let parsed = await sessionCookie.parse(header.split(';', 1)[0])
+  assert.ok(parsed, 'Expected a signed lt_session value')
+  let wrapped: unknown
+  try {
+    wrapped = JSON.parse(parsed)
+  } catch {
+    wrapped = null
+  }
+  let value =
+    typeof wrapped === 'object' && wrapped !== null && 'value' in wrapped && typeof wrapped.value === 'string'
+      ? wrapped.value
+      : parsed
+  return sessionStorage.read(value)
+}
+
+describe('first-run sign in', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  it('uses the Start this house frame with the join card open', async () => {
+    await useEmptyHouse()
+    let { response, html } = await get(routes.signin.index.href())
+
+    assert.equal(response.status, 200)
+    assert.match(html, /<title>Start this house/)
+    assert.match(html, /id="who-title"[^>]*>Start this house</)
+    assert.match(
+      html,
+      /You’re the first Person\. You’ll run LanTube for the house\. Other people on this network can join later\./,
+    )
+    assert.match(html, /I’m new in the house/)
+    assert.match(html, /name="intent"[^>]*value="join"|value="join"[^>]*name="intent"/)
+    assert.match(html, />Create my channel</)
+    assert.doesNotMatch(html, /Who’s using LanTube/)
+  })
+
+  it('offers an unchecked Parent checkbox after the Admin note', async () => {
+    await useEmptyHouse()
+    let { html } = await get(routes.signin.index.href())
+
+    assert.match(html, /You’ll be an Admin: attach folders, name Parents, and add other Admins\./)
+    assert.match(html, /id="join-parent"/)
+    assert.match(html, /See private videos and playlists, and the History of people who aren’t Parents\./)
+    assert.doesNotMatch(html, /id="join-parent"[^>]*checked/)
+  })
+
+  it('creates the first Person as Admin and lands on House', async () => {
+    await useEmptyHouse()
+    let join = await postSignin('intent=join&name=Sam&password=lantern&confirm=lantern')
+
+    assert.equal(join.status, 303)
+    assert.equal(join.headers.get('Location'), routes.house.href())
+
+    let setCookie = join.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(setCookie)
+    assert.match(setCookie, /HttpOnly/i)
+    assert.match(setCookie, /SameSite=Lax/i)
+    assert.match(setCookie, /Max-Age=34560000/)
+    assert.doesNotMatch(setCookie, /Secure/i)
+
+    let session = await sessionFrom(join)
+    let personId = session.get('personId')
+    assert.equal(typeof personId, 'string')
+    assert.match(personId as string, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    assert.equal(session.data[0].password, undefined)
+    assert.deepEqual(Object.keys(session.data[0]).sort(), ['personId'])
+
+    let person = getPerson(personId as string)
+    assert.ok(person)
+    assert.equal(person.name, 'Sam')
+    assert.equal(person.slug, 'sam')
+    assert.equal(person.isAdmin, true)
+    assert.equal(person.isParent, false)
+    assert.ok(!('password' in person))
+    assert.ok(!('passwordHash' in person))
+
+    let home = getChannel('sam')
+    assert.ok(home)
+    assert.equal(home.kind, 'person')
+    assert.equal(home.name, 'Sam')
+
+    let cookie = cookieFrom(join)
+    let { response, html } = await get(routes.house.href(), cookie)
+    assert.equal(response.status, 200)
+    assert.match(html, /<title>House/)
+    assert.match(html, /<h1 class="page-title">House<\/h1>/)
+    assert.match(html, /account-name">Sam</)
+    assert.match(html, /Index a folder on the Media share\. Those videos show on Home as house-visible\./)
+    assert.match(html, /href="\/house"/)
+    assert.match(html, /class="account-menu-item"[^>]*>House</)
+  })
+
+  it('lets the first Person take Parent on join', async () => {
+    await useEmptyHouse()
+    let join = await postSignin('intent=join&name=Sam&password=lantern&confirm=lantern&parent=on')
+    let session = await sessionFrom(join)
+    let person = getPerson(session.get('personId') as string)
+    assert.equal(person?.isAdmin, true)
+    assert.equal(person?.isParent, true)
+
+    let { html } = await get(routes.house.href(), cookieFrom(join))
+    assert.match(html, /Parent/)
+  })
+})
+
+describe('house', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  it('redirects signed-out visitors to sign-in', async () => {
+    let { response } = await get(routes.house.href())
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), routes.signin.index.href())
+  })
+
+  it('forbids a Person who is not an Admin', async () => {
+    await useEmptyHouse()
+    let first = await postSignin('intent=join&name=Sam&password=lantern&confirm=lantern')
+    assert.equal(first.status, 303)
+    let later = await postSignin('intent=join&name=Alex&password=lantern&confirm=lantern')
+    assert.equal(later.status, 303)
+    assert.equal(later.headers.get('Location'), routes.home.href())
+
+    let { response, html } = await get(routes.house.href(), cookieFrom(later))
+    assert.equal(response.status, 403)
+    assert.match(html, /Admin/)
+    assert.doesNotMatch(html, /class="account-menu-item"[^>]*>House</)
   })
 })

@@ -1,4 +1,5 @@
 import { readHostConfig } from './config.ts'
+import { loadCataloguePeople } from './data/household.ts'
 import { migrateCatalogue } from './db.ts'
 
 export async function prepareHost(
@@ -9,4 +10,5 @@ export async function prepareHost(
 ) {
   readHostConfig(options.env ?? process.env)
   await (options.migrate ?? migrateCatalogue)()
+  if (!options.migrate) await loadCataloguePeople()
 }

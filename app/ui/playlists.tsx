@@ -8,7 +8,7 @@ import { ThumbImage } from './cards.tsx'
 import { Icon } from './public/icons.tsx'
 
 export function personChannel(person: Person): Channel {
-  return { id: person.id, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
+  return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
 /** The owner as an avatar-ready channel, or undefined if they've left the house. */
