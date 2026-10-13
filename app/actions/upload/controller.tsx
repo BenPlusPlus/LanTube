@@ -3,6 +3,7 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { personFromSession } from '../../data/household.ts'
+import { parseTagNames } from '../../data/tags.ts'
 import { getStaged, publishUpload, stageUpload, UploadTooLargeError, uploadLimits, type UploadField } from '../../data/uploads.ts'
 import { routes } from '../../routes.ts'
 import type { UploadFormValues } from '../public/upload-form.tsx'
@@ -19,10 +20,12 @@ function readValues(formData: FormData, uploadId: string): UploadFormValues {
     return typeof value === 'string' ? value : ''
   }
   let duration = Number(text('duration'))
+  let parsed = parseTagNames(formData.getAll('tags').filter((value): value is string => typeof value === 'string'))
   return {
     channelId: text('channel'),
     title: text('title'),
-    topics: formData.getAll('topics').filter((value): value is string => typeof value === 'string'),
+    tags: parsed.names,
+    tagDraft: parsed.leftover ?? '',
     playlistId: text('playlist'),
     visibility: text('visibility') === 'private' ? 'private' : 'house',
     uploadId,
@@ -99,7 +102,11 @@ export default createController(routes.upload, {
 
       if (uploadId === UNSUPPORTED) return fail('LanTube can’t play that kind of file. Choose a video like an MP4, MOV or WebM.', 'file')
 
-      let result = await publishUpload(person.id, { ...values, poster: poster instanceof Blob ? poster : undefined })
+      let result = await publishUpload(person.id, {
+        ...values,
+        tags: values.tagDraft ? [...values.tags, values.tagDraft] : values.tags,
+        poster: poster instanceof Blob ? poster : undefined,
+      })
       if ('error' in result) return fail(result.error, result.field)
       return redirect(routes.watch.href({ videoId: result.video.id }), 303)
     },
