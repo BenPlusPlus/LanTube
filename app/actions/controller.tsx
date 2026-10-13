@@ -14,7 +14,6 @@ import {
   namedAudience,
   recordPlay,
   searchVideos,
-  setVideoAccess,
   type ChannelSort,
   type Video,
 } from '../data/library.ts'
@@ -112,7 +111,13 @@ export default createController(routes, {
               form.getAll('audience').filter((value): value is string => typeof value === 'string'),
             )
           : []
-      setVideoAccess(video, visibility, audienceIds)
+      if (visibility === 'private') {
+        video.private = true
+        video.audience = audienceIds
+      } else {
+        video.private = undefined
+        video.audience = undefined
+      }
       await saveVideoVisibility(video.id, visibility, audienceIds)
       return redirect(routes.watch.href({ videoId: video.id }), 303)
     },

@@ -57,7 +57,6 @@ export interface UploadFormProps {
   /** A sent file can be previewed again from here, followed by its id. */
   stagedBase: string
   cancelHref: string
-  personName: string
   person: UploadPerson
   people: UploadPerson[]
   destinations: UploadDestination[]
@@ -464,7 +463,6 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
     let {
       action,
       cancelHref,
-      personName,
       person,
       people,
       destinations,
@@ -1010,7 +1008,7 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
                   <div class="vcard-meta">
                     <div class="vcard-text">
                       <h3 class={`vcard-title${title.trim() ? '' : ' is-placeholder'}`}>{title.trim() || 'Your title goes here'}</h3>
-                      {here.kind === 'custom' ? <p class="vcard-byline">{personName}</p> : null}
+                      {here.kind === 'custom' ? <p class="vcard-byline">{person.name}</p> : null}
                       <p class="vcard-when">
                         Just now
                         <span class="badge-new">New</span>
