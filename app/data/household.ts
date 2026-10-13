@@ -12,7 +12,7 @@ interface Record {
   password: string
 }
 
-const seed: Record[] = [
+const mockup: Record[] = [
   { person: { id: 'mia', name: 'Mia', hue: 172 }, password: 'house' },
   { person: { id: 'tomas', name: 'Tomás', hue: 32 }, password: 'house' },
   { person: { id: 'ruth', name: 'Ruth', hue: 268 }, password: 'house' },
@@ -23,7 +23,7 @@ const seed: Record[] = [
 let extras: Record[] = []
 
 function records(): Record[] {
-  return [...seed, ...extras]
+  return process.env.NODE_ENV === 'test' ? [...mockup, ...extras] : extras
 }
 
 export function listPeople(): Person[] {
