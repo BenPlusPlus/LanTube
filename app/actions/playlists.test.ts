@@ -1,7 +1,10 @@
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
-import { resetPlaylists } from '../data/playlists.ts'
+import { insertUploadedVideo } from '../data/catalogue.ts'
+import { createPerson, resetHousehold, useEmptyHouse } from '../data/household.ts'
+import { addUploadedVideo, deleteVideo, resetChannels } from '../data/library.ts'
+import { getPlaylist, loadCataloguePlaylists, resetPlaylists } from '../data/playlists.ts'
 import { router } from '../router.ts'
 import { routes } from '../routes.ts'
 
@@ -66,12 +69,85 @@ describe('playlists directory', () => {
     assert.match(html, /<h2[^>]*>Yours<\/h2>/)
     assert.match(html, /For Rosie’s birthday/)
     assert.match(html, /Private/)
+    assert.match(html, /Everyone in the house/)
+    assert.doesNotMatch(html, /Public/)
     assert.match(html, /New playlist/)
     let yours = html.indexOf('id="yours"')
     let house = html.indexOf('id="house"')
     assert.ok(yours < html.indexOf('Trips we keep rewatching') && html.indexOf('Trips we keep rewatching') < house)
     assert.equal(html.slice(house).indexOf('Trips we keep rewatching'), -1)
     assert.match(html.slice(house), /<strong>Leo<\/strong> added 2 videos/)
+  })
+})
+
+describe('new playlist', () => {
+  afterEach(() => resetPlaylists())
+
+  it('asks unsigned visitors to sign in', async () => {
+    let { response, html } = await get(routes.playlistNew.index.href())
+    assert.equal(response.status, 401)
+    assert.match(html, /Sign in to make a playlist/)
+  })
+
+  it('offers Everyone in the house and Private, and starts private', async () => {
+    let { html } = await get(routes.playlistNew.index.href(), await signIn('mia'))
+    assert.match(html, /Everyone in the house/)
+    assert.match(html, /poster-name">Private</)
+    assert.match(html, /value="private"[^>]*checked|checked[^>]*value="private"/)
+    assert.doesNotMatch(html, /Public/)
+  })
+
+  it('rejects a name the owner already uses, an empty name, and a name over 60 characters', async () => {
+    let cookie = await signIn('mia')
+    let duplicate = await post(
+      routes.playlistNew.action.href(),
+      [
+        ['name', 'Wind-down'],
+        ['description', ''],
+        ['visibility', 'private'],
+      ],
+      cookie,
+    )
+    assert.equal(duplicate.status, 400)
+    assert.match(await duplicate.text(), /already have a playlist called Wind-down/)
+
+    let empty = await post(
+      routes.playlistNew.action.href(),
+      [
+        ['name', '   '],
+        ['description', ''],
+        ['visibility', 'private'],
+      ],
+      cookie,
+    )
+    assert.equal(empty.status, 400)
+    assert.match(await empty.text(), /between 1 and 60/)
+
+    let long = await post(
+      routes.playlistNew.action.href(),
+      [
+        ['name', 'x'.repeat(61)],
+        ['description', ''],
+        ['visibility', 'private'],
+      ],
+      cookie,
+    )
+    assert.equal(long.status, 400)
+    assert.match(await long.text(), /between 1 and 60/)
+  })
+
+  it('rejects a description over 280 characters', async () => {
+    let response = await post(
+      routes.playlistNew.action.href(),
+      [
+        ['name', 'Late night'],
+        ['description', 'x'.repeat(281)],
+        ['visibility', 'private'],
+      ],
+      await signIn('leo'),
+    )
+    assert.equal(response.status, 400)
+    assert.match(await response.text(), /Keep the description under 280/)
   })
 })
 
@@ -190,9 +266,115 @@ describe('watching from a playlist', () => {
     assert.doesNotMatch(html, /class="wlist"/)
   })
 
+  it('ignores a list the video is not on', async () => {
+    let { html } = await get(`${routes.watch.href({ videoId: 'tahoe-day-2' })}?list=best-boss-fights`)
+    assert.doesNotMatch(html, /class="wlist"/)
+  })
+
   it('marks the playlists a video is already saved in', async () => {
     let { html } = await get(routes.watch.href({ videoId: 'cardinal' }), await signIn('mia'))
     assert.match(html, /Saved/)
     assert.match(html, /aria-pressed="true"/)
+  })
+})
+
+describe('catalogue playlists over HTTP', () => {
+  const created: string[] = []
+
+  afterEach(async () => {
+    for (let id of created.splice(0)) deleteVideo(id)
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    resetPlaylists()
+  })
+
+  async function join(name: string) {
+    let person = await createPerson(name, 'lantern')
+    assert.ok(!('error' in person))
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `intent=signin&personId=${person.id}&password=lantern`,
+        redirect: 'manual',
+      }),
+    )
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    return { cookie: header.split(';', 1)[0], person }
+  }
+
+  it('lets a catalogue Person create, save from Watch, and keep the playlist after reload', async () => {
+    await useEmptyHouse()
+    let { cookie, person } = await join('Sam')
+    assert.notEqual(person.id, person.slug)
+
+    let inserted = await insertUploadedVideo({
+      slug: 'issue-21-http-clip',
+      title: 'Kitchen window',
+      channelSlug: person.slug,
+      ownerId: person.id,
+      durationSec: 12,
+      filePath: `uploads/${person.slug}/issue-21-http-clip.mp4`,
+      posterPath: null,
+      visibility: 'house',
+    })
+    assert.ok(inserted)
+    created.push('issue-21-http-clip')
+    addUploadedVideo({
+      id: 'issue-21-http-clip',
+      title: 'Kitchen window',
+      channelId: person.slug,
+      durationSec: 12,
+      thumb: '',
+      tags: [],
+      file: `uploads/${person.slug}/issue-21-http-clip.mp4`,
+      postedBy: person.id,
+    })
+
+    let createdResponse = await post(
+      routes.playlistNew.action.href(),
+      [
+        ['name', 'Window light'],
+        ['description', ''],
+        ['visibility', 'private'],
+      ],
+      cookie,
+    )
+    assert.equal(createdResponse.status, 303)
+    assert.equal(createdResponse.headers.get('Location'), routes.playlist.href({ playlistId: 'window-light' }))
+
+    let added = await post(
+      routes.playlistItems.href({ playlistId: 'window-light' }),
+      [
+        ['intent', 'add'],
+        ['videoId', 'issue-21-http-clip'],
+        ['async', '1'],
+      ],
+      cookie,
+    )
+    assert.equal(added.status, 204)
+
+    let watch = await get(`${routes.watch.href({ videoId: 'issue-21-http-clip' })}?list=window-light`, cookie)
+    assert.match(watch.html, /class="wlist"/)
+    assert.match(watch.html, /Window light/)
+    assert.match(watch.html, /You · /)
+
+    let unsignedWatch = await get(`${routes.watch.href({ videoId: 'issue-21-http-clip' })}?list=window-light`)
+    assert.doesNotMatch(unsignedWatch.html, /class="wlist"/)
+
+    resetPlaylists()
+    assert.equal(getPlaylist('window-light'), undefined)
+    await loadCataloguePlaylists()
+
+    let yours = await get(routes.playlists.href(), cookie)
+    assert.match(yours.html, /Window light/)
+    assert.match(yours.html, /Private/)
+    let house = await get(routes.playlists.href())
+    assert.doesNotMatch(house.html, /Window light/)
+    let page = await get(routes.playlist.href({ playlistId: 'window-light' }), cookie)
+    assert.equal(page.response.status, 200)
+    assert.match(page.html, /Kitchen window/)
   })
 })

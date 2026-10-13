@@ -2,6 +2,7 @@ import { readHostConfig } from './config.ts'
 import { loadCatalogueVideos } from './data/catalogue.ts'
 import { loadCataloguePeople } from './data/household.ts'
 import { loadCatalogueChannels } from './data/library.ts'
+import { loadCataloguePlaylists } from './data/playlists.ts'
 import { migrateCatalogue } from './db.ts'
 
 export async function prepareHost(
@@ -16,5 +17,6 @@ export async function prepareHost(
     await loadCataloguePeople()
     await loadCatalogueChannels()
     await loadCatalogueVideos()
+    await loadCataloguePlaylists()
   }
 }
