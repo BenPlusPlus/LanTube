@@ -4,8 +4,12 @@ import * as path from 'node:path'
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
+import { listVisibleVideos, loadCatalogueVideos } from '../../data/catalogue.ts'
+import { db } from '../../db.ts'
+import { resetHousehold, useEmptyHouse } from '../../data/household.ts'
 import { deleteVideo, getVideo, searchVideos } from '../../data/library.ts'
 import { mediaDir } from '../../data/media.ts'
+import { videos as videoRows } from '../../data/tables.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
 
@@ -90,6 +94,9 @@ describe('upload page', () => {
     let twice = html.indexOf('value="twice"')
     assert.ok(home > 0 && twice > home, 'Expected Mia’s channel before Twice')
     assert.doesNotMatch(html, /value="skillet"/)
+    assert.match(html, /Everyone in the house/)
+    assert.match(html, /value="house"[^>]*checked|checked[^>]*value="house"/)
+    assert.doesNotMatch(html, /Public/)
   })
 
   it('starts on the channel it was opened from', async () => {
@@ -239,6 +246,22 @@ describe('publishing', () => {
     assert.match(await response.text(), /aria-invalid="true"[^>]*|Give the video a title/)
   })
 
+  it('keeps titles to 100 characters', async () => {
+    let cookie = await signIn('mia')
+    let { body } = await sendFile('clip.mp4', cookie)
+    let response = await publish(
+      [
+        ['uploadId', body.id!],
+        ['channel', 'mia'],
+        ['title', 'x'.repeat(101)],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 400)
+    assert.match(await response.text(), /Give the video a title between 1 and 100 characters/)
+  })
+
   it('needs a video', async () => {
     let cookie = await signIn('mia')
     let response = await publish(
@@ -256,5 +279,91 @@ describe('publishing', () => {
   it('turns away visitors', async () => {
     let response = await publish([['title', 'Hi']])
     assert.equal(response.status, 401)
+  })
+})
+
+describe('publishing a house-visible Video to the catalogue', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  async function joinHouse() {
+    await useEmptyHouse()
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'intent=join&name=Sam&password=lantern&confirm=lantern',
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(response.status, 303)
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    return header.split(';', 1)[0]
+  }
+
+  it('publishes to the Home channel so anyone on the LAN can watch', async () => {
+    let cookie = await joinHouse()
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'lake-day.mp4'],
+        ['uploadId', ''],
+        ['channel', 'sam'],
+        ['title', '  Lake   day  '],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 303)
+    let slug = videoIdFrom(response)
+    assert.equal(slug, 'lake-day')
+    assert.equal(response.headers.get('Location'), routes.watch.href({ videoId: slug }))
+
+    let row = await db.findOne(videoRows, { where: { slug } })
+    assert.ok(row)
+    assert.match(row.id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    assert.equal(row.title, 'Lake day')
+    assert.equal(row.visibility, 'house')
+    assert.ok(row.file_path)
+    assert.ok(fs.existsSync(path.join(mediaDir, row.file_path)))
+
+    let listed = await listVisibleVideos()
+    assert.equal(listed.length, 1)
+    assert.equal(listed[0]?.id, slug)
+
+    let home = await get(routes.home.href())
+    assert.equal(home.response.status, 200)
+    assert.match(home.html, /Latest in the house/)
+    assert.match(home.html, /Lake day/)
+    assert.match(home.html, new RegExp(`href="${routes.watch.href({ videoId: slug })}"`))
+    assert.doesNotMatch(home.html, /No videos in the house yet/)
+
+    let channel = await get(routes.channel.href({ channelId: 'sam' }))
+    assert.equal(channel.response.status, 200)
+    assert.match(channel.html, /Lake day/)
+
+    let watch = await get(routes.watch.href({ videoId: slug }))
+    assert.equal(watch.response.status, 200)
+    assert.match(watch.html, /<h1[^>]*>Lake day<\/h1>/)
+    assert.match(watch.html, new RegExp(`src="${routes.media.href({ videoId: slug })}"`))
+
+    let media = await router.fetch(
+      new Request(new URL(routes.media.href({ videoId: slug }), 'http://localhost'), {
+        headers: { Range: 'bytes=0-9' },
+      }),
+    )
+    assert.equal(media.status, 206)
+    assert.equal(media.headers.get('Content-Type'), 'video/mp4')
+    assert.equal(media.headers.get('Content-Range'), 'bytes 0-9/16')
+    assert.equal((await media.arrayBuffer()).byteLength, 10)
+
+    deleteVideo(slug)
+    assert.equal(getVideo(slug), undefined)
+    await loadCatalogueVideos()
+    let restored = await get(routes.watch.href({ videoId: slug }))
+    assert.equal(restored.response.status, 200)
+    assert.match(restored.html, /<h1[^>]*>Lake day<\/h1>/)
   })
 })

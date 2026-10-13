@@ -311,10 +311,10 @@ export function continueWatching(viewerId?: string): Video[] {
   return newestFirst(visibleVideos(viewerId).filter((video) => isInProgress(video, viewerId)))
 }
 
-export function searchVideos(query: string, topic?: string, viewerId?: string): Video[] {
+export function searchVideos(query: string, topic?: string, viewerId?: string, list?: Video[]): Video[] {
   let q = query.trim().toLocaleLowerCase()
   return newestFirst(
-    visibleVideos(viewerId).filter((video) => {
+    (list ?? visibleVideos(viewerId)).filter((video) => {
       if (topic && !video.tags.includes(topic)) return false
       if (!q) return true
       let channel = getChannel(video.channelId)
@@ -384,7 +384,9 @@ export function publishedAt(video: Video, now = Date.now()): Date {
  * same channel, then the rest of the house, newest first.
  */
 export function relatedVideos(video: Video, limit = 12, viewerId?: string): Video[] {
-  let others = newestFirst(visibleVideos(viewerId).filter((other) => other.id !== video.id))
+  let others = newestFirst(
+    visibleVideos(viewerId).filter((other) => other.id !== video.id && getChannel(other.channelId)),
+  )
   let shared = (other: Video) => other.tags.filter((tag) => video.tags.includes(tag)).length
   let tagged = others.filter((other) => shared(other) > 0).sort((a, b) => shared(b) - shared(a))
   let picked = new Set(tagged.map((other) => other.id))

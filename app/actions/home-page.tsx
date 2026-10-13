@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 
 import type { Person } from '../data/household.ts'
 import type { Video } from '../data/library.ts'
-import { continueWatching, getChannels, getTopic, newestFirst, topics, visibleVideos } from '../data/library.ts'
+import { getChannels, getTopic, isInProgress, newestFirst, topics } from '../data/library.ts'
 import { routes } from '../routes.ts'
 import { AppShell } from '../ui/shell.tsx'
 import { ChannelCard, VideoCard } from '../ui/cards.tsx'
@@ -13,7 +13,7 @@ export interface HomePageProps {
   topic?: string
   results?: Video[]
   person?: Person | null
-  videos: { id: string }[]
+  videos: Video[]
 }
 
 function topicHref(topic?: string) {
@@ -165,8 +165,8 @@ export function HomePage(handle: Handle<HomePageProps>) {
       )
     }
 
-    let libraryVideos = visibleVideos(viewerId)
-    let resume = continueWatching(viewerId)
+    let libraryVideos = videos
+    let resume = newestFirst(libraryVideos.filter((video) => isInProgress(video, viewerId)))
     let shelved = new Set(resume.map((video) => video.id))
     let rest = newestFirst(libraryVideos).filter((video) => !shelved.has(video.id))
     // Only split off "Earlier" when it can fill at least a row.

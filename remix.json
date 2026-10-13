@@ -10,6 +10,7 @@
     }
   },
   "test": {
-    "setup": "./test/setup.ts"
+    "setup": "./test/setup.ts",
+    "concurrency": 1
   }
 }
