@@ -13,6 +13,7 @@ export interface HomePageProps {
   topic?: string
   results?: Video[]
   person?: Person | null
+  videos: { id: string }[]
 }
 
 function topicHref(topic?: string) {
@@ -114,33 +115,29 @@ function EmptyLibrary() {
       <Icon name="folder" size={40} />
       <h2 id="empty-title">No videos in the house yet</h2>
       <p>
-        Point LanTube at a folder of videos on this machine, or upload one. Everyone on your network will see it here.
+        People in the house can upload, or an Admin can index a folder. Anyone on this network can watch once something is here.
       </p>
-      <a class="btn btn-primary" href={routes.upload.index.href()}>
-        <Icon name="upload" size={20} />
-        Upload a video
-      </a>
     </section>
   )
 }
 
 export function HomePage(handle: Handle<HomePageProps>) {
   return () => {
-    let { query, topic, results, person = null } = handle.props
+    let { query, topic, results, person = null, videos } = handle.props
     let viewerId = person?.id
-    let videos = visibleVideos(viewerId)
 
     if (videos.length === 0) {
       return (
-        <AppShell current="home" person={person}>
+        <AppShell current="home" title="Home" person={person}>
           <EmptyLibrary />
         </AppShell>
       )
     }
 
+    let libraryVideos = visibleVideos(viewerId)
     let resume = continueWatching(viewerId)
     let shelved = new Set(resume.map((video) => video.id))
-    let rest = newestFirst(videos).filter((video) => !shelved.has(video.id))
+    let rest = newestFirst(libraryVideos).filter((video) => !shelved.has(video.id))
     // Only split off "Earlier" when it can fill at least a row.
     let cut = rest.length - 8 >= 4 ? 8 : rest.length
     let latest = rest.slice(0, cut)

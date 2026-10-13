@@ -26,43 +26,29 @@ async function signIn(personId: string) {
 }
 
 describe('home page', () => {
-  it('renders the shelves', async () => {
+  it('shows the unsigned empty library on an empty catalogue', async () => {
     let { response, html } = await get(routes.home.href())
 
     assert.equal(response.status, 200)
     assert.match(response.headers.get('Content-Type') ?? '', /text\/html/)
-    assert.doesNotMatch(html, /Continue watching/)
-    assert.match(html, /Latest in the house/)
-    assert.match(html, /Channels in this house/)
+    assert.match(html, /<title>Home/)
+    assert.match(html, /<h2 id="empty-title">No videos in the house yet<\/h2>/)
+    assert.match(
+      html,
+      /People in the house can upload, or an Admin can index a folder\. Anyone on this network can watch once something is here\./,
+    )
+    assert.doesNotMatch(html, /Upload a video/)
+    assert.doesNotMatch(html, /aria-label="Topics"/)
+    assert.doesNotMatch(html, /Latest in the house/)
+    assert.doesNotMatch(html, /Channels in this house/)
   })
 
-  it('continues what the signed-in person was watching', async () => {
-    let { html } = await get(routes.home.href(), await signIn('mia'))
+  it('keeps the library-empty frame when search or tag filters are present', async () => {
+    let { html } = await get(`${routes.home.href()}?q=zzzz&tag=music`)
 
-    assert.match(html, /Continue watching/)
-    assert.match(html, /Continue watching[\s\S]*Treehouse build, part 3/)
-  })
-
-  it('filters by search query', async () => {
-    let { html } = await get(`${routes.home.href()}?q=sourdough`)
-
-    assert.match(html, /Results for “sourdough”/)
-    assert.match(html, /Sourdough attempt #4/)
-    assert.doesNotMatch(html, /Continue watching/)
-  })
-
-  it('shows an empty state when nothing matches', async () => {
-    let { html } = await get(`${routes.home.href()}?q=zzzz`)
-
-    assert.match(html, /Nothing in the house matches/)
-    assert.match(html, /Show all videos/)
-  })
-
-  it('filters by topic', async () => {
-    let { html } = await get(`${routes.home.href()}?topic=music`)
-
-    assert.match(html, /aria-current="page"[^>]*>Music|>Music<\/a>/)
-    assert.match(html, /Chopin nocturne/)
+    assert.match(html, /No videos in the house yet/)
+    assert.doesNotMatch(html, /Nothing in the house matches/)
+    assert.doesNotMatch(html, /Upload a video/)
   })
 })
 
