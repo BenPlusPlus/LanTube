@@ -51,7 +51,7 @@ export default createController(routes, {
           query={query}
           topic={topic}
           videos={videos}
-          results={videos.length > 0 && filtering ? searchVideos(query, topic, person?.id) : undefined}
+          results={videos.length > 0 && filtering ? searchVideos(query, topic, person?.id, videos) : undefined}
           person={person}
         />,
       )
