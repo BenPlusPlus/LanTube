@@ -3,8 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { sql } from 'remix/data-table'
 
 import { db } from '../db.ts'
-import { hueFor } from '../ui/public/identity.ts'
-import { slugify } from './household.ts'
+import { hueFor, slugify } from '../ui/public/identity.ts'
 import { tags as tagRows } from './tables.ts'
 
 export const TAG_NAME_MAX = 40
@@ -60,26 +59,27 @@ export function resetCatalogueTags() {
   catalogueTags = []
 }
 
-/** Split on commas, trim, drop empty tokens, reject over-long names, keep the first spelling. */
-export function parseTagNames(raw: string | string[]): { names: string[] } | { error: string } {
+export function parseTagNames(raw: string | string[]): { names: string[]; leftover?: string; error?: string } {
   let tokens = (Array.isArray(raw) ? raw : [raw])
     .flatMap((value) => value.split(','))
     .map((value) => value.trim().replace(/\s+/g, ' '))
     .filter((value) => value.length > 0)
 
-  for (let name of tokens) {
-    if (name.length > TAG_NAME_MAX) {
-      return { error: `Keep each Tag between 1 and ${TAG_NAME_MAX} characters.` }
-    }
-  }
-
   let seen = new Set<string>()
   let names: string[] = []
+  let leftover: string | undefined
   for (let name of tokens) {
+    if (name.length > TAG_NAME_MAX) {
+      leftover ??= name
+      continue
+    }
     let key = name.toLocaleLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
     names.push(name)
+  }
+  if (leftover) {
+    return { names, leftover, error: `Keep each Tag between 1 and ${TAG_NAME_MAX} characters.` }
   }
   return { names }
 }
@@ -93,7 +93,6 @@ export async function loadCatalogueTags() {
   catalogueTags = rows.map(tagFromRow)
 }
 
-/** First spelling wins. Unused rows stay in the catalogue. */
 export async function findOrCreateTags(names: string[]): Promise<Tag[]> {
   let created: Tag[] = []
   for (let name of names) {

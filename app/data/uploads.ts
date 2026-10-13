@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import { attachVideoTags, insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
+import { insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
 import { slugify } from './household.ts'
 import { addUploadedVideo, canPost, channelsFor, getChannel, getVideo, type Channel, type Video } from './library.ts'
 import { findOrCreateTags, parseTagNames } from './tags.ts'
@@ -197,7 +197,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
   }
 
   let parsed = parseTagNames(input.tags ?? [])
-  if ('error' in parsed) return { error: parsed.error, field: 'tags' }
+  if (parsed.error) return { error: parsed.error, field: 'tags' }
   let tagRows = await findOrCreateTags(parsed.names)
   let tags = tagRows.map((tag) => tag.slug)
   let id = await uniqueVideoId(title)
@@ -232,7 +232,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     postedBy: personId,
     private: input.visibility === 'private' ? true : undefined,
   })
-  let inserted = await insertUploadedVideo({
+  await insertUploadedVideo({
     slug: id,
     title,
     channelSlug: channel.id,
@@ -241,8 +241,8 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     filePath: relative,
     posterPath: thumb || null,
     visibility: input.visibility,
+    tagIds: tagRows.map((tag) => tag.id),
   })
-  if (inserted) await attachVideoTags(inserted.id, tagRows.map((tag) => tag.id))
   if (playlist) addVideo(playlist, video.id)
   return { video }
 }

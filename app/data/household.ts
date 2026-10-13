@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { notNull, sql } from 'remix/data-table'
 
 import { db } from '../db.ts'
-import { hueFor } from '../ui/public/identity.ts'
+import { hueFor, slugify } from '../ui/public/identity.ts'
 import { hashPassword, verifyPasswordHash } from './password.ts'
 import { resetCatalogueTags } from './tags.ts'
 import { channels, people, tags, videoTags, videos } from './tables.ts'
@@ -85,17 +85,7 @@ export function verifyPassword(id: string, password: string): boolean {
   return row.password === password
 }
 
-export function slugify(name: string, fallback = 'person'): string {
-  let slug = name
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-  return slug || fallback
-}
-
-export { hueFor }
+export { hueFor, slugify }
 
 export async function loadCataloguePeople() {
   let rows = await db.findMany(people)

@@ -99,14 +99,6 @@ export async function loadCatalogueVideos() {
   }
 }
 
-export async function attachVideoTags(videoId: string, tagIds: string[]) {
-  if (tagIds.length === 0) return
-  await db.createMany(
-    videoTags,
-    tagIds.map((tagId) => ({ video_id: videoId, tag_id: tagId })),
-  )
-}
-
 export async function insertUploadedVideo(input: {
   slug: string
   title: string
@@ -116,21 +108,30 @@ export async function insertUploadedVideo(input: {
   filePath: string
   posterPath: string | null
   visibility: 'house' | 'private'
+  tagIds?: string[]
 }): Promise<{ id: string; slug: string } | null> {
   let channel = await db.findOne(channels, { where: { slug: input.channelSlug } })
   if (!channel) return null
   let id = randomUUID()
-  await db.create(videos, {
-    id,
-    slug: input.slug,
-    title: input.title,
-    channel_id: channel.id,
-    duration_sec: input.durationSec || null,
-    poster_path: input.posterPath,
-    plays: 0,
-    file_path: input.filePath,
-    owner_id: input.ownerId,
-    visibility: input.visibility,
+  await db.transaction(async (tx) => {
+    await tx.create(videos, {
+      id,
+      slug: input.slug,
+      title: input.title,
+      channel_id: channel.id,
+      duration_sec: input.durationSec || null,
+      poster_path: input.posterPath,
+      plays: 0,
+      file_path: input.filePath,
+      owner_id: input.ownerId,
+      visibility: input.visibility,
+    })
+    if (input.tagIds?.length) {
+      await tx.createMany(
+        videoTags,
+        input.tagIds.map((tagId) => ({ video_id: id, tag_id: tagId })),
+      )
+    }
   })
   return { id, slug: input.slug }
 }

@@ -255,6 +255,26 @@ describe('publishing', () => {
     assert.match(await response.text(), /aria-invalid="true"[^>]*|Give the video a title/)
   })
 
+  it('re-renders comma-separated Tags as separate names after a 400', async () => {
+    let cookie = await signIn('mia')
+    let { body } = await sendFile('clip.mp4', cookie)
+    let response = await publish(
+      [
+        ['uploadId', body.id!],
+        ['channel', 'mia'],
+        ['title', '   '],
+        ['tags', 'Kids, trips'],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.match(html, /Give the video a title/)
+    assert.match(html, /"tags":\["Kids","trips"\]/)
+    assert.doesNotMatch(html, /"tags":\["Kids, trips"\]/)
+  })
+
   it('keeps titles to 100 characters', async () => {
     let cookie = await signIn('mia')
     let { body } = await sendFile('clip.mp4', cookie)
@@ -450,6 +470,8 @@ describe('publishing a house-visible Video to the catalogue', () => {
     let html = await response.text()
     assert.match(html, /Keep each Tag between 1 and 40 characters/)
     assert.match(html, /id="upload-tags"[^>]*aria-invalid="true"|aria-invalid="true"[^>]*id="upload-tags"/)
+    assert.match(html, /"tags":\["Kids"\]/)
+    assert.match(html, new RegExp(`"tagDraft":"${'x'.repeat(41)}"`))
   })
 
   it('shows Home chips for Tags in use, filters by slug, and keeps unused Tags off Home', async () => {

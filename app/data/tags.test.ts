@@ -40,7 +40,17 @@ describe('household Tags', () => {
   it('trims names, drops empty tokens, and rejects over-long ones', () => {
     assert.deepEqual(parseTagNames('  Kids, , trips  '), { names: ['Kids', 'trips'] })
     assert.deepEqual(parseTagNames(['Kids', 'kids', 'Trips']), { names: ['Kids', 'Trips'] })
-    assert.equal('error' in parseTagNames('x'.repeat(41)), true)
+    let tooLong = 'x'.repeat(41)
+    assert.deepEqual(parseTagNames(tooLong), {
+      names: [],
+      leftover: tooLong,
+      error: 'Keep each Tag between 1 and 40 characters.',
+    })
+    assert.deepEqual(parseTagNames(`Kids, ${tooLong}, trips`), {
+      names: ['Kids', 'trips'],
+      leftover: tooLong,
+      error: 'Keep each Tag between 1 and 40 characters.',
+    })
     assert.deepEqual(parseTagNames(''), { names: [] })
   })
 })

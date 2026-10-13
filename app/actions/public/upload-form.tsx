@@ -33,6 +33,7 @@ export interface UploadFormValues {
   channelId: string
   title: string
   tags: string[]
+  tagDraft?: string
   playlistId: string
   visibility: UploadVisibility
   uploadId: string
@@ -160,7 +161,7 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
   /** Until they type a title, each new file suggests one from its name. */
   let titleTouched = initial.title.trim() !== ''
   let chosenTags = [...initial.tags]
-  let tagDraft = initial.tags.join(', ')
+  let tagDraft = initial.tagDraft ?? ''
   let enhanced = false
   let playlistId = initial.playlistId
   let visibility: UploadVisibility = initial.visibility
@@ -194,7 +195,6 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
   let sampler: HTMLVideoElement | undefined
   handle.queueTask(() => {
     enhanced = true
-    tagDraft = ''
     handle.update()
     // The form came back from the host with a problem: take focus to it so it is heard.
     if (handle.props.error) {
@@ -386,33 +386,31 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
 
   const TAG_MAX = 40
 
-  function takeToken(raw: string) {
-    let name = raw.trim().replace(/\s+/g, ' ')
-    if (!name) {
-      tagDraft = ''
-      handle.update()
-      return
+  function applyTokens(raw: string, keepLastAsDraft: boolean) {
+    let tokens = raw
+      .split(',')
+      .map((value) => value.trim().replace(/\s+/g, ' '))
+      .filter((value) => value.length > 0)
+    let draft = ''
+    if (keepLastAsDraft && !raw.trim().endsWith(',') && tokens.length > 0) {
+      draft = tokens.pop() ?? ''
     }
-    if (name.length > TAG_MAX) {
-      handle.update()
-      return
+    for (let name of tokens) {
+      if (name.length > TAG_MAX) {
+        draft = name
+        continue
+      }
+      let key = name.toLocaleLowerCase()
+      if (!chosenTags.some((entry) => entry.toLocaleLowerCase() === key)) chosenTags = [...chosenTags, name]
     }
-    let key = name.toLocaleLowerCase()
-    if (!chosenTags.some((entry) => entry.toLocaleLowerCase() === key)) chosenTags = [...chosenTags, name]
-    tagDraft = ''
-    if (tagsInput) tagsInput.value = ''
+    tagDraft = draft
+    if (tagsInput) tagsInput.value = draft
     handle.update()
   }
 
   function submitTags() {
-    let leftover = (tagsInput?.value ?? tagDraft).trim().replace(/\s+/g, ' ')
-    if (leftover && leftover.length <= TAG_MAX) {
-      let key = leftover.toLocaleLowerCase()
-      if (!chosenTags.some((entry) => entry.toLocaleLowerCase() === key)) chosenTags = [...chosenTags, leftover]
-      leftover = ''
-      tagDraft = ''
-    }
-    if (tagsInput) tagsInput.value = leftover ? [...chosenTags, leftover].join(', ') : chosenTags.join(', ')
+    applyTokens(tagsInput?.value ?? tagDraft, false)
+    if (tagsInput) tagsInput.value = tagDraft ? [...chosenTags, tagDraft].join(', ') : chosenTags.join(', ')
   }
 
   function submit(event: Event) {
@@ -809,7 +807,7 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
               class="field"
               type="text"
               name="tags"
-              value={enhanced ? tagDraft : tagDraft || chosenTags.join(', ')}
+              value={enhanced ? tagDraft : [chosenTags.join(', '), tagDraft].filter(Boolean).join(', ')}
               autocomplete="off"
               placeholder="Kids, trips"
               aria-invalid={invalid('tags')}
@@ -819,16 +817,12 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
                 on('keydown', (event) => {
                   if (event.key !== 'Enter' && event.key !== ',') return
                   event.preventDefault()
-                  takeToken((event.currentTarget as HTMLInputElement).value)
+                  applyTokens((event.currentTarget as HTMLInputElement).value, false)
                 }),
                 on('input', (event) => {
                   let value = (event.currentTarget as HTMLInputElement).value
                   if (value.includes(',')) {
-                    let parts = value.split(',')
-                    takeToken(parts[0] ?? '')
-                    tagDraft = parts.slice(1).join(',').replace(/^\s+/, '')
-                    if (tagsInput) tagsInput.value = tagDraft
-                    handle.update()
+                    applyTokens(value, true)
                     return
                   }
                   tagDraft = value
