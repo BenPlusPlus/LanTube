@@ -253,3 +253,152 @@ describe('house', () => {
     assert.doesNotMatch(html, /class="account-menu-item"[^>]*>House</)
   })
 })
+
+describe('occupied house', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  async function joinFirst() {
+    await useEmptyHouse()
+    return postSignin('intent=join&name=Sam&password=lantern&confirm=lantern')
+  }
+
+  it('shows the who-grid and a collapsed join card with no Admin note or Parent checkbox', async () => {
+    await joinFirst()
+    let { response, html } = await get(routes.signin.index.href())
+
+    assert.equal(response.status, 200)
+    assert.match(html, /<title>Sign in/)
+    assert.match(html, /id="who-title"[^>]*>Who’s using LanTube\?</)
+    assert.match(html, /Sam/)
+    assert.match(html, /I’m new in the house/)
+    assert.match(html, /class="who-pick who-pick-new"/)
+    assert.doesNotMatch(html, /Start this house/)
+    assert.doesNotMatch(html, /You’ll be an Admin/)
+    assert.doesNotMatch(html, /id="join-parent"/)
+    assert.doesNotMatch(html, /name="intent"[^>]*value="join"|value="join"[^>]*name="intent"/)
+  })
+
+  it('opens the join card without Admin or Parent when someone is already in the house', async () => {
+    await joinFirst()
+    let { html } = await get(`${routes.signin.index.href()}?join=1`)
+
+    assert.match(html, /I’m new in the house/)
+    assert.match(html, /name="intent"[^>]*value="join"|value="join"[^>]*name="intent"/)
+    assert.match(html, />Create my channel</)
+    assert.doesNotMatch(html, /You’ll be an Admin/)
+    assert.doesNotMatch(html, /id="join-parent"/)
+  })
+
+  it('creates a later Person with neither role and lands on Home', async () => {
+    await joinFirst()
+    let later = await postSignin('intent=join&name=Alex&password=lantern&confirm=lantern&parent=on')
+
+    assert.equal(later.status, 303)
+    assert.equal(later.headers.get('Location'), routes.home.href())
+
+    let session = await sessionFrom(later)
+    let person = getPerson(session.get('personId') as string)
+    assert.ok(person)
+    assert.equal(person.name, 'Alex')
+    assert.equal(person.isAdmin, false)
+    assert.equal(person.isParent, false)
+
+    let { response, html } = await get(routes.home.href(), cookieFrom(later))
+    assert.equal(response.status, 200)
+    assert.match(html, /<title>Home/)
+    assert.match(html, /account-name">Alex</)
+    assert.doesNotMatch(html, /class="account-menu-item"[^>]*>House</)
+  })
+
+  it('signs in with the correct password against the stored hash', async () => {
+    let first = await joinFirst()
+    let personId = (await sessionFrom(first)).get('personId') as string
+
+    let login = await postSignin(`intent=signin&personId=${encodeURIComponent(personId)}&password=lantern`)
+    assert.equal(login.status, 303)
+    assert.equal(login.headers.get('Location'), routes.home.href())
+
+    let { html } = await get(routes.home.href(), cookieFrom(login))
+    assert.match(html, /account-name">Sam</)
+    assert.doesNotMatch(html, /signin-btn/)
+  })
+
+  it('stays on sign-in with an error when the password is wrong', async () => {
+    let first = await joinFirst()
+    let personId = (await sessionFrom(first)).get('personId') as string
+
+    let response = await postSignin(`intent=signin&personId=${encodeURIComponent(personId)}&password=nope`)
+    let html = await response.text()
+
+    assert.equal(response.status, 400)
+    assert.match(html, /That password doesn’t match this person/)
+    assert.match(html, /id="signin-password"/)
+    assert.match(html, new RegExp(`value="${personId}"`))
+  })
+
+  it('signs out and restores unsigned chrome', async () => {
+    let first = await joinFirst()
+    let cookie = cookieFrom(first)
+
+    let out = await router.fetch(
+      new Request(new URL(routes.signout.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { Cookie: cookie },
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(out.status, 303)
+    assert.equal(out.headers.get('Location'), routes.home.href())
+
+    let { html } = await get(routes.home.href(), cookieFrom(out))
+    assert.match(html, /signin-btn/)
+    assert.doesNotMatch(html, /account-name/)
+  })
+
+  it('shows Admin empty Home copy with a House link and Upload', async () => {
+    let first = await joinFirst()
+    let { html } = await get(routes.home.href(), cookieFrom(first))
+
+    assert.match(html, /<title>Home/)
+    assert.match(html, /<h2 id="empty-title">No videos in the house yet<\/h2>/)
+    assert.match(
+      html,
+      /Index a folder on <a [^>]*href="\/house"[^>]*>House<\/a>, or upload a video\. House-visible videos show here for everyone on this network\./,
+    )
+    assert.match(html, /class="btn btn-primary"[^>]*>[\s\S]*Upload a video/)
+    assert.match(html, /class="account-menu-item"[^>]*>House</)
+  })
+
+  it('shows signed-in empty Home copy with Upload and no House link', async () => {
+    await joinFirst()
+    let later = await postSignin('intent=join&name=Alex&password=lantern&confirm=lantern')
+    let { html } = await get(routes.home.href(), cookieFrom(later))
+
+    assert.match(html, /<title>Home/)
+    assert.match(html, /<h2 id="empty-title">No videos in the house yet<\/h2>/)
+    assert.match(
+      html,
+      /Upload a video and everyone on this network can watch it here\. An Admin can also index a folder on the Media share\./,
+    )
+    assert.match(html, /class="btn btn-primary"[^>]*>[\s\S]*Upload a video/)
+    assert.doesNotMatch(html, /href="\/house"/)
+    assert.doesNotMatch(html, /class="account-menu-item"[^>]*>House</)
+  })
+
+  it('shows unsigned empty Home copy when People exist and there are no Videos', async () => {
+    await joinFirst()
+    let { html } = await get(routes.home.href())
+
+    assert.match(html, /<title>Home/)
+    assert.match(html, /<h2 id="empty-title">No videos in the house yet<\/h2>/)
+    assert.match(
+      html,
+      /People in the house can upload, or an Admin can index a folder\. Anyone on this network can watch once something is here\./,
+    )
+    assert.doesNotMatch(html, /Upload a video/)
+    assert.match(html, /signin-btn/)
+  })
+})

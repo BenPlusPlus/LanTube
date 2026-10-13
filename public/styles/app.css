@@ -980,6 +980,12 @@ legend {
   text-wrap: pretty;
 }
 
+.empty p a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .empty .btn {
   margin-top: 12px;
 }
