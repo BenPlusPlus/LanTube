@@ -22,5 +22,6 @@ export const routes = route({
   poster: get('/poster/:videoId'),
   signin: form('/signin'),
   signout: post('/signout'),
+  details: form('/details'),
   house: get('/house'),
 })

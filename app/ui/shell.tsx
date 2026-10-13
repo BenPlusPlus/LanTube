@@ -170,6 +170,9 @@ export function AppShell(handle: Handle<AppShellProps>) {
                   <a class="account-menu-item" href={routes.channel.href({ channelId: person.slug })}>
                     Your channel
                   </a>
+                  <a class="account-menu-item" href={routes.details.index.href()}>
+                    Your details
+                  </a>
                   {person.isAdmin ? (
                     <a class="account-menu-item" href={routes.house.href()}>
                       House
