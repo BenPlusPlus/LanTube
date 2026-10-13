@@ -39,7 +39,7 @@ function roleFor(channel: Channel, person: Person, runs: Set<string>): string {
   if (channel.id === person.slug) return 'Your channel'
   if (runs.has(channel.id)) return 'You run it'
   let owner = channel.ownerId ? getPerson(channel.ownerId) : undefined
-  return owner ? `${owner.name}’s` : 'You post here'
+  return owner ? `${owner.name}’s` : 'You manage it'
 }
 
 function destinationOf(channel: Channel, person: Person, runs: Set<string>): UploadDestination {

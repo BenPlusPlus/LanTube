@@ -14,7 +14,7 @@ export default createController(routes.channelNew, {
       let person = personFromSession(context.session)
       if (!person) return context.render(<SignInToCreate />)
       return context.render(
-        <ChannelFormPage person={person} people={listPeople()} values={{ name: '', description: '', posterIds: [] }} />,
+        <ChannelFormPage person={person} people={listPeople()} values={{ name: '', description: '', managerIds: [] }} />,
       )
     },
     async action(context) {
@@ -31,7 +31,7 @@ export default createController(routes.channelNew, {
       let photo = await readPhoto(context.formData)
       if (photo && typeof photo === 'object') return fail(photo.error, 'photo')
 
-      let created = createChannel(person.id, { ...values, photo })
+      let created = await createChannel(person.id, { ...values, photo })
       if ('error' in created) return fail(created.error, created.field)
       return redirect(routes.channel.href({ channelId: created.id }), 303)
     },

@@ -1,8 +1,8 @@
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
-import { listPeople, personFromSession, type Person } from '../../data/household.ts'
-import { getChannel, updateChannel, type Channel } from '../../data/library.ts'
+import { getPerson, listPeople, personFromSession, type Person } from '../../data/household.ts'
+import { canPost, getChannel, updateChannel, type Channel } from '../../data/library.ts'
 import { readPhoto } from '../../data/photo.ts'
 import { routes } from '../../routes.ts'
 import { readChannelForm } from '../channel-form.ts'
@@ -16,12 +16,17 @@ function access(channelId: string, person: Person | null): Access {
   if (!channel || channel.kind !== 'custom') {
     return { status: 404, title: 'Channel not found', detail: 'Only channels people start can be edited here.', person }
   }
-  let owner = channel.ownerId ? getChannel(channel.ownerId) : undefined
+  let owner = channel.ownerId ? getPerson(channel.ownerId) ?? getChannel(channel.ownerId) : undefined
   if (!person) {
-    return { status: 401, title: `Sign in to edit ${channel.name}`, detail: `Only ${owner?.name ?? 'its owner'} can change this channel.`, person }
+    return { status: 401, title: `Sign in to edit ${channel.name}`, detail: `Only ${owner?.name ?? 'its owner'} and Managers can change this channel.`, person }
   }
-  if (channel.ownerId !== person.id) {
-    return { status: 403, title: `Only ${owner?.name ?? 'its owner'} can edit ${channel.name}`, detail: 'Ask them to change the name, picture, or who can post.', person }
+  if (!canPost(channel, person.id)) {
+    return {
+      status: 403,
+      title: `You can’t edit ${channel.name}`,
+      detail: `Ask ${owner?.name ?? 'its owner'} to name you a Manager, or to change the channel.`,
+      person,
+    }
   }
   return { channel, person }
 }
@@ -34,12 +39,14 @@ export default createController(routes.channelEdit, {
         return context.render(<NotBuiltPage current="channels" title={result.title} detail={result.detail} person={result.person} />, { status: result.status })
       }
       let { channel, person } = result
+      let canNameManagers = channel.ownerId === person.id
       return context.render(
         <ChannelFormPage
           person={person}
           people={listPeople()}
           channel={channel}
-          values={{ name: channel.name, description: channel.description ?? '', posterIds: channel.posterIds ?? [] }}
+          canNameManagers={canNameManagers}
+          values={{ name: channel.name, description: channel.description ?? '', managerIds: channel.managerIds ?? [] }}
         />,
       )
     },
@@ -49,17 +56,30 @@ export default createController(routes.channelEdit, {
         return context.render(<NotBuiltPage current="channels" title={result.title} detail={result.detail} person={result.person} />, { status: result.status })
       }
       let { channel, person } = result
+      let canNameManagers = channel.ownerId === person.id
       let values = readChannelForm(context.formData)
       let fail = (error: string, errorField: 'name' | 'description' | 'photo') =>
         context.render(
-          <ChannelFormPage person={person} people={listPeople()} channel={channel} values={values} error={error} errorField={errorField} />,
+          <ChannelFormPage
+            person={person}
+            people={listPeople()}
+            channel={channel}
+            canNameManagers={canNameManagers}
+            values={values}
+            error={error}
+            errorField={errorField}
+          />,
           { status: 400 },
         )
 
       let photo = await readPhoto(context.formData)
       if (photo && typeof photo === 'object') return fail(photo.error, 'photo')
 
-      let updated = updateChannel(channel, { ...values, photo })
+      let updated = await updateChannel(channel, {
+        ...values,
+        photo,
+        managerIds: canNameManagers ? values.managerIds : undefined,
+      })
       if ('error' in updated) return fail(updated.error, updated.field)
       return redirect(routes.channel.href({ channelId: channel.id }), 303)
     },

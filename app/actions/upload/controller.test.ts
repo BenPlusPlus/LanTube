@@ -9,7 +9,7 @@ import { notNull } from 'remix/data-table'
 import { listVisibleVideos, loadCatalogueVideos } from '../../data/catalogue.ts'
 import { db } from '../../db.ts'
 import { listPeople, resetHousehold, useEmptyHouse } from '../../data/household.ts'
-import { canWatch, deleteVideo, getVideo, searchVideos } from '../../data/library.ts'
+import { canWatch, deleteVideo, getVideo, loadCatalogueChannels, resetChannels, searchVideos } from '../../data/library.ts'
 import { addVideo, getPlaylist } from '../../data/playlists.ts'
 import { findOrCreateTags, getTag, listTags, resetCatalogueTags } from '../../data/tags.ts'
 import { mediaDir } from '../../data/media.ts'
@@ -1103,5 +1103,219 @@ describe('edit title and Tags on Watch', () => {
     assert.match(otherWatch.html, /<h1[^>]*>Lake day<\/h1>/)
     assert.match(otherWatch.html, />Kids</)
     assert.doesNotMatch(otherWatch.html, /name="title"/)
+  })
+})
+
+describe('Custom channel post and Watch edit', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+  })
+
+  async function join(name: string) {
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `intent=join&name=${encodeURIComponent(name)}&password=lantern&confirm=lantern`,
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(response.status, 303)
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    let person = listPeople().find((entry) => entry.name === name)
+    assert.ok(person)
+    return { cookie: header.split(';', 1)[0], person }
+  }
+
+  function postChannel(fields: [string, string][], cookie: string) {
+    let body = new FormData()
+    for (let [key, value] of fields) body.append(key, value)
+    return router.fetch(
+      new Request(new URL(routes.channelNew.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { Cookie: cookie },
+        body,
+        redirect: 'manual',
+      }),
+    )
+  }
+
+  it('lets a Person create a Custom channel, name a Manager, and post a house-visible Video', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie, person: owner } = await join('Sam')
+    let { cookie: managerCookie, person: manager } = await join('Alex')
+    let { cookie: otherCookie } = await join('Riley')
+
+    let created = await postChannel(
+      [
+        ['name', 'Board Games'],
+        ['description', 'Catan nights.'],
+        ['managers', manager.id],
+      ],
+      ownerCookie,
+    )
+    assert.equal(created.status, 303)
+    assert.equal(created.headers.get('Location'), routes.channel.href({ channelId: 'board-games' }))
+
+    resetChannels()
+    assert.equal((await get(routes.channel.href({ channelId: 'board-games' }))).response.status, 404)
+    await loadCatalogueChannels()
+
+    let channel = await get(routes.channel.href({ channelId: 'board-games' }), ownerCookie)
+    assert.equal(channel.response.status, 200)
+    assert.match(channel.html, /Catan nights\./)
+    assert.match(channel.html, /<dt>Managers<\/dt>/)
+    assert.match(channel.html, /Alex/)
+
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'catan.mp4'],
+        ['channel', 'board-games'],
+        ['title', 'Catan night'],
+        ['visibility', 'house'],
+      ],
+      ownerCookie,
+    )
+    assert.equal(response.status, 303)
+    let slug = videoIdFrom(response)
+
+    let home = await get(routes.home.href())
+    assert.match(home.html, /Catan night/)
+    assert.match(home.html, new RegExp(`href="${routes.watch.href({ videoId: slug })}"`))
+
+    let watch = await get(routes.watch.href({ videoId: slug }))
+    assert.equal(watch.response.status, 200)
+    assert.match(watch.html, /<h1[^>]*>Catan night<\/h1>/)
+
+    let onChannel = await get(routes.channel.href({ channelId: 'board-games' }))
+    assert.match(onChannel.html, /Catan night/)
+
+    let managerUpload = await get(routes.upload.index.href(), managerCookie)
+    assert.match(managerUpload.html, /value="board-games"/)
+    let otherUpload = await get(routes.upload.index.href(), otherCookie)
+    assert.doesNotMatch(otherUpload.html, /value="board-games"/)
+
+    let outsiderPost = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'nope.mp4'],
+        ['channel', 'board-games'],
+        ['title', 'Not allowed'],
+        ['visibility', 'house'],
+      ],
+      otherCookie,
+    )
+    assert.equal(outsiderPost.status, 400)
+    assert.match(await outsiderPost.text(), /Pick a channel you can post to/)
+    assert.equal((await get(routes.channelEdit.index.href({ channelId: 'board-games' }), otherCookie)).response.status, 403)
+  })
+
+  it('lets owner and Managers see private Videos and edit them; Video owner lasts after removal', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie, person: owner } = await join('Sam')
+    let { cookie: managerCookie, person: manager } = await join('Alex')
+    let { cookie: otherCookie } = await join('Riley')
+
+    assert.equal(
+      (
+        await postChannel(
+          [
+            ['name', 'Board Games'],
+            ['managers', manager.id],
+          ],
+          ownerCookie,
+        )
+      ).status,
+      303,
+    )
+
+    let ownerClip = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'owners.mp4'],
+        ['channel', 'board-games'],
+        ['title', 'Owner private'],
+        ['visibility', 'private'],
+      ],
+      ownerCookie,
+    )
+    let ownerSlug = videoIdFrom(ownerClip)
+    let managerClip = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'managers.mp4'],
+        ['channel', 'board-games'],
+        ['title', 'Manager private'],
+        ['visibility', 'private'],
+      ],
+      managerCookie,
+    )
+    let managerSlug = videoIdFrom(managerClip)
+
+    assert.equal((await get(routes.watch.href({ videoId: ownerSlug }), managerCookie)).response.status, 200)
+    assert.equal((await get(routes.watch.href({ videoId: managerSlug }), ownerCookie)).response.status, 200)
+    assert.equal((await get(routes.watch.href({ videoId: ownerSlug }), otherCookie)).response.status, 404)
+
+    let managerWatch = await get(routes.watch.href({ videoId: ownerSlug }), managerCookie)
+    assert.match(managerWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: ownerSlug })}"`))
+    assert.match(managerWatch.html, /poster-role">Owner</)
+    assert.doesNotMatch(managerWatch.html, /You · owner/)
+
+    let saved = await saveWatch(
+      ownerSlug,
+      [
+        ['title', 'Owner private retitled'],
+        ['tags', 'Games'],
+        ['visibility', 'private'],
+        ['audience', owner.id],
+        ['audience', manager.id],
+      ],
+      managerCookie,
+    )
+    assert.equal(saved.status, 303)
+    assert.equal(getVideo(ownerSlug)?.title, 'Owner private retitled')
+    assert.deepEqual(getVideo(ownerSlug)?.tags, ['games'])
+    assert.deepEqual(getVideo(ownerSlug)?.audience, [manager.id])
+
+    let clearedAudience = await saveWatch(
+      ownerSlug,
+      [
+        ['title', 'Owner private retitled'],
+        ['tags', 'Games'],
+        ['visibility', 'private'],
+      ],
+      managerCookie,
+    )
+    assert.equal(clearedAudience.status, 303)
+    assert.deepEqual(getVideo(ownerSlug)?.audience ?? [], [])
+
+    let removed = await router.fetch(
+      new Request(new URL(routes.channelEdit.action.href({ channelId: 'board-games' }), 'http://localhost'), {
+        method: 'POST',
+        headers: { Cookie: ownerCookie },
+        body: (() => {
+          let body = new FormData()
+          body.append('name', 'Board Games')
+          body.append('description', '')
+          return body
+        })(),
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(removed.status, 303)
+
+    assert.equal((await get(routes.watch.href({ videoId: managerSlug }), managerCookie)).response.status, 200)
+    assert.equal((await get(routes.watch.href({ videoId: ownerSlug }), managerCookie)).response.status, 404)
+    assert.match(
+      (await get(routes.watch.href({ videoId: managerSlug }), managerCookie)).html,
+      new RegExp(`action="${routes.watchSave.href({ videoId: managerSlug })}"`),
+    )
+    assert.equal((await get(routes.channelEdit.index.href({ channelId: 'board-games' }), managerCookie)).response.status, 403)
+    assert.equal(
+      (await saveWatch(managerSlug, [['title', 'Still mine'], ['visibility', 'private']], managerCookie)).status,
+      303,
+    )
+    assert.equal(getVideo(managerSlug)?.title, 'Still mine')
+    assert.equal((await saveWatch(ownerSlug, [['title', 'Stolen'], ['visibility', 'house']], managerCookie)).status, 404)
   })
 })

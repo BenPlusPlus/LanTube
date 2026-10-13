@@ -1,12 +1,18 @@
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
-import { getPerson } from './household.ts'
+import { createPerson, getPerson, resetHousehold, useEmptyHouse } from './household.ts'
 import {
   addUploadedVideo,
+  canPost,
   canWatch,
+  createChannel,
   deleteVideo,
+  getChannel,
   getVideo,
+  loadCatalogueChannels,
+  resetChannels,
+  updateChannel,
   visibleVideos,
   type Video,
 } from './library.ts'
@@ -91,5 +97,97 @@ describe('private Video entitlement', () => {
     let video = getVideo('tahoe-day-2')!
     assert.equal(canWatch(video, undefined), true)
     assert.equal(canWatch(video, 'tomas'), true)
+  })
+
+  it('lets a Custom channel owner and Managers watch a private Video they did not post', () => {
+    let owners = clip({ id: 'entitlement-custom-owner', postedBy: 'priya', channelId: 'twice' })
+    let managers = clip({ id: 'entitlement-custom-manager', postedBy: 'mia', channelId: 'twice' })
+    assert.equal(canWatch(owners, 'mia'), true)
+    assert.equal(canWatch(managers, 'priya'), true)
+    assert.equal(canWatch(owners, 'tomas'), false)
+    assert.equal(canWatch(managers, 'tomas'), false)
+    assert.ok(visibleVideos('mia').some((entry) => entry.id === owners.id))
+    assert.ok(visibleVideos('priya').some((entry) => entry.id === managers.id))
+    assert.equal(
+      visibleVideos('tomas').some((entry) => entry.id === owners.id || entry.id === managers.id),
+      false,
+    )
+  })
+
+  it('keeps the Video owner able to watch their Video after they stop being a Manager', async () => {
+    let channel = getChannel('twice')!
+    let own = clip({ id: 'entitlement-ex-manager-own', postedBy: 'priya', channelId: 'twice' })
+    let other = clip({ id: 'entitlement-ex-manager-other', postedBy: 'mia', channelId: 'twice' })
+    await updateChannel(channel, { name: channel.name, description: channel.description ?? '', managerIds: [] })
+    try {
+      assert.equal(canWatch(own, 'priya'), true)
+      assert.equal(canWatch(other, 'priya'), false)
+      assert.equal(canWatch(other, 'mia'), true)
+      assert.equal(canPost(channel, 'priya'), false)
+      assert.equal(canPost(channel, 'mia'), true)
+      assert.ok(visibleVideos('priya').some((entry) => entry.id === own.id))
+      assert.equal(
+        visibleVideos('priya').some((entry) => entry.id === other.id),
+        false,
+      )
+    } finally {
+      resetChannels()
+    }
+  })
+})
+
+describe('Custom channel Managers', () => {
+  afterEach(() => {
+    resetChannels()
+  })
+
+  it('lets the Channel owner and Managers post, and keeps everyone else out', () => {
+    let channel = getChannel('twice')!
+    assert.equal(canPost(channel, 'mia'), true)
+    assert.equal(canPost(channel, 'priya'), true)
+    assert.equal(canPost(channel, 'tomas'), false)
+    assert.equal(canPost(channel, undefined), false)
+  })
+
+  it('creates a Custom channel whose owner is not a Manager', async () => {
+    let created = await createChannel('leo', { name: 'Board Games', description: '', managerIds: ['priya', 'leo'] })
+    assert.ok(!('error' in created))
+    assert.equal(created.kind, 'custom')
+    assert.equal(created.ownerId, 'leo')
+    assert.deepEqual(created.managerIds, ['priya'])
+    assert.equal(canPost(created, 'leo'), true)
+    assert.equal(canPost(created, 'priya'), true)
+    assert.equal(canPost(created, 'mia'), false)
+  })
+
+  it('restores a Custom channel and its Managers after reload', async () => {
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    try {
+      let owner = await createPerson('Sam', 'lantern')
+      let manager = await createPerson('Alex', 'lantern')
+      assert.ok(!('error' in owner) && !('error' in manager))
+      let created = await createChannel(owner.id, {
+        name: 'Board Games',
+        description: 'Catan nights.',
+        managerIds: [manager.id],
+      })
+      assert.ok(!('error' in created))
+      resetChannels()
+      assert.equal(getChannel(created.id), undefined)
+      await loadCatalogueChannels()
+      let restored = getChannel(created.id)
+      assert.ok(restored)
+      assert.equal(restored.name, 'Board Games')
+      assert.equal(restored.ownerId, owner.id)
+      assert.deepEqual(restored.managerIds, [manager.id])
+      assert.equal(canPost(restored, manager.id), true)
+      assert.equal(canPost(restored, owner.id), true)
+    } finally {
+      await useEmptyHouse()
+      resetHousehold()
+      resetChannels()
+    }
   })
 })
