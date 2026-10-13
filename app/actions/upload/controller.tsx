@@ -3,6 +3,7 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { personFromSession } from '../../data/household.ts'
+import { namedAudience } from '../../data/library.ts'
 import { parseTagNames } from '../../data/tags.ts'
 import { getStaged, publishUpload, stageUpload, UploadTooLargeError, uploadLimits, type UploadField } from '../../data/uploads.ts'
 import { routes } from '../../routes.ts'
@@ -14,7 +15,7 @@ const UNSUPPORTED = 'unsupported'
 const TOO_BIG_WITHOUT_JS =
   'Without JavaScript, LanTube can take videos up to 512 MB in one go. Turn JavaScript on to send bigger ones.'
 
-function readValues(formData: FormData, uploadId: string): UploadFormValues {
+function readValues(formData: FormData, uploadId: string, ownerId: string): UploadFormValues {
   let text = (name: string) => {
     let value = formData.get(name)
     return typeof value === 'string' ? value : ''
@@ -28,6 +29,10 @@ function readValues(formData: FormData, uploadId: string): UploadFormValues {
     tagDraft: parsed.leftover ?? '',
     playlistId: text('playlist'),
     visibility: text('visibility') === 'private' ? 'private' : 'house',
+    audienceIds: namedAudience(
+      ownerId,
+      formData.getAll('audience').filter((value): value is string => typeof value === 'string'),
+    ),
     uploadId,
     durationSec: Number.isFinite(duration) && duration > 0 ? duration : 0,
   }
@@ -83,7 +88,7 @@ export default createController(routes.upload, {
       let hidden = formData.get('uploadId')
       let uploadId = typeof sent === 'string' && sent ? sent : typeof hidden === 'string' ? hidden : ''
       let poster = formData.get('poster')
-      let values = readValues(formData, uploadId === UNSUPPORTED ? '' : uploadId)
+      let values = readValues(formData, uploadId === UNSUPPORTED ? '' : uploadId, person.id)
 
       let fail = (error: string, errorField: UploadField) => {
         let staged = values.uploadId ? getStaged(values.uploadId, person.id) : undefined

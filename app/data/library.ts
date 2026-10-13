@@ -2,7 +2,7 @@
 // Names, titles, progress and dates are illustrative; thumbnails are licensed
 // Wikimedia Commons photos (see public/thumbs/CREDITS.json).
 
-import { hueFor, listPeople, getPerson as getHouseholdPerson, slugify, type Person } from './household.ts'
+import { hueFor, isParent, listPeople, getPerson as getHouseholdPerson, slugify, type Person } from './household.ts'
 
 /** `person`: everyone's home channel. `custom`: a named channel someone runs. `folder`: an indexed share. */
 export type ChannelKind = 'person' | 'custom' | 'folder'
@@ -39,13 +39,24 @@ export interface Video {
   file?: string
   /** The person who posted it. Set on custom-channel videos and on every upload. */
   postedBy?: string
-  /** Only the person who posted it can see it. */
   private?: boolean
+  /** Empty is allowed: private with nobody extra named. */
+  audience?: string[]
 }
 
-/** Private videos exist only for the person who posted them. */
+/** A private Video exists for its owner, named Audience, and any Parent — not Admin alone. */
 export function canWatch(video: Video, viewerId: string | undefined | null): boolean {
-  return !video.private || (viewerId != null && video.postedBy === viewerId)
+  if (!video.private) return true
+  if (viewerId == null) return false
+  if (video.postedBy === viewerId) return true
+  if (video.audience?.includes(viewerId)) return true
+  return isParent(viewerId)
+}
+
+/** Drops the owner and anyone who is not a Person in the house. */
+export function namedAudience(ownerId: string, ids: Iterable<string>): string[] {
+  let known = new Set(listPeople().map((person) => person.id))
+  return [...new Set(ids)].filter((id) => id !== ownerId && known.has(id))
 }
 
 /** Seeded thumbs live in public/thumbs; uploads carry their own path; some videos have none yet. */

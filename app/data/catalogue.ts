@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
 import { db } from '../db.ts'
-import { getVideo, videos as memoryVideos, type Video } from './library.ts'
+import { canWatch, getVideo, videos as memoryVideos, type Video } from './library.ts'
 import { loadCatalogueTags } from './tags.ts'
-import { channels, videoTags, videos, tags as tagRows } from './tables.ts'
+import { channels, videoAudience, videoTags, videos, tags as tagRows } from './tables.ts'
 
 type VideoRow = {
   id: string
@@ -31,8 +31,14 @@ function publishedMs(at: unknown) {
   return Date.now()
 }
 
-function videoFromRow(row: VideoRow, channelById: Map<string, ChannelRow>, tagSlugs: string[]): Video {
+function videoFromRow(
+  row: VideoRow,
+  channelById: Map<string, ChannelRow>,
+  tagSlugs: string[],
+  audienceIds: string[],
+): Video {
   let published = publishedMs(row.published_at)
+  let isPrivate = row.visibility === 'private'
   return Object.defineProperty(
     {
       id: row.slug,
@@ -45,7 +51,8 @@ function videoFromRow(row: VideoRow, channelById: Map<string, ChannelRow>, tagSl
       plays: row.plays,
       file: row.file_path,
       postedBy: row.owner_id ?? undefined,
-      private: row.visibility === 'private' ? true : undefined,
+      private: isPrivate ? true : undefined,
+      audience: isPrivate ? audienceIds : undefined,
     } as Video,
     'addedDaysAgo',
     {
@@ -74,16 +81,29 @@ async function tagsByVideoId() {
   return slugs
 }
 
+async function audienceByVideoId() {
+  let joins = await db.findMany(videoAudience)
+  let ids = new Map<string, string[]>()
+  for (let join of joins) {
+    let list = ids.get(join.video_id)
+    if (list) list.push(join.person_id)
+    else ids.set(join.video_id, [join.person_id])
+  }
+  return ids
+}
+
 async function videosFromRows(rows: VideoRow[]) {
   let channelById = await channelMap()
   let tagSlugs = await tagsByVideoId()
-  return rows.map((row) => videoFromRow(row, channelById, tagSlugs.get(row.id) ?? []))
+  let audienceIds = await audienceByVideoId()
+  return rows.map((row) =>
+    videoFromRow(row, channelById, tagSlugs.get(row.id) ?? [], audienceIds.get(row.id) ?? []),
+  )
 }
 
-/** House-visible Videos. Private entitlement waits for a later slice. */
-export async function listVisibleVideos(_viewerId?: string | null): Promise<Video[]> {
-  let rows = await db.findMany(videos, { where: { visibility: 'house' } })
-  return videosFromRows(rows)
+export async function listVisibleVideos(viewerId?: string | null): Promise<Video[]> {
+  let rows = await videosFromRows(await db.findMany(videos))
+  return rows.filter((video) => canWatch(video, viewerId))
 }
 
 export async function videoSlugTaken(slug: string) {
@@ -109,10 +129,12 @@ export async function insertUploadedVideo(input: {
   posterPath: string | null
   visibility: 'house' | 'private'
   tagIds?: string[]
+  audienceIds?: string[]
 }): Promise<{ id: string; slug: string } | null> {
   let channel = await db.findOne(channels, { where: { slug: input.channelSlug } })
   if (!channel) return null
   let id = randomUUID()
+  let audienceIds = input.visibility === 'private' ? (input.audienceIds ?? []) : []
   await db.transaction(async (tx) => {
     await tx.create(videos, {
       id,
@@ -132,6 +154,33 @@ export async function insertUploadedVideo(input: {
         input.tagIds.map((tagId) => ({ video_id: id, tag_id: tagId })),
       )
     }
+    if (audienceIds.length) {
+      await tx.createMany(
+        videoAudience,
+        audienceIds.map((personId) => ({ video_id: id, person_id: personId })),
+      )
+    }
   })
   return { id, slug: input.slug }
+}
+
+export async function saveVideoVisibility(
+  slug: string,
+  visibility: 'house' | 'private',
+  audienceIds: string[],
+): Promise<boolean> {
+  let row = await db.findOne(videos, { where: { slug } })
+  if (!row) return false
+  let named = visibility === 'private' ? audienceIds : []
+  await db.transaction(async (tx) => {
+    await tx.update(videos, row.id, { visibility })
+    await tx.deleteMany(videoAudience, { where: { video_id: row.id } })
+    if (named.length) {
+      await tx.createMany(
+        videoAudience,
+        named.map((personId) => ({ video_id: row.id, person_id: personId })),
+      )
+    }
+  })
+  return true
 }

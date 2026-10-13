@@ -2006,6 +2006,26 @@ label.poster:hover {
   white-space: normal;
 }
 
+.audience-picker {
+  margin-top: 16px;
+}
+
+.watch-access {
+  margin-top: 16px;
+}
+
+.watch-access .audience-picker {
+  display: none;
+}
+
+.watch-access:has(input[name='visibility'][value='private']:checked) .audience-picker {
+  display: block;
+}
+
+.watch-access .chform-actions {
+  margin-top: 16px;
+}
+
 .radio {
   flex: none;
   width: 22px;

@@ -4,10 +4,19 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
-import { listVisibleVideos } from '../data/catalogue.ts'
+import { listVisibleVideos, saveVideoVisibility } from '../data/catalogue.ts'
 import { listPeople, personFromSession } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
-import { canWatch, getChannel, getVideo, recordPlay, searchVideos, type ChannelSort, type Video } from '../data/library.ts'
+import {
+  canWatch,
+  getChannel,
+  getVideo,
+  namedAudience,
+  recordPlay,
+  searchVideos,
+  type ChannelSort,
+  type Video,
+} from '../data/library.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 import { addVideo, canSee, getPlaylist, moveVideo, removeVideo } from '../data/playlists.ts'
 import { routes } from '../routes.ts'
@@ -70,8 +79,47 @@ export default createController(routes, {
       let list = listId ? getPlaylist(listId) : undefined
       if (list && (!canSee(list, person?.id) || !list.videoIds.includes(video.id))) list = undefined
       return context.render(
-        <WatchPage video={video} media={mediaFileFor(video)} theater={theater} person={person} list={list} />,
+        <WatchPage
+          video={video}
+          media={mediaFileFor(video)}
+          theater={theater}
+          person={person}
+          people={listPeople()}
+          list={list}
+        />,
       )
+    },
+    async watchVisibility(context) {
+      let person = personFromSession(context.session)
+      let video = watchable(context.params.videoId, person?.id)
+      if (!video) {
+        return context.render(
+          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
+          { status: 404 },
+        )
+      }
+      let channel = getChannel(video.channelId)
+      if (!person || video.postedBy !== person.id || channel?.kind === 'folder') {
+        return new Response('Forbidden', { status: 403 })
+      }
+      let form = context.formData
+      let visibility: 'house' | 'private' = form.get('visibility') === 'private' ? 'private' : 'house'
+      let audienceIds =
+        visibility === 'private'
+          ? namedAudience(
+              person.id,
+              form.getAll('audience').filter((value): value is string => typeof value === 'string'),
+            )
+          : []
+      if (visibility === 'private') {
+        video.private = true
+        video.audience = audienceIds
+      } else {
+        video.private = undefined
+        video.audience = undefined
+      }
+      await saveVideoVisibility(video.id, visibility, audienceIds)
+      return redirect(routes.watch.href({ videoId: video.id }), 303)
     },
     async media(context) {
       let video = watchable(context.params.videoId, personFromSession(context.session)?.id)
