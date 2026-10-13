@@ -77,6 +77,19 @@ function publish(fields: [string, string | Blob, string?][], cookie?: string) {
   )
 }
 
+function saveWatch(videoId: string, fields: [string, string][], cookie?: string) {
+  let body = new FormData()
+  for (let [key, value] of fields) body.append(key, value)
+  return router.fetch(
+    new Request(new URL(routes.watchSave.href({ videoId }), 'http://localhost'), {
+      method: 'POST',
+      headers: cookie ? { Cookie: cookie } : undefined,
+      body,
+      redirect: 'manual',
+    }),
+  )
+}
+
 function videoIdFrom(response: Response) {
   let location = response.headers.get('Location') ?? ''
   let id = decodeURIComponent(location.split('/').pop() ?? '')
@@ -216,7 +229,7 @@ describe('publishing', () => {
     assert.equal(own.response.status, 200)
     assert.match(own.html, /Private/)
     assert.match(own.html, /name="audience"/)
-    assert.match(own.html, new RegExp(`action="${routes.watchVisibility.href({ videoId: id })}"`))
+    assert.match(own.html, new RegExp(`action="${routes.watchSave.href({ videoId: id })}"`))
     assert.doesNotMatch(own.html, /Only me/)
     assert.deepEqual(getVideo(id)?.audience ?? [], [])
 
@@ -638,19 +651,6 @@ describe('private Video with Audience', () => {
     return { cookie: header.split(';', 1)[0], person }
   }
 
-  function saveVisibility(videoId: string, fields: [string, string][], cookie: string) {
-    let body = new FormData()
-    for (let [key, value] of fields) body.append(key, value)
-    return router.fetch(
-      new Request(new URL(routes.watchVisibility.href({ videoId }), 'http://localhost'), {
-        method: 'POST',
-        headers: { Cookie: cookie },
-        body,
-        redirect: 'manual',
-      }),
-    )
-  }
-
   it('lets named Audience watch, 404s everyone else, and restores after reload', async () => {
     await useEmptyHouse()
     let { cookie: ownerCookie, person: owner } = await join('Sam')
@@ -691,7 +691,7 @@ describe('private Video with Audience', () => {
     assert.match(namedWatch.html, /<h1[^>]*>Backyard<\/h1>/)
     assert.match(namedWatch.html, /Private/)
     assert.doesNotMatch(namedWatch.html, /name="audience"/)
-    assert.doesNotMatch(namedWatch.html, new RegExp(`action="${routes.watchVisibility.href({ videoId: slug })}"`))
+    assert.doesNotMatch(namedWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: slug })}"`))
 
     assert.equal((await get(watch, otherCookie)).response.status, 404)
     assert.equal((await get(watch)).response.status, 404)
@@ -796,9 +796,10 @@ describe('private Video with Audience', () => {
       ownerCookie,
     )
     let slug = videoIdFrom(response)
-    let saved = await saveVisibility(
+    let saved = await saveWatch(
       slug,
       [
+        ['title', 'Now for the house'],
         ['visibility', 'house'],
         ['audience', named.id],
       ],
@@ -823,7 +824,7 @@ describe('private Video with Audience', () => {
     assert.doesNotMatch(unsignedHome.html, /No videos in the house yet/)
     assert.equal((await get(routes.watch.href({ videoId: slug }))).response.status, 200)
 
-    let backToPrivate = await saveVisibility(slug, [['visibility', 'private']], ownerCookie)
+    let backToPrivate = await saveWatch(slug, [['title', 'Now for the house'], ['visibility', 'private']], ownerCookie)
     assert.equal(backToPrivate.status, 303)
     assert.deepEqual(getVideo(slug)?.audience ?? [], [])
     assert.equal((await get(routes.watch.href({ videoId: slug }), namedCookie)).response.status, 404)
@@ -848,12 +849,20 @@ describe('private Video with Audience', () => {
     let slug = videoIdFrom(response)
     assert.equal((await get(routes.watch.href({ videoId: slug }), namedCookie)).response.status, 404)
 
-    let saved = await saveVisibility(slug, [['visibility', 'private'], ['audience', named.id]], ownerCookie)
+    let saved = await saveWatch(
+      slug,
+      [
+        ['title', 'Later shared'],
+        ['visibility', 'private'],
+        ['audience', named.id],
+      ],
+      ownerCookie,
+    )
     assert.equal(saved.status, 303)
     assert.deepEqual(getVideo(slug)?.audience, [named.id])
     assert.equal((await get(routes.watch.href({ videoId: slug }), namedCookie)).response.status, 200)
     assert.equal((await get(routes.watch.href({ videoId: slug }), otherCookie)).response.status, 404)
-    assert.equal((await saveVisibility(slug, [['visibility', 'house']], namedCookie)).status, 403)
+    assert.equal((await saveWatch(slug, [['title', 'Later shared'], ['visibility', 'house']], namedCookie)).status, 403)
     assert.match((await get(routes.home.href(), namedCookie)).html, /Later shared/)
   })
 
@@ -876,9 +885,223 @@ describe('private Video with Audience', () => {
     assert.equal(getVideo(slug)?.private, undefined)
     assert.equal(getVideo(slug)?.audience, undefined)
 
-    let saved = await saveVisibility(slug, [['visibility', 'private']], ownerCookie)
+    let saved = await saveWatch(slug, [['title', 'Open clip'], ['visibility', 'private']], ownerCookie)
     assert.equal(saved.status, 303)
     assert.deepEqual(getVideo(slug)?.audience ?? [], [])
     assert.equal((await get(routes.watch.href({ videoId: slug }))).response.status, 404)
+  })
+})
+
+describe('edit title and Tags on Watch', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  async function join(name: string) {
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `intent=join&name=${encodeURIComponent(name)}&password=lantern&confirm=lantern`,
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(response.status, 303)
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    let person = listPeople().find((entry) => entry.name === name)
+    assert.ok(person)
+    return { cookie: header.split(';', 1)[0], person }
+  }
+
+  async function publishHome(cookie: string, title: string, extra: [string, string][] = []) {
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', title],
+        ['visibility', 'house'],
+        ...extra,
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 303)
+    return videoIdFrom(response)
+  }
+
+  it('lets the Video owner change title, Tags, visibility, and Audience in one Save', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie, person: owner } = await join('Sam')
+    let { cookie: namedCookie, person: named } = await join('Alex')
+    let slug = await publishHome(ownerCookie, 'Lake day', [['tags', 'Kids']])
+    let file = getVideo(slug)?.file
+    assert.ok(file)
+
+    let saved = await saveWatch(
+      slug,
+      [
+        ['title', '  Evening   lake  '],
+        ['tags', 'Trips, Garden'],
+        ['visibility', 'private'],
+        ['audience', named.id],
+        ['audience', owner.id],
+      ],
+      ownerCookie,
+    )
+    assert.equal(saved.status, 303)
+    assert.equal(saved.headers.get('Location'), routes.watch.href({ videoId: slug }))
+
+    let video = getVideo(slug)
+    assert.equal(video?.id, slug)
+    assert.equal(video?.title, 'Evening lake')
+    assert.equal(video?.file, file)
+    assert.deepEqual(video?.tags, ['trips', 'garden'])
+    assert.equal(video?.private, true)
+    assert.deepEqual(video?.audience, [named.id])
+    assert.equal(getTag('garden')?.name, 'Garden')
+
+    let watch = await get(routes.watch.href({ videoId: slug }), ownerCookie)
+    assert.equal(watch.response.status, 200)
+    assert.match(watch.html, /name="title"[^>]*value="Evening lake"|value="Evening lake"[^>]*name="title"/)
+    assert.doesNotMatch(watch.html, /<h1[^>]*>Evening lake<\/h1>/)
+    assert.match(watch.html, /<legend class="field-label">Tags /)
+    assert.match(watch.html, /name="tags"/)
+    assert.match(watch.html, /"tags":\["Trips","Garden"\]|"tags":\["Garden","Trips"\]/)
+    assert.match(watch.html, /value="private"[^>]*checked|checked[^>]*value="private"/)
+    assert.match(watch.html, new RegExp(`value="${named.id}"[^>]*checked|checked[^>]*value="${named.id}"`))
+
+    let namedWatch = await get(routes.watch.href({ videoId: slug }), namedCookie)
+    assert.equal(namedWatch.response.status, 200)
+    assert.match(namedWatch.html, /<h1[^>]*>Evening lake<\/h1>/)
+    assert.match(namedWatch.html, /aria-label="Tags"/)
+    assert.match(namedWatch.html, />Garden</)
+    assert.match(namedWatch.html, />Trips</)
+    assert.doesNotMatch(namedWatch.html, /name="title"/)
+    assert.doesNotMatch(namedWatch.html, /name="tags"/)
+    assert.doesNotMatch(namedWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: slug })}"`))
+
+    let home = await get(routes.home.href(), namedCookie)
+    let chips = home.html.slice(home.html.indexOf('aria-label="Tags"'), home.html.indexOf('Latest in the house'))
+    assert.match(chips, />Garden</)
+    assert.match(chips, />Trips</)
+    assert.doesNotMatch(chips, /Kids/)
+    assert.match(home.html, /Evening lake/)
+
+    let listed = await listVisibleVideos(named.id)
+    assert.equal(listed[0]?.id, slug)
+    assert.equal(listed[0]?.title, 'Evening lake')
+    assert.equal(listed[0]?.file, file)
+  })
+
+  it('keeps the slug and media file when the title changes, and allows duplicate titles', async () => {
+    await useEmptyHouse()
+    let { cookie } = await join('Sam')
+    let first = await publishHome(cookie, 'Lake day')
+    let second = await publishHome(cookie, 'Other clip')
+    let firstFile = getVideo(first)?.file
+    let secondFile = getVideo(second)?.file
+
+    let saved = await saveWatch(second, [['title', 'Lake day'], ['visibility', 'house']], cookie)
+    assert.equal(saved.status, 303)
+    assert.equal(saved.headers.get('Location'), routes.watch.href({ videoId: second }))
+    assert.equal(getVideo(first)?.title, 'Lake day')
+    assert.equal(getVideo(second)?.title, 'Lake day')
+    assert.equal(getVideo(first)?.id, first)
+    assert.equal(getVideo(second)?.id, second)
+    assert.notEqual(first, second)
+    assert.equal(getVideo(first)?.file, firstFile)
+    assert.equal(getVideo(second)?.file, secondFile)
+    assert.ok(firstFile && fs.existsSync(path.join(mediaDir, firstFile)))
+    assert.ok(secondFile && fs.existsSync(path.join(mediaDir, secondFile)))
+
+    let watch = await get(routes.watch.href({ videoId: second }), cookie)
+    assert.equal(watch.response.status, 200)
+    assert.match(watch.html, /name="title"[^>]*value="Lake day"|value="Lake day"[^>]*name="title"/)
+  })
+
+  it('shows the Tags field to the owner even with zero Tags, and hides viewer chips when empty', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie } = await join('Sam')
+    let { cookie: otherCookie } = await join('Alex')
+    let slug = await publishHome(ownerCookie, 'No labels')
+
+    let ownerWatch = await get(routes.watch.href({ videoId: slug }), ownerCookie)
+    assert.match(ownerWatch.html, /<legend class="field-label">Tags /)
+    assert.match(ownerWatch.html, /name="tags"/)
+    assert.doesNotMatch(ownerWatch.html, /aria-label="Tags"/)
+    assert.doesNotMatch(ownerWatch.html, /<h1[^>]*>No labels<\/h1>/)
+
+    let otherWatch = await get(routes.watch.href({ videoId: slug }), otherCookie)
+    assert.match(otherWatch.html, /<h1[^>]*>No labels<\/h1>/)
+    assert.doesNotMatch(otherWatch.html, /name="title"/)
+    assert.doesNotMatch(otherWatch.html, /name="tags"/)
+    assert.doesNotMatch(otherWatch.html, /aria-label="Tags"/)
+
+    let unsigned = await get(routes.watch.href({ videoId: slug }))
+    assert.match(unsigned.html, /<h1[^>]*>No labels<\/h1>/)
+    assert.doesNotMatch(unsigned.html, /name="title"/)
+    assert.doesNotMatch(unsigned.html, /name="tags"/)
+  })
+
+  it('returns inline errors for invalid title or Tags and does not persist', async () => {
+    await useEmptyHouse()
+    let { cookie } = await join('Sam')
+    let slug = await publishHome(cookie, 'Lake day', [['tags', 'Kids']])
+
+    let emptyTitle = await saveWatch(
+      slug,
+      [
+        ['title', '   '],
+        ['tags', 'Trips'],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(emptyTitle.status, 400)
+    let emptyHtml = await emptyTitle.text()
+    assert.match(emptyHtml, /Give the video a title between 1 and 100 characters/)
+    assert.match(emptyHtml, /name="title"[^>]*aria-invalid="true"|aria-invalid="true"[^>]*name="title"/)
+    assert.equal(getVideo(slug)?.title, 'Lake day')
+    assert.deepEqual(getVideo(slug)?.tags, ['kids'])
+
+    let tooLong = 'x'.repeat(41)
+    let badTags = await saveWatch(
+      slug,
+      [
+        ['title', 'Evening lake'],
+        ['tags', `Trips, ${tooLong}`],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(badTags.status, 400)
+    let tagHtml = await badTags.text()
+    assert.match(tagHtml, /Keep each Tag between 1 and 40 characters/)
+    assert.match(tagHtml, /id="watch-tags"[^>]*aria-invalid="true"|aria-invalid="true"[^>]*id="watch-tags"/)
+    assert.match(tagHtml, /"tags":\["Trips"\]/)
+    assert.match(tagHtml, new RegExp(`"tagDraft":"${tooLong}"`))
+    assert.equal(getVideo(slug)?.title, 'Lake day')
+    assert.deepEqual(getVideo(slug)?.tags, ['kids'])
+  })
+
+  it('rejects unauthorized and unsigned Watch saves', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie } = await join('Sam')
+    let { cookie: otherCookie } = await join('Alex')
+    let slug = await publishHome(ownerCookie, 'Lake day', [['tags', 'Kids']])
+
+    assert.equal(
+      (await saveWatch(slug, [['title', 'Stolen'], ['tags', 'Trips'], ['visibility', 'house']], otherCookie)).status,
+      403,
+    )
+    assert.equal((await saveWatch(slug, [['title', 'Stolen'], ['visibility', 'house']])).status, 403)
+    assert.equal(getVideo(slug)?.title, 'Lake day')
+    assert.deepEqual(getVideo(slug)?.tags, ['kids'])
+
+    let otherWatch = await get(routes.watch.href({ videoId: slug }), otherCookie)
+    assert.match(otherWatch.html, /<h1[^>]*>Lake day<\/h1>/)
+    assert.match(otherWatch.html, />Kids</)
+    assert.doesNotMatch(otherWatch.html, /name="title"/)
   })
 })

@@ -17,6 +17,7 @@ import {
 import type { MediaFile } from '../data/media.ts'
 import { playlistsOwnedBy, playlistVideos, type Playlist } from '../data/playlists.ts'
 import { tagsInUse } from '../data/tags.ts'
+import { uploadLimits } from '../data/uploads.ts'
 import { routes } from '../routes.ts'
 import { Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
 import { Icon } from '../ui/public/icons.tsx'
@@ -24,6 +25,15 @@ import { ownerOf, watchInList } from '../ui/playlists.tsx'
 import { AppShell } from '../ui/shell.tsx'
 import { Player } from './public/player.tsx'
 import { SaveMenu } from './public/save-menu.tsx'
+import { TagsField } from './public/tags-field.tsx'
+
+export interface WatchEditValues {
+  title: string
+  tags: string[]
+  tagDraft?: string
+  visibility: 'house' | 'private'
+  audienceIds: string[]
+}
 
 export interface WatchPageProps {
   video: Video
@@ -33,6 +43,10 @@ export interface WatchPageProps {
   people?: Person[]
   /** Playing through a playlist that holds this video. */
   list?: Playlist
+  canEdit?: boolean
+  edit?: WatchEditValues
+  error?: string
+  errorField?: 'title' | 'tags'
 }
 
 const longDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' })
@@ -151,7 +165,7 @@ function ListPanel(handle: Handle<{ playlist: Playlist; video: Video; person: Pe
 
 export function WatchPage(handle: Handle<WatchPageProps>) {
   return () => {
-    let { video, media, theater, person = null, people = [], list } = handle.props
+    let { video, media, theater, person = null, people = [], list, canEdit = false, error, errorField } = handle.props
     let channel = getChannel(video.channelId)!
     let stats = channelStats(channel.id, person?.id)
     let published = publishedAt(video)
@@ -161,10 +175,18 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
     let expectedFile = media?.displayPath ?? video.file ?? `${video.id}.mp4`
     let here = list ? watchInList(video.id, list.id) : routes.watch.href({ videoId: video.id })
     let others = people.filter((other) => other.id !== person?.id)
-    let audienceIds = video.audience ?? []
+    let edit = handle.props.edit ?? {
+      title: video.title,
+      tags: tagsInUse([video]).map((tag) => tag.name),
+      visibility: video.private ? 'private' : 'house',
+      audienceIds: video.audience ?? [],
+    }
+    let audienceIds = edit.audienceIds
+    let titleError = error && errorField === 'title' ? error : undefined
+    let tagError = error && errorField === 'tags' ? error : undefined
 
     return (
-      <AppShell current={null} title={video.title} person={person} layout="watch">
+      <AppShell current={null} title={canEdit ? edit.title || video.title : video.title} person={person} layout="watch">
         <div class={theater ? 'watch is-theater' : 'watch'}>
           <div class="watch-player">
             <Player
@@ -190,9 +212,33 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
           </div>
 
           <section class="watch-info" aria-labelledby="watch-title">
-            <h1 class="watch-title" id="watch-title">
-              {video.title}
-            </h1>
+            {canEdit ? (
+              <>
+                <input
+                  id="watch-title"
+                  class="watch-title"
+                  type="text"
+                  name="title"
+                  form="watch-save"
+                  value={edit.title}
+                  maxlength={uploadLimits.title}
+                  autocomplete="off"
+                  required
+                  aria-label="Title"
+                  aria-invalid={titleError ? 'true' : undefined}
+                  aria-describedby={titleError ? 'watch-error' : undefined}
+                />
+                {titleError ? (
+                  <p class="field-error" id="watch-error" role="alert">
+                    {titleError}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <h1 class="watch-title" id="watch-title">
+                {video.title}
+              </h1>
+            )}
 
             <div class="watch-channel">
               <a class="watch-channel-link" href={routes.channel.href({ channelId: channel.id })}>
@@ -248,7 +294,17 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                   </>
                 ) : null}
               </p>
-              {video.tags.length > 0 ? (
+              {canEdit ? (
+                <TagsField
+                  tags={edit.tags}
+                  tagDraft={edit.tagDraft}
+                  error={tagError}
+                  form="watch-save"
+                  inputId="watch-tags"
+                  hintId="watch-tags-hint"
+                  errorId="watch-error"
+                />
+              ) : video.tags.length > 0 ? (
                 <ul class="watch-tags" aria-label="Tags">
                   {tagsInUse([video]).map((tag) => (
                     <li>
@@ -261,13 +317,13 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               ) : null}
               {isFolder && channel.path ? <p class="watch-source">Indexed from {channel.path}</p> : null}
             </div>
-            {person && video.postedBy === person.id && !isFolder ? (
-              <form class="watch-access" method="post" action={routes.watchVisibility.href({ videoId: video.id })}>
+            {canEdit && person ? (
+              <form id="watch-save" class="watch-access" method="post" action={routes.watchSave.href({ videoId: video.id })}>
                 <fieldset class="chform-posters upload-who">
                   <legend class="field-label">Who can see it</legend>
                   <div class="pvis-options">
                     <label class="poster pvis-option">
-                      <input class="poster-input" type="radio" name="visibility" value="house" checked={!video.private} />
+                      <input class="poster-input" type="radio" name="visibility" value="house" checked={edit.visibility !== 'private'} />
                       <Icon name="channels" size={20} />
                       <span class="pvis-option-text">
                         <span class="poster-name">Everyone in the house</span>
@@ -276,7 +332,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                       <span class="radio" aria-hidden="true" />
                     </label>
                     <label class="poster pvis-option">
-                      <input class="poster-input" type="radio" name="visibility" value="private" checked={!!video.private} />
+                      <input class="poster-input" type="radio" name="visibility" value="private" checked={edit.visibility === 'private'} />
                       <Icon name="lock" size={20} />
                       <span class="pvis-option-text">
                         <span class="poster-name">Private</span>

@@ -5,7 +5,7 @@ export const routes = route({
   home: '/',
   watch: get('/watch/:videoId'),
   watchActivity: post('/watch/:videoId/activity'),
-  watchVisibility: post('/watch/:videoId/visibility'),
+  watchSave: post('/watch/:videoId/save'),
   media: get('/media/:videoId'),
   channel: get('/channel/:channelId'),
   channelEdit: form('/channel/:channelId/edit'),
