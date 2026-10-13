@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto'
 
 import { db } from '../db.ts'
 import { getVideo, videos as memoryVideos, type Video } from './library.ts'
-import { channels, videos } from './tables.ts'
+import { loadCatalogueTags } from './tags.ts'
+import { channels, videoTags, videos, tags as tagRows } from './tables.ts'
 
 type VideoRow = {
+  id: string
   slug: string
   title: string
   channel_id: string
@@ -29,7 +31,7 @@ function publishedMs(at: unknown) {
   return Date.now()
 }
 
-function videoFromRow(row: VideoRow, channelById: Map<string, ChannelRow>): Video {
+function videoFromRow(row: VideoRow, channelById: Map<string, ChannelRow>, tagSlugs: string[]): Video {
   let published = publishedMs(row.published_at)
   return Object.defineProperty(
     {
@@ -39,7 +41,7 @@ function videoFromRow(row: VideoRow, channelById: Map<string, ChannelRow>): Vide
       durationSec: row.duration_sec ?? 0,
       addedDaysAgo: 0,
       thumb: row.poster_path ?? '',
-      tags: [],
+      tags: tagSlugs,
       plays: row.plays,
       file: row.file_path,
       postedBy: row.owner_id ?? undefined,
@@ -58,9 +60,24 @@ async function channelMap() {
   return new Map(rows.map((row) => [row.id, row]))
 }
 
+async function tagsByVideoId() {
+  let joins = await db.findMany(videoTags)
+  let tagById = new Map((await db.findMany(tagRows)).map((row) => [row.id, row.slug]))
+  let slugs = new Map<string, string[]>()
+  for (let join of joins) {
+    let slug = tagById.get(join.tag_id)
+    if (!slug) continue
+    let list = slugs.get(join.video_id)
+    if (list) list.push(slug)
+    else slugs.set(join.video_id, [slug])
+  }
+  return slugs
+}
+
 async function videosFromRows(rows: VideoRow[]) {
   let channelById = await channelMap()
-  return rows.map((row) => videoFromRow(row, channelById))
+  let tagSlugs = await tagsByVideoId()
+  return rows.map((row) => videoFromRow(row, channelById, tagSlugs.get(row.id) ?? []))
 }
 
 /** House-visible Videos. Private entitlement waits for a later slice. */
@@ -75,6 +92,7 @@ export async function videoSlugTaken(slug: string) {
 
 /** Remember catalogue Videos in the in-memory library so Watch and channels work after Host start. */
 export async function loadCatalogueVideos() {
+  await loadCatalogueTags()
   let loaded = await videosFromRows(await db.findMany(videos))
   for (let video of loaded) {
     if (!getVideo(video.id)) memoryVideos.push(video)
@@ -90,21 +108,30 @@ export async function insertUploadedVideo(input: {
   filePath: string
   posterPath: string | null
   visibility: 'house' | 'private'
+  tagIds?: string[]
 }): Promise<{ id: string; slug: string } | null> {
   let channel = await db.findOne(channels, { where: { slug: input.channelSlug } })
   if (!channel) return null
   let id = randomUUID()
-  await db.create(videos, {
-    id,
-    slug: input.slug,
-    title: input.title,
-    channel_id: channel.id,
-    duration_sec: input.durationSec || null,
-    poster_path: input.posterPath,
-    plays: 0,
-    file_path: input.filePath,
-    owner_id: input.ownerId,
-    visibility: input.visibility,
+  await db.transaction(async (tx) => {
+    await tx.create(videos, {
+      id,
+      slug: input.slug,
+      title: input.title,
+      channel_id: channel.id,
+      duration_sec: input.durationSec || null,
+      poster_path: input.posterPath,
+      plays: 0,
+      file_path: input.filePath,
+      owner_id: input.ownerId,
+      visibility: input.visibility,
+    })
+    if (input.tagIds?.length) {
+      await tx.createMany(
+        videoTags,
+        input.tagIds.map((tagId) => ({ video_id: id, tag_id: tagId })),
+      )
+    }
   })
   return { id, slug: input.slug }
 }

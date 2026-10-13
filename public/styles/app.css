@@ -4639,24 +4639,45 @@ label.poster:hover {
   margin: 0 0 24px;
 }
 
-/* Topics: house chips. Chosen ones take the Paper fill, like the active filter on Home. */
+/* Tags: added names take the Paper fill, like the active filter on Home. */
+.upload-tags .field-hint {
+  margin: -4px 0 12px;
+}
+
 .upload-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin: 0 0 12px;
 }
 
 .upload-chip {
-  position: relative;
-  cursor: pointer;
-}
-
-.upload-chip:has(:checked) {
+  gap: 6px;
+  padding-right: 8px;
   background: var(--text);
   color: var(--on-chip);
 }
 
-.upload-chip:has(:focus-visible) {
+.upload-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.upload-chip-remove:hover,
+.upload-chip-remove:focus-visible {
+  background: rgb(255 255 255 / 0.16);
+}
+
+.upload-chip-remove:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

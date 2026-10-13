@@ -7,7 +7,6 @@ import {
   formatAdded,
   formatPlays,
   getChannel,
-  getTopic,
   isInProgress,
   progressOf,
   progressPercent,
@@ -17,6 +16,7 @@ import {
 } from '../data/library.ts'
 import type { MediaFile } from '../data/media.ts'
 import { playlistsOwnedBy, playlistVideos, type Playlist } from '../data/playlists.ts'
+import { tagsInUse } from '../data/tags.ts'
 import { routes } from '../routes.ts'
 import { Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
 import { Icon } from '../ui/public/icons.tsx'
@@ -242,11 +242,11 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                 ) : null}
               </p>
               {video.tags.length > 0 ? (
-                <ul class="watch-tags" aria-label="Topics">
-                  {video.tags.map((tag) => (
+                <ul class="watch-tags" aria-label="Tags">
+                  {tagsInUse([video]).map((tag) => (
                     <li>
-                      <a class="chip" href={`${routes.home.href()}?topic=${encodeURIComponent(tag)}`}>
-                        {getTopic(tag)?.label ?? tag}
+                      <a class="chip" href={`${routes.home.href()}?tag=${encodeURIComponent(tag.slug)}`}>
+                        {tag.name}
                       </a>
                     </li>
                   ))}

@@ -39,6 +39,7 @@ describe('home page', () => {
     )
     assert.doesNotMatch(html, /Upload a video/)
     assert.doesNotMatch(html, /aria-label="Topics"/)
+    assert.doesNotMatch(html, /aria-label="Tags"/)
     assert.doesNotMatch(html, /Latest in the house/)
     assert.doesNotMatch(html, /Channels in this house/)
   })
@@ -76,6 +77,18 @@ describe('watch page', () => {
     assert.match(html, /More like this/)
     assert.match(html, new RegExp(`src="${routes.media.href({ videoId: 'tahoe-day-2' })}"`))
     assert.doesNotMatch(html, /isn’t on the host/)
+  })
+
+  it('shows read-only Tag chips as Home links, A–Z by name', async () => {
+    let { html } = await get(routes.watch.href({ videoId: 'u9-final' }))
+    let tags = html.slice(html.indexOf('aria-label="Tags"'), html.indexOf('More like this'))
+    assert.match(tags, new RegExp(`href="${routes.home.href()}\\?tag=kids"`))
+    assert.match(tags, new RegExp(`href="${routes.home.href()}\\?tag=sports"`))
+    assert.match(tags, />Kids</)
+    assert.match(tags, />Sports</)
+    let kids = tags.indexOf('Kids')
+    let sports = tags.indexOf('Sports')
+    assert.ok(kids > 0 && sports > kids, 'Expected Watch Tags A–Z by name')
   })
 
   it('lists tag matches before other videos', async () => {

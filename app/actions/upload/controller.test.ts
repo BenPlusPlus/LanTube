@@ -4,21 +4,27 @@ import * as path from 'node:path'
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
+import { notNull } from 'remix/data-table'
+
 import { listVisibleVideos, loadCatalogueVideos } from '../../data/catalogue.ts'
 import { db } from '../../db.ts'
 import { resetHousehold, useEmptyHouse } from '../../data/household.ts'
 import { deleteVideo, getVideo, searchVideos } from '../../data/library.ts'
+import { findOrCreateTags, getTag, listTags, resetCatalogueTags } from '../../data/tags.ts'
 import { mediaDir } from '../../data/media.ts'
-import { videos as videoRows } from '../../data/tables.ts'
+import { tags as tagRows, videoTags, videos as videoRows } from '../../data/tables.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
 
 const created: string[] = []
 
-afterEach(() => {
+afterEach(async () => {
   for (let id of created.splice(0)) deleteVideo(id)
   fs.rmSync(path.join(mediaDir, 'uploads'), { recursive: true, force: true })
   fs.rmSync(path.join(mediaDir, '.lantube'), { recursive: true, force: true })
+  await db.deleteMany(videoTags, { where: notNull(videoTags.video_id) })
+  await db.deleteMany(tagRows, { where: notNull(tagRows.id) })
+  resetCatalogueTags()
 })
 
 const clip = new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 2, 0])
@@ -97,6 +103,9 @@ describe('upload page', () => {
     assert.match(html, /Everyone in the house/)
     assert.match(html, /value="house"[^>]*checked|checked[^>]*value="house"/)
     assert.doesNotMatch(html, /Public/)
+    assert.match(html, /<legend class="field-label">Tags /)
+    assert.match(html, /name="tags"/)
+    assert.doesNotMatch(html, /name="topics"|Topics/)
   })
 
   it('starts on the channel it was opened from', async () => {
@@ -139,8 +148,7 @@ describe('publishing', () => {
         ['uploadId', body.id!],
         ['channel', 'twice'],
         ['title', '  Lake   day  '],
-        ['topics', 'travel'],
-        ['topics', 'not-a-topic'],
+        ['tags', 'Kids, trips, kids'],
         ['visibility', 'house'],
         ['duration', '93.4'],
         ['poster', new Blob([jpeg], { type: 'image/jpeg' }), 'poster.jpg'],
@@ -154,7 +162,8 @@ describe('publishing', () => {
     assert.equal(video.channelId, 'twice')
     assert.equal(video.postedBy, 'mia')
     assert.equal(video.durationSec, 93)
-    assert.deepEqual(video.tags.filter((tag) => tag === 'not-a-topic'), [])
+    assert.deepEqual(video.tags, ['kids', 'trips'])
+    assert.equal(getTag('kids')?.name, 'Kids')
     assert.equal(video.thumb, `/poster/${video.id}`)
     assert.ok(fs.existsSync(path.join(mediaDir, video.file ?? '')))
 
@@ -244,6 +253,26 @@ describe('publishing', () => {
     )
     assert.equal(response.status, 400)
     assert.match(await response.text(), /aria-invalid="true"[^>]*|Give the video a title/)
+  })
+
+  it('re-renders comma-separated Tags as separate names after a 400', async () => {
+    let cookie = await signIn('mia')
+    let { body } = await sendFile('clip.mp4', cookie)
+    let response = await publish(
+      [
+        ['uploadId', body.id!],
+        ['channel', 'mia'],
+        ['title', '   '],
+        ['tags', 'Kids, trips'],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.match(html, /Give the video a title/)
+    assert.match(html, /"tags":\["Kids","trips"\]/)
+    assert.doesNotMatch(html, /"tags":\["Kids, trips"\]/)
   })
 
   it('keeps titles to 100 characters', async () => {
@@ -365,5 +394,149 @@ describe('publishing a house-visible Video to the catalogue', () => {
     let restored = await get(routes.watch.href({ videoId: slug }))
     assert.equal(restored.response.status, 200)
     assert.match(restored.html, /<h1[^>]*>Lake day<\/h1>/)
+  })
+
+  it('publishes comma-separated Tags and keeps the first spelling', async () => {
+    let cookie = await joinHouse()
+    let first = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'kids-one.mp4'],
+        ['channel', 'sam'],
+        ['title', 'First spelling'],
+        ['tags', '  Kids, trips, kids  '],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(first.status, 303)
+    let firstId = videoIdFrom(first)
+    assert.deepEqual(getVideo(firstId)?.tags, ['kids', 'trips'])
+    assert.equal(getTag('kids')?.name, 'Kids')
+
+    let second = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'kids-two.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Later spelling'],
+        ['tags', 'kids'],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    let secondId = videoIdFrom(second)
+    assert.deepEqual(getVideo(secondId)?.tags, ['kids'])
+    assert.equal(getTag('kids')?.name, 'Kids')
+    assert.equal(listTags().filter((tag) => tag.slug === 'kids').length, 1)
+
+    let watch = await get(routes.watch.href({ videoId: secondId }))
+    assert.match(watch.html, /aria-label="Tags"/)
+    assert.match(watch.html, new RegExp(`href="${routes.home.href()}\\?tag=kids"`))
+    assert.match(watch.html, />Kids</)
+    assert.doesNotMatch(watch.html, />kids</)
+  })
+
+  it('lets a Video publish with zero Tags and hides Watch chips', async () => {
+    let cookie = await joinHouse()
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'plain.mp4'],
+        ['channel', 'sam'],
+        ['title', 'No labels'],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 303)
+    let id = videoIdFrom(response)
+    assert.deepEqual(getVideo(id)?.tags, [])
+    let watch = await get(routes.watch.href({ videoId: id }))
+    assert.doesNotMatch(watch.html, /aria-label="Tags"/)
+  })
+
+  it('rejects an over-long Tag name on the Tags field', async () => {
+    let cookie = await joinHouse()
+    let { body } = await sendFile('clip.mp4', cookie)
+    let response = await publish(
+      [
+        ['uploadId', body.id!],
+        ['channel', 'sam'],
+        ['title', 'Too long'],
+        ['tags', `Kids, ${'x'.repeat(41)}`],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.match(html, /Keep each Tag between 1 and 40 characters/)
+    assert.match(html, /id="upload-tags"[^>]*aria-invalid="true"|aria-invalid="true"[^>]*id="upload-tags"/)
+    assert.match(html, /"tags":\["Kids"\]/)
+    assert.match(html, new RegExp(`"tagDraft":"${'x'.repeat(41)}"`))
+  })
+
+  it('shows Home chips for Tags in use, filters by slug, and keeps unused Tags off Home', async () => {
+    let cookie = await joinHouse()
+    await findOrCreateTags(['Spare'])
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'tagged.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Bike ride'],
+        ['tags', 'Trips, Kids'],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    let id = videoIdFrom(response)
+    assert.ok(listTags().some((tag) => tag.name === 'Spare'))
+
+    let home = await get(routes.home.href())
+    let chips = home.html.slice(home.html.indexOf('aria-label="Tags"'), home.html.indexOf('Latest in the house'))
+    assert.match(chips, />All</)
+    let kids = chips.indexOf('Kids')
+    let trips = chips.indexOf('Trips')
+    assert.ok(kids > 0 && trips > kids, 'Expected Tags in use A–Z by name')
+    assert.doesNotMatch(chips, /Spare/)
+    assert.match(chips, new RegExp(`href="${routes.home.href()}\\?tag=kids"`))
+    assert.match(chips, new RegExp(`href="${routes.home.href()}\\?tag=trips"`))
+
+    let filtered = await get(`${routes.home.href()}?tag=kids`)
+    assert.match(filtered.html, /Bike ride/)
+    assert.match(filtered.html, /Results for|Kids/)
+    assert.match(filtered.html, new RegExp(`href="${routes.watch.href({ videoId: id })}"`))
+    assert.match(filtered.html, /aria-current="page"[^>]*>Kids<|>Kids<[^>]*aria-current="page"/)
+
+    let unknown = await get(`${routes.home.href()}?tag=nope`)
+    assert.match(unknown.html, /Nothing in the house matches/)
+    assert.doesNotMatch(unknown.html, /No videos in the house yet/)
+
+    let miss = await get(`${routes.home.href()}?q=zzzz`)
+    assert.match(miss.html, /Nothing in the house matches “zzzz”/)
+    assert.doesNotMatch(miss.html, /No videos in the house yet/)
+  })
+
+  it('restores Tags on a catalogue Video after reload', async () => {
+    let cookie = await joinHouse()
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'restored.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Restored tags'],
+        ['tags', 'Garden'],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    let slug = videoIdFrom(response)
+    deleteVideo(slug)
+    resetCatalogueTags()
+    assert.equal(getVideo(slug), undefined)
+    assert.equal(getTag('garden'), undefined)
+    await loadCatalogueVideos()
+    assert.deepEqual(getVideo(slug)?.tags, ['garden'])
+    assert.equal(getTag('garden')?.name, 'Garden')
+    let watch = await get(routes.watch.href({ videoId: slug }))
+    assert.match(watch.html, />Garden</)
+    assert.match(watch.html, new RegExp(`href="${routes.home.href()}\\?tag=garden"`))
   })
 })
