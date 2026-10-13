@@ -180,11 +180,12 @@ export function getChannel(id: string): Channel | undefined {
   return customChannels.find((channel) => channel.id === id) ?? folderChannels.find((channel) => channel.id === id)
 }
 
-/** Custom channels this person runs or may post to, in the order they were made. */
+/** Custom channels this person runs or may post to, in the order they were made. Accepts a Person id or slug. */
 export function channelsFor(personId: string): { runs: Channel[]; postsTo: Channel[] } {
+  let id = getHouseholdPerson(personId)?.id ?? personId
   return {
-    runs: customChannels.filter((channel) => channel.ownerId === personId),
-    postsTo: customChannels.filter((channel) => channel.managerIds?.includes(personId)),
+    runs: customChannels.filter((channel) => channel.ownerId === id),
+    postsTo: customChannels.filter((channel) => channel.managerIds?.includes(id)),
   }
 }
 
@@ -207,8 +208,7 @@ export function byLatestActivity(list: Channel[]): Channel[] {
 export interface ChannelInput {
   name: string
   description: string
-  /** Omit on update to leave Managers unchanged. */
-  managerIds?: string[]
+  managerIds: string[]
   photo?: string
 }
 
@@ -234,10 +234,7 @@ function cleanInput(input: ChannelInput, ownerId: string, editingId?: string): C
     return { error: `Keep the description under ${DESCRIPTION_MAX} characters.`, field: 'description' }
   }
   let known = new Set(listPeople().map((person) => person.id))
-  let managerIds =
-    input.managerIds === undefined
-      ? undefined
-      : [...new Set(input.managerIds)].filter((id) => id !== ownerId && known.has(id))
+  let managerIds = [...new Set(input.managerIds)].filter((id) => id !== ownerId && known.has(id))
   return { name, description, managerIds, photo: input.photo }
 }
 
@@ -298,7 +295,7 @@ export async function createChannel(ownerId: string, input: ChannelInput): Promi
     kind: 'custom',
     hue: hueFor(clean.name),
     ownerId,
-    managerIds: clean.managerIds ?? [],
+    managerIds: clean.managerIds,
     description: clean.description || undefined,
     photo: clean.photo,
   }
@@ -307,16 +304,22 @@ export async function createChannel(ownerId: string, input: ChannelInput): Promi
   return channel
 }
 
-/** The URL stays put. Managers on the input replace the set; omit them to leave Managers unchanged. */
+/** The URL stays put. */
 export async function updateChannel(channel: Channel, input: ChannelInput & { removePhoto?: boolean }): Promise<Channel | { error: string; field: 'name' | 'description' }> {
   let clean = cleanInput(input, channel.ownerId!, channel.id)
   if ('error' in clean) return clean
-  channel.name = clean.name
-  channel.description = clean.description || undefined
-  if (clean.managerIds !== undefined) channel.managerIds = clean.managerIds
-  if (clean.photo) channel.photo = clean.photo
-  else if (input.removePhoto) channel.photo = undefined
-  await persistCustomChannel(channel)
+  let next: Channel = {
+    ...channel,
+    name: clean.name,
+    description: clean.description || undefined,
+    managerIds: clean.managerIds,
+    photo: clean.photo ? clean.photo : input.removePhoto ? undefined : channel.photo,
+  }
+  await persistCustomChannel(next)
+  channel.name = next.name
+  channel.description = next.description
+  channel.managerIds = next.managerIds
+  channel.photo = next.photo
   return channel
 }
 

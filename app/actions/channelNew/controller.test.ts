@@ -1,6 +1,7 @@
 import * as assert from 'remix/assert'
-import { describe, it } from 'remix/test'
+import { afterEach, describe, it } from 'remix/test'
 
+import { listPeople, resetHousehold, useEmptyHouse } from '../../data/household.ts'
 import { resetChannels } from '../../data/library.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
@@ -238,5 +239,63 @@ describe('edit channel', () => {
     let home = await get(routes.channel.href({ channelId: 'mia' }), cookie)
     assert.doesNotMatch(home.html, /<dt>Managers<\/dt>/)
     assert.doesNotMatch(home.html, /name="managers"/)
+  })
+})
+
+describe('Home and People lineage for catalogue People', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+  })
+
+  async function join(name: string) {
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `intent=join&name=${encodeURIComponent(name)}&password=lantern&confirm=lantern`,
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(response.status, 303)
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    let person = listPeople().find((entry) => entry.name === name)
+    assert.ok(person)
+    return { cookie: header.split(';', 1)[0], person }
+  }
+
+  it('shows Runs and Manages on Home and the People directory after naming a Manager', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie, person: owner } = await join('Sam')
+    let { cookie: managerCookie, person: manager } = await join('Alex')
+    assert.notEqual(owner.id, owner.slug)
+
+    let created = await post(
+      routes.channelNew.action.href(),
+      [
+        ['name', 'Board Games'],
+        ['description', 'Catan nights.'],
+        ['managers', manager.id],
+      ],
+      ownerCookie,
+    )
+    assert.equal(created.status, 303)
+
+    let home = await get(routes.channel.href({ channelId: owner.slug }), ownerCookie)
+    assert.equal(home.response.status, 200)
+    assert.match(home.html, /<dt>Runs<\/dt>/)
+    assert.match(home.html, /Board Games/)
+    assert.match(home.html, /New channel/)
+
+    let managerHome = await get(routes.channel.href({ channelId: manager.slug }), managerCookie)
+    assert.equal(managerHome.response.status, 200)
+    assert.match(managerHome.html, /<dt>Manages<\/dt>/)
+    assert.match(managerHome.html, /Board Games/)
+
+    let directory = await get(routes.channels.href())
+    assert.match(directory.html, /Runs Board Games/)
+    assert.match(directory.html, /Manages Board Games/)
   })
 })

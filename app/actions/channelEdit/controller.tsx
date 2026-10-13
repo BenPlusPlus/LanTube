@@ -1,7 +1,7 @@
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
-import { getPerson, listPeople, personFromSession, type Person } from '../../data/household.ts'
+import { listPeople, personFromSession, type Person } from '../../data/household.ts'
 import { canPost, getChannel, updateChannel, type Channel } from '../../data/library.ts'
 import { readPhoto } from '../../data/photo.ts'
 import { routes } from '../../routes.ts'
@@ -16,7 +16,7 @@ function access(channelId: string, person: Person | null): Access {
   if (!channel || channel.kind !== 'custom') {
     return { status: 404, title: 'Channel not found', detail: 'Only channels people start can be edited here.', person }
   }
-  let owner = channel.ownerId ? getPerson(channel.ownerId) ?? getChannel(channel.ownerId) : undefined
+  let owner = channel.ownerId ? getChannel(channel.ownerId) : undefined
   if (!person) {
     return { status: 401, title: `Sign in to edit ${channel.name}`, detail: `Only ${owner?.name ?? 'its owner'} and Managers can change this channel.`, person }
   }
@@ -78,7 +78,7 @@ export default createController(routes.channelEdit, {
       let updated = await updateChannel(channel, {
         ...values,
         photo,
-        managerIds: canNameManagers ? values.managerIds : undefined,
+        managerIds: canNameManagers ? values.managerIds : (channel.managerIds ?? []),
       })
       if ('error' in updated) return fail(updated.error, updated.field)
       return redirect(routes.channel.href({ channelId: channel.id }), 303)
