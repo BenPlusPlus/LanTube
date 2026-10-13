@@ -1,5 +1,6 @@
 import { readHostConfig } from './config.ts'
 import { loadCatalogueVideos } from './data/catalogue.ts'
+import { loadCatalogueHistory } from './data/history.ts'
 import { loadCataloguePeople } from './data/household.ts'
 import { loadCatalogueChannels } from './data/library.ts'
 import { loadCataloguePlaylists } from './data/playlists.ts'
@@ -18,5 +19,6 @@ export async function prepareHost(
     await loadCatalogueChannels()
     await loadCatalogueVideos()
     await loadCataloguePlaylists()
+    await loadCatalogueHistory()
   }
 }

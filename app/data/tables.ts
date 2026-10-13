@@ -113,3 +113,26 @@ export const playlistVideos = table({
     position: c.integer().notNull(),
   },
 })
+
+export const watchSessions = table({
+  name: 'watch_sessions',
+  columns: {
+    id: c.uuid().primaryKey(),
+    person_id: c.uuid().notNull(),
+    video_id: c.uuid().notNull(),
+    started_at: c.timestamp({ withTimezone: true }).notNull(),
+    ended_at: c.timestamp({ withTimezone: true }).notNull(),
+    last_t: c.integer().notNull(),
+    watched_sec: c.integer().notNull(),
+  },
+})
+
+export const watchProgress = table({
+  name: 'watch_progress',
+  primaryKey: ['person_id', 'video_id'],
+  columns: {
+    person_id: c.uuid().notNull(),
+    video_id: c.uuid().notNull(),
+    position_sec: c.integer().notNull(),
+  },
+})

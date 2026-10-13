@@ -175,7 +175,7 @@ export default createController(routes, {
         cacheControl: 'private, max-age=3600',
       })
     },
-    watchActivity(context) {
+    async watchActivity(context) {
       let video = watchable(context.params.videoId, personFromSession(context.session)?.id)
       if (!video) return new Response('Not Found', { status: 404 })
       let form = context.formData
@@ -183,7 +183,7 @@ export default createController(routes, {
       if (event === 'play') {
         recordPlay(video)
         let person = personFromSession(context.session)
-        if (person) recordWatchStart(person.id, video)
+        if (person) await recordWatchStart(person.id, video)
         return new Response(null, { status: 204 })
       }
       if (event === 'progress') {
@@ -194,7 +194,7 @@ export default createController(routes, {
           return new Response('Bad Request', { status: 400 })
         }
         let person = personFromSession(context.session)
-        if (person) recordWatchProgress(person.id, video, position, duration)
+        if (person) await recordWatchProgress(person.id, video, position, duration)
         else if (duration !== undefined) video.durationSec = Math.round(duration)
         return new Response(null, { status: 204 })
       }

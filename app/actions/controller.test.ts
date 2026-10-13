@@ -1,6 +1,10 @@
 import * as assert from 'remix/assert'
-import { describe, it } from 'remix/test'
+import { afterEach, describe, it } from 'remix/test'
 
+import { insertUploadedVideo } from '../data/catalogue.ts'
+import { loadCatalogueHistory, resetHistory } from '../data/history.ts'
+import { createPerson, resetHousehold, useEmptyHouse } from '../data/household.ts'
+import { addUploadedVideo, deleteVideo, resetChannels } from '../data/library.ts'
 import { router } from '../router.ts'
 import { routes } from '../routes.ts'
 
@@ -238,5 +242,141 @@ describe('history page', () => {
 
     assert.match(html, /Nothing in your history matches “zzzz”/)
     assert.match(html, /Clear search/)
+  })
+
+  it('ignores ?person= and shows own sittings', async () => {
+    let { html } = await get(`${routes.history.href()}?person=ruth`, await signIn('mia'))
+
+    assert.match(html, /Sourdough attempt #4/)
+    assert.doesNotMatch(html, /Rosie turns one/)
+  })
+})
+
+describe('catalogue watch history over HTTP', () => {
+  const created: string[] = []
+
+  afterEach(async () => {
+    for (let id of created.splice(0)) deleteVideo(id)
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    resetHistory()
+  })
+
+  async function join(name: string) {
+    let person = await createPerson(name, 'lantern')
+    assert.ok(!('error' in person))
+    assert.notEqual(person.id, person.slug)
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `intent=signin&personId=${person.id}&password=lantern`,
+        redirect: 'manual',
+      }),
+    )
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    return { cookie: header.split(';', 1)[0], person }
+  }
+
+  function postActivity(videoId: string, fields: Record<string, string>, cookie?: string) {
+    let body = new FormData()
+    for (let [key, value] of Object.entries(fields)) body.set(key, value)
+    return router.fetch(
+      new Request(new URL(routes.watchActivity.href({ videoId }), 'http://localhost'), {
+        method: 'POST',
+        body,
+        headers: cookie ? { Cookie: cookie } : undefined,
+      }),
+    )
+  }
+
+  it('keeps a signed-in Person’s sitting and Continue watching after reload', async () => {
+    await useEmptyHouse()
+    let { cookie, person } = await join('Sam')
+    created.push('issue-23-http-lake')
+    let inserted = await insertUploadedVideo({
+      slug: 'issue-23-http-lake',
+      title: 'Kitchen window',
+      channelSlug: person.slug,
+      ownerId: person.id,
+      durationSec: 120,
+      filePath: `uploads/${person.slug}/issue-23-http-lake.mp4`,
+      posterPath: null,
+      visibility: 'house',
+    })
+    assert.ok(inserted)
+    addUploadedVideo({
+      id: 'issue-23-http-lake',
+      title: 'Kitchen window',
+      channelId: person.slug,
+      durationSec: 120,
+      thumb: '',
+      tags: [],
+      file: `uploads/${person.slug}/issue-23-http-lake.mp4`,
+      postedBy: person.id,
+    })
+
+    assert.equal((await postActivity('issue-23-http-lake', { event: 'play' }, cookie)).status, 204)
+    assert.equal((await postActivity('issue-23-http-lake', { event: 'progress', t: '5', d: '120' }, cookie)).status, 204)
+
+    resetHistory()
+    await loadCatalogueHistory()
+
+    let history = await get(routes.history.href(), cookie)
+    assert.match(history.html, /Kitchen window/)
+    assert.match(history.html, /class="sitting"/)
+    assert.match(history.html, /Resume from 0:05/)
+
+    let home = await get(routes.home.href(), cookie)
+    assert.match(home.html, /Continue watching/)
+    assert.match(home.html, /Kitchen window/)
+
+    let watch = await get(routes.watch.href({ videoId: 'issue-23-http-lake' }), cookie)
+    assert.match(watch.html, /"resumeAt":5\b/)
+  })
+
+  it('does not write History for an unsigned watch', async () => {
+    await useEmptyHouse()
+    let { cookie, person } = await join('Sam')
+    created.push('issue-23-http-unsigned')
+    let inserted = await insertUploadedVideo({
+      slug: 'issue-23-http-unsigned',
+      title: 'Unsigned clip',
+      channelSlug: person.slug,
+      ownerId: person.id,
+      durationSec: 120,
+      filePath: `uploads/${person.slug}/issue-23-http-unsigned.mp4`,
+      posterPath: null,
+      visibility: 'house',
+    })
+    assert.ok(inserted)
+    addUploadedVideo({
+      id: 'issue-23-http-unsigned',
+      title: 'Unsigned clip',
+      channelId: person.slug,
+      durationSec: 120,
+      thumb: '',
+      tags: [],
+      file: `uploads/${person.slug}/issue-23-http-unsigned.mp4`,
+      postedBy: person.id,
+    })
+
+    assert.equal((await postActivity('issue-23-http-unsigned', { event: 'play' })).status, 204)
+    assert.equal((await postActivity('issue-23-http-unsigned', { event: 'progress', t: '5', d: '120' })).status, 204)
+
+    resetHistory()
+    await loadCatalogueHistory()
+
+    let history = await get(routes.history.href(), cookie)
+    assert.match(history.html, /Nothing watched yet/)
+    assert.doesNotMatch(history.html, /Unsigned clip/)
+    assert.doesNotMatch(history.html, /class="sitting"/)
+
+    let home = await get(routes.home.href(), cookie)
+    assert.doesNotMatch(home.html, /Continue watching/)
+    let watch = await get(routes.watch.href({ videoId: 'issue-23-http-unsigned' }), cookie)
+    assert.doesNotMatch(watch.html, /"resumeAt"/)
   })
 })
