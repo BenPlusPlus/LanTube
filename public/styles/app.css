@@ -1583,6 +1583,26 @@ label.poster:hover {
   margin-top: 32px;
 }
 
+.details-slug {
+  margin: 0 0 8px;
+}
+
+.details-section-title {
+  margin: 0 0 4px;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.details-password {
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+
+.details-password-lede {
+  margin: 0 0 22px;
+}
+
 /* ---------- Playlists ---------- */
 
 /* A playlist is a stack: the first video in front, the next two as slivers behind. */
