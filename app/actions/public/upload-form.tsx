@@ -36,11 +36,19 @@ export interface UploadFormValues {
   tagDraft?: string
   playlistId: string
   visibility: UploadVisibility
+  audienceIds: string[]
   uploadId: string
   durationSec: number
 }
 
 export type UploadFormField = 'file' | 'channel' | 'title' | 'playlist' | 'poster' | 'tags'
+
+export interface UploadPerson {
+  id: string
+  name: string
+  hue: number
+  photo?: string
+}
 
 export interface UploadFormProps {
   action: string
@@ -49,7 +57,8 @@ export interface UploadFormProps {
   /** A sent file can be previewed again from here, followed by its id. */
   stagedBase: string
   cancelHref: string
-  personName: string
+  person: UploadPerson
+  people: UploadPerson[]
   destinations: UploadDestination[]
   playlists: { id: string; name: string; private: boolean }[]
   values: UploadFormValues
@@ -149,6 +158,17 @@ function ShelfAvatar(handle: Handle<{ destination: UploadDestination; size: 'sm'
   }
 }
 
+function PersonAvatar(handle: Handle<{ person: UploadPerson }>) {
+  return () => {
+    let { person } = handle.props
+    return (
+      <span class="avatar avatar-md" style={`--hue:${person.hue}`} aria-hidden="true">
+        {person.photo ? <img class="avatar-photo" src={person.photo} alt="" /> : initialOf(person.name) || '?'}
+      </span>
+    )
+  }
+}
+
 /**
  * Upload is "post to" first: pick where it goes, and the file starts streaming to the
  * host while you name it. Beside the form, the channel's shelf shows the new card
@@ -165,6 +185,7 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
   let enhanced = false
   let playlistId = initial.playlistId
   let visibility: UploadVisibility = initial.visibility
+  let audienceIds = [...initial.audienceIds]
   let uploadId = initial.uploadId
   let duration = initial.durationSec
 
@@ -442,7 +463,8 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
     let {
       action,
       cancelHref,
-      personName,
+      person,
+      people,
       destinations,
       playlists,
       error,
@@ -906,12 +928,60 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
                 />
                 <Icon name="lock" size={20} />
                 <span class="pvis-option-text">
-                  <span class="poster-name">Only me</span>
-                  <span class="poster-role">Nobody else can find it</span>
+                  <span class="poster-name">Private</span>
+                  <span class="poster-role">You choose who else can see it</span>
                 </span>
                 <span class="radio" aria-hidden="true" />
               </label>
             </div>
+            {isPrivate ? (
+              <div class="audience-picker">
+                <p class="field-hint">You can always see it. Pick anyone else in the house.</p>
+                <ul class="poster-list">
+                  <li>
+                    <span class="poster poster-owner">
+                      <PersonAvatar person={person} />
+                      <span class="poster-name">{person.name}</span>
+                      <span class="poster-role">You · owner</span>
+                    </span>
+                  </li>
+                  {people
+                    .filter((other) => other.id !== person.id)
+                    .map((other) => (
+                      <li>
+                        <label class="poster">
+                          <input
+                            class="poster-input"
+                            type="checkbox"
+                            name="audience"
+                            value={other.id}
+                            checked={audienceIds.includes(other.id)}
+                            mix={[
+                              on('change', (event) => {
+                                let checked = (event.currentTarget as HTMLInputElement).checked
+                                audienceIds = checked
+                                  ? audienceIds.includes(other.id)
+                                    ? audienceIds
+                                    : [...audienceIds, other.id]
+                                  : audienceIds.filter((id) => id !== other.id)
+                                handle.update()
+                              }),
+                            ]}
+                          />
+                          <PersonAvatar person={other} />
+                          <span class="poster-name">{other.name}</span>
+                          <span class="check" aria-hidden="true">
+                            <Icon name="check" size={14} />
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                </ul>
+                {people.some((other) => other.id !== person.id) ? null : (
+                  <p class="field-hint">Nobody else has joined the house yet.</p>
+                )}
+              </div>
+            ) : null}
           </fieldset>
         </div>
 
@@ -921,7 +991,13 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
               <ShelfAvatar destination={here} size="sm" />
               {shelfTitle}
             </h2>
-            <p class="upload-shelf-note">{isPrivate ? 'How it will look. Only you will see it here.' : 'How it will look, newest first'}</p>
+            <p class="upload-shelf-note">
+              {isPrivate
+                ? audienceIds.length > 0
+                  ? 'How it will look. You and the people you name will see it here.'
+                  : 'How it will look. Only you will see it here.'
+                : 'How it will look, newest first'}
+            </p>
             <ul class="upload-cards">
               <li>
                 <article class="vcard vcard-on-channel upload-card">
@@ -932,7 +1008,7 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
                   <div class="vcard-meta">
                     <div class="vcard-text">
                       <h3 class={`vcard-title${title.trim() ? '' : ' is-placeholder'}`}>{title.trim() || 'Your title goes here'}</h3>
-                      {here.kind === 'custom' ? <p class="vcard-byline">{personName}</p> : null}
+                      {here.kind === 'custom' ? <p class="vcard-byline">{person.name}</p> : null}
                       <p class="vcard-when">
                         Just now
                         <span class="badge-new">New</span>
@@ -978,7 +1054,7 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
                 {isPrivate ? (
                   <span class="pvis">
                     <Icon name="lock" size={14} />
-                    Only you
+                    Private
                   </span>
                 ) : (
                   'Everyone'

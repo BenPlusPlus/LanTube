@@ -69,3 +69,12 @@ export const videoTags = table({
     tag_id: c.uuid().notNull(),
   },
 })
+
+export const videoAudience = table({
+  name: 'video_audience',
+  primaryKey: ['video_id', 'person_id'],
+  columns: {
+    video_id: c.uuid().notNull(),
+    person_id: c.uuid().notNull(),
+  },
+})
