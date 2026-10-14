@@ -10,6 +10,7 @@ import {
   channelManagers,
   channels,
   people,
+  playlistAudience,
   playlistVideos,
   playlists as playlistTable,
   tags,
@@ -263,6 +264,7 @@ export async function useEmptyHouse() {
   includeMockup = false
   await db.deleteMany(watchSessions, { where: notNull(watchSessions.id) })
   await db.deleteMany(watchProgress, { where: notNull(watchProgress.person_id) })
+  await db.deleteMany(playlistAudience, { where: notNull(playlistAudience.playlist_id) })
   await db.deleteMany(playlistVideos, { where: notNull(playlistVideos.playlist_id) })
   await db.deleteMany(playlistTable, { where: notNull(playlistTable.id) })
   await db.deleteMany(videoTags, { where: notNull(videoTags.video_id) })

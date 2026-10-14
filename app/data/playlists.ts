@@ -1,9 +1,15 @@
 import { randomUUID } from 'node:crypto'
 
 import { db } from '../db.ts'
-import { getPerson, slugify } from './household.ts'
-import { canWatch, getVideo, NEW_WINDOW_DAYS, type Video } from './library.ts'
-import { people, playlistVideos as playlistVideoTable, playlists as playlistTable, videos } from './tables.ts'
+import { getPerson, isParent, slugify } from './household.ts'
+import { canWatch, getVideo, namedAudience, NEW_WINDOW_DAYS, type Video } from './library.ts'
+import {
+  people,
+  playlistAudience as playlistAudienceTable,
+  playlistVideos as playlistVideoTable,
+  playlists as playlistTable,
+  videos,
+} from './tables.ts'
 
 export type Visibility = 'private' | 'public'
 
@@ -26,12 +32,15 @@ export interface Playlist {
   description?: string
   videoIds: string[]
   activity: PlaylistActivity
+  /** Empty is allowed: private with nobody extra named. House-visible has none. */
+  audience?: string[]
 }
 
 export interface PlaylistInput {
   name: string
   description: string
   visibility: Visibility
+  audienceIds?: string[]
 }
 
 const DAY = 86_400_000
@@ -157,9 +166,13 @@ export function getPlaylist(id: string): Playlist | undefined {
   return playlists.find((playlist) => playlist.id === id)
 }
 
-/** Private playlists exist only for their owner; everyone else gets "not found". */
+/** A private Playlist exists for its owner, named Audience, and any Parent. */
 export function canSee(playlist: Playlist, viewerId: string | undefined | null): boolean {
-  return playlist.visibility === 'public' || playlist.ownerId === viewerId
+  if (playlist.visibility === 'public') return true
+  if (viewerId == null) return false
+  if (playlist.ownerId === viewerId) return true
+  if (playlist.audience?.includes(viewerId)) return true
+  return isParent(viewerId)
 }
 
 export function isOwner(playlist: Playlist, viewerId: string | undefined | null): boolean {
@@ -171,10 +184,10 @@ export function playlistsOwnedBy(personId: string): Playlist[] {
   return newestActivityFirst(playlists.filter((playlist) => playlist.ownerId === personId))
 }
 
-/** House-visible playlists of everyone except the viewer, most recently changed first. */
+/** Playlists of everyone except the viewer that exist for them, most recently changed first. */
 export function housePlaylists(viewerId?: string | null): Playlist[] {
   return newestActivityFirst(
-    playlists.filter((playlist) => playlist.visibility === 'public' && playlist.ownerId !== viewerId && getPerson(playlist.ownerId)),
+    playlists.filter((playlist) => playlist.ownerId !== viewerId && getPerson(playlist.ownerId) && canSee(playlist, viewerId)),
   )
 }
 
@@ -272,6 +285,7 @@ async function persistPlaylist(playlist: Playlist) {
   let row = await db.findOne(playlistTable, { where: { slug: playlist.id } })
   if (!row || row.owner_id !== playlist.ownerId) return
   let videoUuids = await videoUuidsFor(playlist.videoIds)
+  let named = playlist.visibility === 'private' ? (playlist.audience ?? []) : []
   await db.transaction(async (tx) => {
     await tx.update(playlistTable, row.id, {
       name: playlist.name,
@@ -288,6 +302,13 @@ async function persistPlaylist(playlist: Playlist) {
         videoUuids.map((video_id, position) => ({ playlist_id: row.id, video_id, position })),
       )
     }
+    await tx.deleteMany(playlistAudienceTable, { where: { playlist_id: row.id } })
+    if (named.length) {
+      await tx.createMany(
+        playlistAudienceTable,
+        named.map((person_id) => ({ playlist_id: row.id, person_id })),
+      )
+    }
   })
 }
 
@@ -299,6 +320,7 @@ export async function loadCataloguePlaylists() {
       ['position', 'asc'],
     ],
   })
+  let audienceJoins = await db.findMany(playlistAudienceTable)
   let videoRows = await db.findMany(videos)
   let slugById = new Map(videoRows.map((row) => [row.id, row.slug]))
   let videosByPlaylist = new Map<string, string[]>()
@@ -309,15 +331,22 @@ export async function loadCataloguePlaylists() {
     if (list) list.push(slug)
     else videosByPlaylist.set(join.playlist_id, [slug])
   }
+  let audienceByPlaylist = new Map<string, string[]>()
+  for (let join of audienceJoins) {
+    let list = audienceByPlaylist.get(join.playlist_id)
+    if (list) list.push(join.person_id)
+    else audienceByPlaylist.set(join.playlist_id, [join.person_id])
+  }
   let present = new Set(playlists.map((playlist) => playlist.id))
   for (let row of rows) {
     if (present.has(row.slug)) continue
     let at = row.activity_at instanceof Date ? row.activity_at.getTime() : Date.parse(String(row.activity_at))
+    let visibility: Visibility = row.visibility === 'public' ? 'public' : 'private'
     playlists.push({
       id: row.slug,
       name: row.name,
       ownerId: row.owner_id,
-      visibility: row.visibility === 'public' ? 'public' : 'private',
+      visibility,
       description: row.description ?? undefined,
       videoIds: videosByPlaylist.get(row.id) ?? [],
       activity: {
@@ -325,6 +354,7 @@ export async function loadCataloguePlaylists() {
         at: Number.isFinite(at) ? at : Date.now(),
         videoIds: row.activity_video_ids ? row.activity_video_ids.split(',').filter(Boolean) : [],
       },
+      audience: visibility === 'private' ? (audienceByPlaylist.get(row.id) ?? []) : undefined,
     })
     present.add(row.slug)
   }
@@ -349,7 +379,8 @@ function clean(input: PlaylistInput, ownerId: string, editingId?: string): Playl
     return { error: `Keep the description under ${DESCRIPTION_MAX} characters.`, field: 'description' }
   }
   let visibility: Visibility = input.visibility === 'public' ? 'public' : 'private'
-  return { name, description, visibility }
+  let audienceIds = visibility === 'private' ? namedAudience(ownerId, input.audienceIds ?? []) : []
+  return { name, description, visibility, audienceIds }
 }
 
 export async function createPlaylist(ownerId: string, input: PlaylistInput, firstVideoId?: string): Promise<Playlist | Invalid> {
@@ -369,6 +400,7 @@ export async function createPlaylist(ownerId: string, input: PlaylistInput, firs
     }
 
     let first = firstVideoId && getVideo(firstVideoId) ? [firstVideoId] : []
+    let named = again.visibility === 'private' ? (again.audienceIds ?? []) : []
     let playlist: Playlist = {
       id,
       name: again.name,
@@ -377,6 +409,7 @@ export async function createPlaylist(ownerId: string, input: PlaylistInput, firs
       description: again.description || undefined,
       videoIds: first,
       activity: activityOf('created'),
+      audience: again.visibility === 'private' ? named : undefined,
     }
 
     let person = getPerson(ownerId)
@@ -403,6 +436,12 @@ export async function createPlaylist(ownerId: string, input: PlaylistInput, firs
             await tx.createMany(
               playlistVideoTable,
               videoUuids.map((video_id, position) => ({ playlist_id: rowId, video_id, position })),
+            )
+          }
+          if (named.length) {
+            await tx.createMany(
+              playlistAudienceTable,
+              named.map((person_id) => ({ playlist_id: rowId, person_id })),
             )
           }
         })
@@ -437,12 +476,14 @@ export async function updatePlaylist(playlist: Playlist, input: PlaylistInput): 
       description: valid.description || undefined,
       visibility: valid.visibility,
       activity,
+      audience: valid.visibility === 'private' ? (valid.audienceIds ?? []) : undefined,
     }
     await persistPlaylist(next)
     playlist.name = next.name
     playlist.description = next.description
     playlist.visibility = next.visibility
     playlist.activity = next.activity
+    playlist.audience = next.audience
     return playlist
   })
 }

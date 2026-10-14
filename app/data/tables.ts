@@ -114,6 +114,15 @@ export const playlistVideos = table({
   },
 })
 
+export const playlistAudience = table({
+  name: 'playlist_audience',
+  primaryKey: ['playlist_id', 'person_id'],
+  columns: {
+    playlist_id: c.uuid().notNull(),
+    person_id: c.uuid().notNull(),
+  },
+})
+
 export const watchSessions = table({
   name: 'watch_sessions',
   columns: {
