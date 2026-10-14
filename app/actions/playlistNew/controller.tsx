@@ -15,7 +15,7 @@ export default createController(routes.playlistNew, {
       let video = getVideo(new URL(context.request.url).searchParams.get('video') ?? '')
       if (video && !canWatch(video, person.id)) video = undefined
       return context.render(
-        <PlaylistFormPage person={person} video={video} values={{ name: '', description: '', visibility: 'private' }} />,
+        <PlaylistFormPage person={person} video={video} values={{ name: '', description: '', visibility: 'private', audienceIds: [] }} />,
       )
     },
     async action(context) {
