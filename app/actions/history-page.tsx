@@ -12,28 +12,38 @@ import { AppShell } from '../ui/shell.tsx'
 export interface HistoryPageProps {
   query: string
   person?: Person | null
+  subject?: Person
+  people?: Person[]
 }
 
 const WEEK = 7 * 86_400_000
 /** Bar scale: a minute watched is this many pixels, so sittings compare at a glance. */
 const PX_PER_MIN = 7.2
 
+function asChannel(person: Person) {
+  return { id: person.slug, name: person.name, kind: 'person' as const, hue: person.hue, photo: person.photo }
+}
+
 function videoCount(n: number) {
   return `${n} video${n === 1 ? '' : 's'}`
 }
 
-function historyHref(query = '') {
+function historyHref(query = '', personId?: string) {
   let href = routes.history.href()
-  return query ? `${href}?q=${encodeURIComponent(query)}` : href
+  let params = new URLSearchParams()
+  if (personId) params.set('person', personId)
+  if (query) params.set('q', query)
+  let qs = params.toString()
+  return qs ? `${href}?${qs}` : href
 }
 
-function Row(handle: Handle<{ row: SittingRow; viewerId: string; eager: boolean }>) {
+function Row(handle: Handle<{ row: SittingRow; subjectId: string; viewerId: string; eager: boolean }>) {
   return () => {
-    let { row, viewerId, eager } = handle.props
+    let { row, subjectId, viewerId, eager } = handle.props
     let { video } = row
     let channel = getChannel(video.channelId)
     let poster = channel?.kind === 'custom' && video.postedBy ? getChannel(video.postedBy) : undefined
-    let progress = progressPercent(video, viewerId)
+    let progress = progressPercent(video, subjectId)
 
     return (
       <li class="hrow">
@@ -76,9 +86,9 @@ function Row(handle: Handle<{ row: SittingRow; viewerId: string; eager: boolean 
   }
 }
 
-function SittingSection(handle: Handle<{ sitting: Sitting; viewerId: string; eager: boolean; longestSec: number }>) {
+function SittingSection(handle: Handle<{ sitting: Sitting; subjectId: string; viewerId: string; eager: boolean; longestSec: number }>) {
   return () => {
-    let { sitting, viewerId, eager, longestSec } = handle.props
+    let { sitting, subjectId, viewerId, eager, longestSec } = handle.props
     let barPx = (sitting.watchedSec / 60) * PX_PER_MIN
     // On narrow screens, scale against the longest visible sitting so lengths still compare.
     let barPct = (sitting.watchedSec / Math.max(1, longestSec)) * 100
@@ -105,7 +115,7 @@ function SittingSection(handle: Handle<{ sitting: Sitting; viewerId: string; eag
         </div>
         <ol class="hrows">
           {sitting.rows.map((row, index) => (
-            <Row row={row} viewerId={viewerId} eager={eager && index < 4} />
+            <Row row={row} subjectId={subjectId} viewerId={viewerId} eager={eager && index < 4} />
           ))}
         </ol>
       </section>
@@ -113,13 +123,15 @@ function SittingSection(handle: Handle<{ sitting: Sitting; viewerId: string; eag
   }
 }
 
-function SearchField(handle: Handle<{ query: string }>) {
+function SearchField(handle: Handle<{ query: string; personId?: string; subjectName?: string }>) {
   return () => {
-    let { query } = handle.props
+    let { query, personId, subjectName } = handle.props
+    let placeholder = subjectName ? `Search ${subjectName}’s history` : 'Search your history'
     return (
-      <form class="hfind" role="search" action={historyHref()} method="get">
+      <form class="hfind" role="search" action={routes.history.href()} method="get">
+        {personId ? <input type="hidden" name="person" value={personId} /> : null}
         <label class="visually-hidden" for="history-q">
-          Search your history
+          {placeholder}
         </label>
         <Icon name="search" size={18} />
         <input
@@ -128,16 +140,40 @@ function SearchField(handle: Handle<{ query: string }>) {
           type="search"
           name="q"
           value={query}
-          placeholder="Search your history"
+          placeholder={placeholder}
           autocomplete="off"
           enterkeyhint="search"
         />
         {query ? (
-          <a class="icon-btn hfind-clear" href={historyHref()} aria-label="Clear search" title="Clear search">
+          <a class="icon-btn hfind-clear" href={historyHref('', personId)} aria-label="Clear search" title="Clear search">
             <Icon name="close" size={18} />
           </a>
         ) : null}
       </form>
+    )
+  }
+}
+
+function PersonSwitcher(handle: Handle<{ viewer: Person; subject: Person; people: Person[]; query: string }>) {
+  return () => {
+    let { viewer, subject, people, query } = handle.props
+    return (
+      <nav class="hwho" aria-label="Whose History">
+        <a class="hwho-item" href={historyHref(query)} aria-current={subject.id === viewer.id ? 'page' : undefined}>
+          <Avatar channel={asChannel(viewer)} size="sm" />
+          You
+        </a>
+        {people.map((entry) => (
+          <a
+            class="hwho-item"
+            href={historyHref(query, entry.id)}
+            aria-current={subject.id === entry.id ? 'page' : undefined}
+          >
+            <Avatar channel={asChannel(entry)} size="sm" />
+            {entry.name}
+          </a>
+        ))}
+      </nav>
     )
   }
 }
@@ -161,7 +197,7 @@ function SignedOut() {
 
 export function HistoryPage(handle: Handle<HistoryPageProps>) {
   return () => {
-    let { query, person = null } = handle.props
+    let { query, person = null, subject, people } = handle.props
 
     if (!person) {
       return (
@@ -171,31 +207,49 @@ export function HistoryPage(handle: Handle<HistoryPageProps>) {
       )
     }
 
-    let all = sittingsFor(person.id)
+    let who = subject ?? person
+    let viewingOther = who.id !== person.id
+    let subjectId = viewingOther ? who.id : undefined
+    let switcher = people ? <PersonSwitcher viewer={person} subject={who} people={people} query={query} /> : null
+    let all = sittingsFor(who.id)
+
     if (all.length === 0) {
       return (
         <AppShell current="history" title="History" person={person}>
-          <section class="empty" aria-labelledby="page-title">
-            <Icon name="history" size={40} />
-            <h1 id="page-title">Nothing watched yet</h1>
-            <p>Videos you watch while signed in show up here, grouped by when you watched them, with a way back to anything you didn’t finish.</p>
-            <a class="btn btn-secondary" href={routes.home.href()}>
-              Browse videos
-            </a>
-          </section>
+          <div class="history">
+            <header class="page-head">
+              <div class="page-head-text">
+                <h1 class="page-title">History</h1>
+              </div>
+              {switcher}
+            </header>
+            <section class="empty history-empty" aria-labelledby="history-none">
+              <Icon name="history" size={40} />
+              <h2 id="history-none">Nothing watched yet</h2>
+              <p>
+                {viewingOther
+                  ? `Videos ${who.name} watches while signed in show up here, grouped by when they watched them, with a way back to anything they didn’t finish.`
+                  : 'Videos you watch while signed in show up here, grouped by when you watched them, with a way back to anything you didn’t finish.'}
+              </p>
+              <a class="btn btn-secondary" href={routes.home.href()}>
+                Browse videos
+              </a>
+            </section>
+          </div>
         </AppShell>
       )
     }
 
-    let sittings = query ? sittingsFor(person.id, query) : all
+    let sittings = query ? sittingsFor(who.id, query) : all
     let matched = sittings.reduce((sum, sitting) => sum + sitting.rows.length, 0)
     let longestSec = Math.max(0, ...sittings.map((sitting) => sitting.watchedSec))
-    let thisWeek = videosWatchedSince(person.id, Date.now() - WEEK)
+    let thisWeek = videosWatchedSince(who.id, Date.now() - WEEK)
+    let watchedNote = viewingOther ? `What ${who.name} has watched` : 'What you’ve watched'
     let note = query && matched > 0
       ? `${videoCount(matched)} match “${query}”`
       : thisWeek > 0
-        ? `What you’ve watched · ${videoCount(thisWeek)} this week`
-        : 'What you’ve watched'
+        ? `${watchedNote} · ${videoCount(thisWeek)} this week`
+        : watchedNote
 
     return (
       <AppShell current="history" title={query ? `“${query}” in History` : 'History'} person={person}>
@@ -207,21 +261,36 @@ export function HistoryPage(handle: Handle<HistoryPageProps>) {
                 {note}
               </p>
             </div>
-            <SearchField query={query} />
+            {switcher}
+            <SearchField query={query} personId={subjectId} subjectName={viewingOther ? who.name : undefined} />
           </header>
           {sittings.length === 0 ? (
             <section class="empty history-empty" aria-labelledby="history-none">
               <Icon name="search" size={40} />
-              <h2 id="history-none">Nothing in your history matches “{query}”</h2>
-              <p>Search looks at the titles and channels of videos you’ve watched. Try a shorter word.</p>
-              <a class="btn btn-secondary" href={historyHref()}>
+              <h2 id="history-none">
+                {viewingOther
+                  ? `Nothing in ${who.name}’s history matches “${query}”`
+                  : `Nothing in your history matches “${query}”`}
+              </h2>
+              <p>
+                {viewingOther
+                  ? `Search looks at the titles and channels of videos ${who.name} has watched. Try a shorter word.`
+                  : 'Search looks at the titles and channels of videos you’ve watched. Try a shorter word.'}
+              </p>
+              <a class="btn btn-secondary" href={historyHref('', subjectId)}>
                 Clear search
               </a>
             </section>
           ) : (
             <div class="sittings">
               {sittings.map((sitting, index) => (
-                <SittingSection sitting={sitting} viewerId={person.id} eager={index === 0} longestSec={longestSec} />
+                <SittingSection
+                  sitting={sitting}
+                  subjectId={who.id}
+                  viewerId={person.id}
+                  eager={index === 0}
+                  longestSec={longestSec}
+                />
               ))}
             </div>
           )}

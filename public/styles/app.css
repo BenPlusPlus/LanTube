@@ -4064,6 +4064,36 @@ input.watch-title:focus-visible {
   color: var(--text);
 }
 
+.hwho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hwho-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px 0 6px;
+  border-radius: 999px;
+  background: var(--raised);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 120ms var(--ease);
+}
+
+.hwho-item:hover {
+  background: var(--raised-hover);
+}
+
+.hwho-item[aria-current='page'] {
+  background: var(--text);
+  color: var(--on-chip);
+}
+
 .sittings {
   display: grid;
   gap: 36px;
@@ -4277,7 +4307,8 @@ input.watch-title:focus-visible {
     padding-top: 20px;
   }
 
-  .hfind {
+  .hfind,
+  .hwho {
     flex-basis: 100%;
   }
 
