@@ -5,7 +5,7 @@ import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
 import { listVisibleVideos, saveUploadedVideo } from '../data/catalogue.ts'
-import { listPeople, personFromSession } from '../data/household.ts'
+import { getPerson, listPeople, personFromSession, type Person } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
 import {
   canEditVideo,
@@ -249,8 +249,20 @@ export default createController(routes, {
       return redirect(safeReturn(form.get('returnTo')) ?? routes.playlist.href({ playlistId: playlist.id }), 303)
     },
     history(context) {
-      let query = (new URL(context.request.url).searchParams.get('q') ?? '').trim().slice(0, 120)
-      return context.render(<HistoryPage query={query} person={personFromSession(context.session)} />)
+      let person = personFromSession(context.session)
+      let params = new URL(context.request.url).searchParams
+      let query = (params.get('q') ?? '').trim().slice(0, 120)
+      let subject = person
+      let people: Person[] | undefined
+      if (person?.isParent) {
+        people = listPeople().filter((other) => other.id !== person.id && !other.isParent)
+        let requested = params.get('person')
+        if (requested) {
+          let target = getPerson(requested)
+          if (target && target.id !== person.id && !target.isParent) subject = target
+        }
+      }
+      return context.render(<HistoryPage query={query} person={person} subject={subject ?? undefined} people={people} />)
     },
     async uploadFile(context) {
       let person = personFromSession(context.session)
