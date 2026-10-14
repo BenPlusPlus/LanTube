@@ -7,6 +7,7 @@ import controller from './actions/controller.tsx'
 import channelEditController from './actions/channelEdit/controller.tsx'
 import channelNewController from './actions/channelNew/controller.tsx'
 import detailsController from './actions/details/controller.tsx'
+import houseController from './actions/house/controller.tsx'
 import playlistEditController from './actions/playlistEdit/controller.tsx'
 import playlistNewController from './actions/playlistNew/controller.tsx'
 import signinController from './actions/signin/controller.tsx'
@@ -47,6 +48,7 @@ declare module 'remix' {
 router.map(routes, controller)
 router.map(routes.signin, signinController)
 router.map(routes.details, detailsController)
+router.map(routes.house, houseController)
 router.map(routes.channelNew, channelNewController)
 router.map(routes.channelEdit, channelEditController)
 router.map(routes.playlistNew, playlistNewController)
