@@ -2,9 +2,9 @@ import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
 import { insertUploadedVideo } from '../data/catalogue.ts'
-import { createPerson, resetHousehold, useEmptyHouse } from '../data/household.ts'
+import { createPerson, getPerson, resetHousehold, useEmptyHouse } from '../data/household.ts'
 import { addUploadedVideo, deleteVideo, resetChannels } from '../data/library.ts'
-import { getPlaylist, loadCataloguePlaylists, resetPlaylists } from '../data/playlists.ts'
+import { addVideo, createPlaylist, getPlaylist, loadCataloguePlaylists, resetPlaylists } from '../data/playlists.ts'
 import { router } from '../router.ts'
 import { routes } from '../routes.ts'
 
@@ -95,6 +95,9 @@ describe('new playlist', () => {
     assert.match(html, /poster-name">Private</)
     assert.match(html, /value="private"[^>]*checked|checked[^>]*value="private"/)
     assert.doesNotMatch(html, /Public/)
+    assert.match(html, /class="audience-picker"/)
+    assert.match(html, /name="audience"[^>]*value="leo"|value="leo"[^>]*name="audience"/)
+    assert.doesNotMatch(html, /name="audience"[^>]*value="mia"|value="mia"[^>]*name="audience"/)
   })
 
   it('rejects a name the owner already uses, an empty name, and a name over 60 characters', async () => {
@@ -162,6 +165,85 @@ describe('playlist page', () => {
     assert.equal(response.status, 200)
     assert.match(html, /Play all/)
     assert.match(html, /Remove from playlist/)
+  })
+
+  it('lets owner, named Audience, and Parent open a private Playlist; Admin-not-Parent cannot', async () => {
+    let mia = getPerson('mia')!
+    let tomas = getPerson('tomas')!
+    let ruth = getPerson('ruth')!
+    mia.isAdmin = true
+    mia.isParent = true
+    tomas.isAdmin = true
+    ruth.isParent = true
+    try {
+      let created = await createPlaylist('mia', {
+        name: 'Issue 22 stack',
+        description: '',
+        visibility: 'private',
+        audienceIds: ['leo'],
+      })
+      assert.ok(!('error' in created))
+      let path = routes.playlist.href({ playlistId: created.id })
+      assert.equal((await get(path, await signIn('mia'))).response.status, 200)
+      assert.equal((await get(path, await signIn('leo'))).response.status, 200)
+      assert.equal((await get(path, await signIn('ruth'))).response.status, 200)
+      assert.equal((await get(path, await signIn('tomas'))).response.status, 404)
+      assert.equal((await get(path, await signIn('priya'))).response.status, 404)
+      assert.equal((await get(path)).response.status, 404)
+
+      assert.match((await get(routes.playlists.href(), await signIn('leo'))).html, /Issue 22 stack/)
+      assert.match((await get(routes.playlists.href(), await signIn('ruth'))).html, /Issue 22 stack/)
+      assert.doesNotMatch((await get(routes.playlists.href(), await signIn('tomas'))).html, /Issue 22 stack/)
+      assert.doesNotMatch((await get(routes.playlists.href(), await signIn('priya'))).html, /Issue 22 stack/)
+      assert.doesNotMatch((await get(routes.playlists.href())).html, /Issue 22 stack/)
+    } finally {
+      delete mia.isAdmin
+      delete mia.isParent
+      delete tomas.isAdmin
+      delete ruth.isParent
+    }
+  })
+
+  it('omits a private Video from a Playlist and does not grant Watch or media through Playlist Audience', async () => {
+    let secret = addUploadedVideo({
+      id: 'issue-22-http-secret',
+      title: 'Issue 22 secret clip',
+      channelId: 'mia',
+      durationSec: 12,
+      thumb: '',
+      tags: [],
+      file: 'tahoe-day-2.mp4',
+      postedBy: 'mia',
+      private: true,
+    })
+    let created = await createPlaylist('mia', {
+      name: 'Issue 22 mixed list',
+      description: '',
+      visibility: 'private',
+      audienceIds: ['leo'],
+    })
+    assert.ok(!('error' in created))
+    assert.equal(await addVideo(created, secret.id), true)
+    assert.equal(await addVideo(created, 'tahoe-day-2'), true)
+
+    try {
+      let leo = await signIn('leo')
+      let mia = await signIn('mia')
+      let page = await get(routes.playlist.href({ playlistId: created.id }), leo)
+      assert.equal(page.response.status, 200)
+      assert.match(page.html, /Lake Tahoe 2025/)
+      assert.doesNotMatch(page.html, /Issue 22 secret clip/)
+      assert.match((await get(routes.playlist.href({ playlistId: created.id }), mia)).html, /Issue 22 secret clip/)
+
+      let watch = routes.watch.href({ videoId: secret.id })
+      let media = routes.media.href({ videoId: secret.id })
+      assert.equal((await get(watch, leo)).response.status, 404)
+      assert.equal((await get(media, leo)).response.status, 404)
+      assert.equal((await get(watch, mia)).response.status, 200)
+      assert.equal((await get(media, mia)).response.status, 200)
+    } finally {
+      deleteVideo(secret.id)
+    }
   })
 
   it('offers no editing to people who don’t own it', async () => {
@@ -239,6 +321,58 @@ describe('changing playlists', () => {
     let [twice, trips] = order(html, ['Twice, best stages', 'Trips we keep rewatching'])
     assert.ok(twice > 0 && twice < trips)
     assert.doesNotMatch((await get(routes.playlists.href(), await signIn('leo'))).html, /Twice, best stages/)
+  })
+
+  it('saves named Audience on a private Playlist and clears it on a house-visible save', async () => {
+    let cookie = await signIn('mia')
+    let created = await post(
+      routes.playlistNew.action.href(),
+      [
+        ['name', 'Issue 22 audience'],
+        ['description', ''],
+        ['visibility', 'private'],
+        ['audience', 'leo'],
+        ['audience', 'mia'],
+      ],
+      cookie,
+    )
+    assert.equal(created.status, 303)
+    assert.equal(created.headers.get('Location'), routes.playlist.href({ playlistId: 'issue-22-audience' }))
+
+    let path = routes.playlist.href({ playlistId: 'issue-22-audience' })
+    assert.equal((await get(path, await signIn('leo'))).response.status, 200)
+    assert.equal((await get(path, await signIn('priya'))).response.status, 404)
+
+    let form = await get(routes.playlistEdit.index.href({ playlistId: 'issue-22-audience' }), cookie)
+    assert.match(form.html, /class="audience-picker"/)
+    assert.match(form.html, /name="audience"[^>]*value="leo"[^>]*checked|checked[^>]*name="audience"[^>]*value="leo"/)
+
+    let saved = await post(
+      routes.playlistEdit.action.href({ playlistId: 'issue-22-audience' }),
+      [
+        ['name', 'Issue 22 audience'],
+        ['description', ''],
+        ['visibility', 'public'],
+        ['audience', 'leo'],
+      ],
+      cookie,
+    )
+    assert.equal(saved.status, 303)
+    assert.equal((await get(path, await signIn('leo'))).response.status, 200)
+    assert.equal((await get(path, await signIn('priya'))).response.status, 200)
+
+    let hidden = await post(
+      routes.playlistEdit.action.href({ playlistId: 'issue-22-audience' }),
+      [
+        ['name', 'Issue 22 audience'],
+        ['description', ''],
+        ['visibility', 'private'],
+      ],
+      cookie,
+    )
+    assert.equal(hidden.status, 303)
+    assert.equal((await get(path, await signIn('leo'))).response.status, 404)
+    assert.equal((await get(path, cookie)).response.status, 200)
   })
 
   it('deletes only after the box is ticked', async () => {

@@ -20,7 +20,7 @@ export default createController(routes.playlistEdit, {
         <PlaylistFormPage
           person={person}
           playlist={playlist}
-          values={{ name: playlist.name, description: playlist.description ?? '', visibility: playlist.visibility }}
+          values={{ name: playlist.name, description: playlist.description ?? '', visibility: playlist.visibility, audienceIds: playlist.audience ?? [] }}
         />,
       )
     },
@@ -37,7 +37,7 @@ export default createController(routes.playlistEdit, {
             <PlaylistFormPage
               person={person}
               playlist={playlist}
-              values={{ name: playlist.name, description: playlist.description ?? '', visibility: playlist.visibility }}
+              values={{ name: playlist.name, description: playlist.description ?? '', visibility: playlist.visibility, audienceIds: playlist.audience ?? [] }}
               error="Tick the box to confirm, then delete."
               errorField="delete"
             />,

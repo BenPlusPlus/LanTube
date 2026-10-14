@@ -51,17 +51,17 @@ function YourCard(handle: Handle<{ playlist: Playlist; eager?: boolean }>) {
 }
 
 /** One house playlist, led by what changed and who changed it. */
-function HouseRow(handle: Handle<{ playlist: Playlist; eager?: boolean }>) {
+function HouseRow(handle: Handle<{ playlist: Playlist; eager?: boolean; viewerId?: string | null }>) {
   return () => {
-    let { playlist, eager } = handle.props
+    let { playlist, eager, viewerId } = handle.props
     let owner = ownerOf(playlist)
-    let peek = activityVideos(playlist)
+    let peek = activityVideos(playlist, 3, viewerId)
     let href = routes.playlist.href({ playlistId: playlist.id })
-    let length = playlistDuration(playlist)
+    let length = playlistDuration(playlist, viewerId)
 
     return (
       <li class="chrow plrow">
-        <PlaylistCover playlist={playlist} eager={eager} />
+        <PlaylistCover playlist={playlist} eager={eager} viewerId={viewerId} />
         <div class="chrow-text">
           <p class="plrow-what">
             {owner ? <Avatar channel={owner} size="sm" /> : null}
@@ -75,7 +75,7 @@ function HouseRow(handle: Handle<{ playlist: Playlist; eager?: boolean }>) {
             <a href={href}>{playlist.name}</a>
           </h3>
           <p class="chrow-meta">
-            <span>{videoCount(playlistVideos(playlist).length)}</span>
+            <span>{videoCount(playlistVideos(playlist, viewerId).length)}</span>
             {length > 0 ? (
               <>
                 <span aria-hidden="true">·</span>
@@ -185,7 +185,7 @@ export function PlaylistsPage(handle: Handle<PlaylistsPageProps>) {
           {house.length > 0 ? (
             <ul class="chlist">
               {house.map((playlist, index) => (
-                <HouseRow playlist={playlist} eager={!person && index < 2} />
+                <HouseRow playlist={playlist} eager={!person && index < 2} viewerId={person?.id} />
               ))}
             </ul>
           ) : (
