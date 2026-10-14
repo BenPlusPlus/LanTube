@@ -24,5 +24,5 @@ export const routes = route({
   signin: form('/signin'),
   signout: post('/signout'),
   details: form('/details'),
-  house: get('/house'),
+  house: form('/house'),
 })
