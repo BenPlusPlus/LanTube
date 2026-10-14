@@ -213,21 +213,6 @@ export function HistoryPage(handle: Handle<HistoryPageProps>) {
     let switcher = people ? <PersonSwitcher viewer={person} subject={who} people={people} query={query} /> : null
     let all = sittingsFor(who.id)
 
-    if (all.length === 0 && !switcher) {
-      return (
-        <AppShell current="history" title="History" person={person}>
-          <section class="empty" aria-labelledby="page-title">
-            <Icon name="history" size={40} />
-            <h1 id="page-title">Nothing watched yet</h1>
-            <p>Videos you watch while signed in show up here, grouped by when you watched them, with a way back to anything you didn’t finish.</p>
-            <a class="btn btn-secondary" href={routes.home.href()}>
-              Browse videos
-            </a>
-          </section>
-        </AppShell>
-      )
-    }
-
     if (all.length === 0) {
       return (
         <AppShell current="history" title="History" person={person}>
