@@ -174,7 +174,7 @@ export function AppShell(handle: Handle<AppShellProps>) {
                     Your details
                   </a>
                   {person.isAdmin ? (
-                    <a class="account-menu-item" href={routes.house.href()}>
+                    <a class="account-menu-item" href={routes.house.index.href()}>
                       House
                     </a>
                   ) : null}

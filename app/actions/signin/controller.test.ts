@@ -173,7 +173,7 @@ describe('first-run sign in', () => {
     let join = await postSignin('intent=join&name=Sam&password=lantern&confirm=lantern')
 
     assert.equal(join.status, 303)
-    assert.equal(join.headers.get('Location'), routes.house.href())
+    assert.equal(join.headers.get('Location'), routes.house.index.href())
 
     let setCookie = join.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
     assert.ok(setCookie)
@@ -204,7 +204,7 @@ describe('first-run sign in', () => {
     assert.equal(home.name, 'Sam')
 
     let cookie = cookieFrom(join)
-    let { response, html } = await get(routes.house.href(), cookie)
+    let { response, html } = await get(routes.house.index.href(), cookie)
     assert.equal(response.status, 200)
     assert.match(html, /<title>House/)
     assert.match(html, /<h1 class="page-title">House<\/h1>/)
@@ -222,7 +222,7 @@ describe('first-run sign in', () => {
     assert.equal(person?.isAdmin, true)
     assert.equal(person?.isParent, true)
 
-    let { html } = await get(routes.house.href(), cookieFrom(join))
+    let { html } = await get(routes.house.index.href(), cookieFrom(join))
     assert.match(html, /Parent/)
   })
 })
@@ -234,7 +234,7 @@ describe('house', () => {
   })
 
   it('redirects signed-out visitors to sign-in', async () => {
-    let { response } = await get(routes.house.href())
+    let { response } = await get(routes.house.index.href())
     assert.equal(response.status, 303)
     assert.equal(response.headers.get('Location'), routes.signin.index.href())
   })
@@ -247,7 +247,7 @@ describe('house', () => {
     assert.equal(later.status, 303)
     assert.equal(later.headers.get('Location'), routes.home.href())
 
-    let { response, html } = await get(routes.house.href(), cookieFrom(later))
+    let { response, html } = await get(routes.house.index.href(), cookieFrom(later))
     assert.equal(response.status, 403)
     assert.match(html, /Admin/)
     assert.doesNotMatch(html, /class="account-menu-item"[^>]*>House</)

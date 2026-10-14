@@ -115,7 +115,7 @@ function emptyLibraryCopy(person: Person | null) {
     return {
       lede: (
         <>
-          Index a folder on <a href={routes.house.href()}>House</a>, or upload a video. House-visible videos show here for everyone on this network.
+          Index a folder on <a href={routes.house.index.href()}>House</a>, or upload a video. House-visible videos show here for everyone on this network.
         </>
       ),
       upload: true,

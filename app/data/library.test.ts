@@ -1,7 +1,7 @@
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
-import { createPerson, getPerson, resetHousehold, useEmptyHouse } from './household.ts'
+import { createPerson, getPerson, resetHousehold, updatePersonRoles, useEmptyHouse } from './household.ts'
 import {
   addUploadedVideo,
   canPost,
@@ -90,6 +90,38 @@ describe('private Video entitlement', () => {
       )
     } finally {
       delete mia.isAdmin
+    }
+  })
+
+  it('keeps another Person’s private Video hidden from an Admin who is not a Parent', async () => {
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    try {
+      let sam = await createPerson('Sam', 'lantern')
+      let alex = await createPerson('Alex', 'lantern')
+      assert.ok(!('error' in sam) && !('error' in alex))
+      assert.equal(sam.isAdmin, true)
+      assert.equal(sam.isParent, false)
+      let video = clip({
+        id: 'entitlement-admin-not-parent',
+        postedBy: alex.id,
+        channelId: alex.slug,
+      })
+      assert.equal(canWatch(video, alex.id), true)
+      assert.equal(canWatch(video, sam.id), false)
+      assert.equal(
+        visibleVideos(sam.id).some((entry) => entry.id === video.id),
+        false,
+      )
+
+      let parent = await updatePersonRoles(sam.id, sam.id, { isAdmin: true, isParent: true })
+      assert.ok(!('error' in parent))
+      assert.equal(canWatch(video, sam.id), true)
+    } finally {
+      await useEmptyHouse()
+      resetHousehold()
+      resetChannels()
     }
   })
 

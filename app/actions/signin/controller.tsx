@@ -72,7 +72,7 @@ export default createController(routes.signin, {
         }
         context.session.regenerateId()
         context.session.set('personId', created.id)
-        return redirect(created.isAdmin ? routes.house.href() : routes.home.href(), 303)
+        return redirect(created.isAdmin ? routes.house.index.href() : routes.home.href(), 303)
       }
 
       let personId = readText(context.formData, 'personId')

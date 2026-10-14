@@ -183,7 +183,74 @@ export async function createPerson(
 }
 
 function recordOf(id: string): Record | undefined {
-  return records().find((entry) => entry.person.id === id)
+  return records().find((entry) => entry.person.id === id || entry.person.slug === id)
+}
+
+function isCataloguePerson(id: string) {
+  return catalogueRecords.some((entry) => entry.person.id === id)
+}
+
+/** Admin grants or revokes Admin and Parent. The last Admin cannot drop Admin. */
+export async function updatePersonRoles(
+  actorId: string,
+  targetId: string,
+  roles: { isAdmin: boolean; isParent: boolean },
+): Promise<Person | { error: string }> {
+  let actor = recordOf(actorId)
+  if (!actor?.person.isAdmin) return { error: 'You need to be an Admin.' }
+  let row = recordOf(targetId)
+  if (!row) return { error: 'That person isn’t in the house.' }
+
+  if (row.person.isAdmin && !roles.isAdmin && listPeople().filter((person) => person.isAdmin).length === 1) {
+    return { error: 'The house needs at least one Admin.' }
+  }
+
+  if (isCataloguePerson(row.person.id)) {
+    let blocked = await db.transaction(async (tx) => {
+      // Serializes last-Admin checks with createPerson; two concurrent revokes could otherwise drop the last Admin.
+      await tx.exec(sql`lock table people in share row exclusive mode`)
+      if (!roles.isAdmin) {
+        let current = await tx.find(people, row.person.id)
+        if (current?.is_admin) {
+          let admins = await tx.count(people, { where: { is_admin: true } })
+          if (admins <= 1) return true
+        }
+      }
+      await tx.update(people, row.person.id, { is_admin: roles.isAdmin, is_parent: roles.isParent })
+      return false
+    })
+    if (blocked) return { error: 'The house needs at least one Admin.' }
+  }
+
+  row.person.isAdmin = roles.isAdmin
+  row.person.isParent = roles.isParent
+  return row.person
+}
+
+/** An Admin may set a new password for someone else; the old password is not required. */
+export async function setPersonPassword(
+  actorId: string,
+  targetId: string,
+  password: string,
+): Promise<true | { error: string }> {
+  if (password.length < 4) {
+    return { error: 'Choose a password of at least 4 characters.' }
+  }
+  let actor = recordOf(actorId)
+  if (!actor?.person.isAdmin) return { error: 'You need to be an Admin.' }
+  let row = recordOf(targetId)
+  if (!row) return { error: 'That person isn’t in the house.' }
+  if (row.person.id === actor.person.id) {
+    return { error: 'Use Your details to change your own password.' }
+  }
+
+  let passwordHash = hashPassword(password)
+  if (isCataloguePerson(row.person.id)) {
+    await db.update(people, row.person.id, { password_hash: passwordHash })
+  }
+  row.passwordHash = passwordHash
+  delete row.password
+  return true
 }
 
 /** Display name and photo may change; the slug does not. Home channel name follows the display name. */

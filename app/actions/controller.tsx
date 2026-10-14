@@ -27,7 +27,6 @@ import { ChannelPage } from './channel-page.tsx'
 import { ChannelsPage } from './channels-page.tsx'
 import { HistoryPage } from './history-page.tsx'
 import { HomePage } from './home-page.tsx'
-import { HouseForbidden, HousePage } from './house-page.tsx'
 import { NotBuiltPage } from './not-built-page.tsx'
 import { playlistAccess } from './playlist-access.ts'
 import { PlaylistPage } from './playlist-page.tsx'
@@ -286,14 +285,6 @@ export default createController(routes, {
     signout(context) {
       context.session.destroy()
       return redirect(routes.home.href(), 303)
-    },
-    house(context) {
-      let person = personFromSession(context.session)
-      if (!person) return redirect(routes.signin.index.href(), 303)
-      if (!person.isAdmin) {
-        return context.render(<HouseForbidden person={person} />, { status: 403 })
-      }
-      return context.render(<HousePage person={person} people={listPeople()} />)
     },
   },
 })
