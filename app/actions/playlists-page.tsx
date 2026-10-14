@@ -75,6 +75,8 @@ function HouseRow(handle: Handle<{ playlist: Playlist; eager?: boolean; viewerId
             <a href={href}>{playlist.name}</a>
           </h3>
           <p class="chrow-meta">
+            <VisibilityLabel playlist={playlist} />
+            <span aria-hidden="true">·</span>
             <span>{videoCount(playlistVideos(playlist, viewerId).length)}</span>
             {length > 0 ? (
               <>
@@ -151,7 +153,7 @@ export function PlaylistsPage(handle: Handle<PlaylistsPageProps>) {
                 Yours
               </h2>
               {yours.some((playlist) => playlist.visibility === 'private') ? (
-                <p class="shelf-note">Only you can see the private ones</p>
+                <p class="shelf-note">You choose who else can see the private ones</p>
               ) : null}
             </header>
             {yours.length > 0 ? (
