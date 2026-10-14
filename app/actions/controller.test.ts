@@ -1,9 +1,9 @@
 import * as assert from 'remix/assert'
-import { afterEach, describe, it } from 'remix/test'
+import { afterEach, beforeEach, describe, it } from 'remix/test'
 
 import { insertUploadedVideo } from '../data/catalogue.ts'
 import { loadCatalogueHistory, resetHistory } from '../data/history.ts'
-import { createPerson, resetHousehold, useEmptyHouse } from '../data/household.ts'
+import { createPerson, getPerson, listPeople, resetHousehold, useEmptyHouse } from '../data/household.ts'
 import { addUploadedVideo, deleteVideo, resetChannels } from '../data/library.ts'
 import { router } from '../router.ts'
 import { routes } from '../routes.ts'
@@ -204,12 +204,14 @@ describe('watch activity', () => {
 
 describe('history page', () => {
   it('asks unsigned visitors to sign in', async () => {
-    let { response, html } = await get(routes.history.href())
+    let { response, html } = await get(`${routes.history.href()}?person=leo`)
 
     assert.equal(response.status, 200)
     assert.match(html, /Sign in to see your history/)
     assert.match(html, /aren’t recorded/)
     assert.doesNotMatch(html, /class="sitting"/)
+    assert.doesNotMatch(html, /Whose History/)
+    assert.doesNotMatch(html, /Treehouse build, part 3/)
   })
 
   it('groups the person’s videos into sittings, newest first', async () => {
@@ -249,6 +251,70 @@ describe('history page', () => {
 
     assert.match(html, /Sourdough attempt #4/)
     assert.doesNotMatch(html, /Rosie turns one/)
+    assert.doesNotMatch(html, /Whose History/)
+  })
+})
+
+describe('parent history switcher', () => {
+  beforeEach(() => {
+    getPerson('mia')!.isParent = true
+    getPerson('ruth')!.isParent = true
+  })
+
+  afterEach(() => {
+    for (let person of listPeople()) {
+      delete person.isParent
+      delete person.isAdmin
+    }
+  })
+
+  it('shows a Person switcher on own History', async () => {
+    let { html } = await get(routes.history.href(), await signIn('mia'))
+
+    assert.match(html, /Whose History/)
+    assert.match(html, /Sourdough attempt #4/)
+    assert.match(html, new RegExp(`href="${routes.history.href()}\\?person=leo"`))
+    assert.match(html, new RegExp(`href="${routes.history.href()}\\?person=tomas"`))
+    assert.doesNotMatch(html, new RegExp(`href="${routes.history.href()}\\?person=ruth"`))
+    assert.doesNotMatch(html, /Rosie turns one/)
+    assert.doesNotMatch(html, /The cardinal is back/)
+  })
+
+  it('opens a non-Parent’s History with ?person=', async () => {
+    let { html } = await get(`${routes.history.href()}?person=leo`, await signIn('mia'))
+
+    assert.match(html, /Whose History/)
+    assert.match(html, /Treehouse build, part 3/)
+    assert.match(html, /Boss fight, attempt 14/)
+    assert.doesNotMatch(html, /Sourdough attempt #4/)
+    assert.doesNotMatch(html, /Rosie turns one/)
+    assert.match(html, /href="\/history\?person=leo" aria-current="page"/)
+  })
+
+  it('falls back to own History for a Parent, unknown id, or empty ?person=', async () => {
+    let cookie = await signIn('mia')
+    for (let path of [
+      `${routes.history.href()}?person=ruth`,
+      `${routes.history.href()}?person=nope`,
+      `${routes.history.href()}?person=`,
+      `${routes.history.href()}?person=%20`,
+    ]) {
+      let { html } = await get(path, cookie)
+      assert.match(html, /Sourdough attempt #4/)
+      assert.doesNotMatch(html, /Rosie turns one/)
+      assert.match(html, /Whose History/)
+    }
+  })
+
+  it('keeps ?person= on search and filters that Person’s sittings', async () => {
+    let { html } = await get(`${routes.history.href()}?person=leo&q=treehouse`, await signIn('mia'))
+
+    assert.match(html, /Treehouse build, part 3/)
+    assert.doesNotMatch(html, /Boss fight, attempt 14/)
+    assert.doesNotMatch(html, /Sourdough attempt #4/)
+    assert.match(html, /name="person" value="leo"/)
+    assert.match(html, new RegExp(`href="${routes.history.href()}\\?person=leo"`))
+    assert.match(html, /1 video match “treehouse”/)
   })
 })
 
@@ -263,8 +329,8 @@ describe('catalogue watch history over HTTP', () => {
     resetHistory()
   })
 
-  async function join(name: string) {
-    let person = await createPerson(name, 'lantern')
+  async function join(name: string, parent = false) {
+    let person = await createPerson(name, 'lantern', undefined, () => false, parent)
     assert.ok(!('error' in person))
     assert.notEqual(person.id, person.slug)
     let response = await router.fetch(
@@ -378,5 +444,69 @@ describe('catalogue watch history over HTTP', () => {
     assert.doesNotMatch(home.html, /Continue watching/)
     let watch = await get(routes.watch.href({ videoId: 'issue-23-http-unsigned' }), cookie)
     assert.doesNotMatch(watch.html, /"resumeAt"/)
+  })
+
+  it('shows a Parent the switcher when their own History is empty', async () => {
+    await useEmptyHouse()
+    let { cookie, person: sam } = await join('Sam', true)
+    let alex = await createPerson('Alex', 'lantern')
+    assert.ok(!('error' in alex))
+
+    let { html } = await get(routes.history.href(), cookie)
+    assert.match(html, /Whose History/)
+    assert.match(html, /Nothing watched yet/)
+    assert.match(html, new RegExp(`href="${routes.history.href()}\\?person=${alex.id}"`))
+    assert.doesNotMatch(html, new RegExp(`href="${routes.history.href()}\\?person=${sam.id}"`))
+    assert.doesNotMatch(html, /class="sitting"/)
+  })
+
+  it('lets a Parent open catalogue History by Person id, not a guessed query from a non-Parent', async () => {
+    await useEmptyHouse()
+    let { cookie: parentCookie } = await join('Sam', true)
+    let { cookie: childCookie, person: alex } = await join('Alex')
+    let bess = await createPerson('Bess', 'lantern')
+    assert.ok(!('error' in bess))
+    created.push('issue-25-http-pond')
+    let inserted = await insertUploadedVideo({
+      slug: 'issue-25-http-pond',
+      title: 'Pond ice',
+      channelSlug: alex.slug,
+      ownerId: alex.id,
+      durationSec: 120,
+      filePath: `uploads/${alex.slug}/issue-25-http-pond.mp4`,
+      posterPath: null,
+      visibility: 'house',
+    })
+    assert.ok(inserted)
+    addUploadedVideo({
+      id: 'issue-25-http-pond',
+      title: 'Pond ice',
+      channelId: alex.slug,
+      durationSec: 120,
+      thumb: '',
+      tags: [],
+      file: `uploads/${alex.slug}/issue-25-http-pond.mp4`,
+      postedBy: alex.id,
+    })
+    assert.equal((await postActivity('issue-25-http-pond', { event: 'play' }, childCookie)).status, 204)
+    assert.equal((await postActivity('issue-25-http-pond', { event: 'progress', t: '5', d: '120' }, childCookie)).status, 204)
+
+    let asParent = await get(`${routes.history.href()}?person=${alex.id}`, parentCookie)
+    assert.match(asParent.html, /Whose History/)
+    assert.match(asParent.html, /Pond ice/)
+    assert.match(asParent.html, /Resume from 0:05/)
+    assert.match(asParent.html, new RegExp(`name="person" value="${alex.id}"`))
+    assert.doesNotMatch(asParent.html, new RegExp(`href="${routes.history.href()}\\?person=${alex.slug}"`))
+
+    let emptyChild = await get(`${routes.history.href()}?person=${bess.id}`, parentCookie)
+    assert.match(emptyChild.html, /Whose History/)
+    assert.match(emptyChild.html, /Nothing watched yet/)
+    assert.match(emptyChild.html, /Videos Bess watches while signed in/)
+    assert.doesNotMatch(emptyChild.html, /Pond ice/)
+
+    let guessed = await get(`${routes.history.href()}?person=${bess.id}`, childCookie)
+    assert.match(guessed.html, /Pond ice/)
+    assert.doesNotMatch(guessed.html, /Whose History/)
+    assert.doesNotMatch(guessed.html, /Videos Bess watches while signed in/)
   })
 })
