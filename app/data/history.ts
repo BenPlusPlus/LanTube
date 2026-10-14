@@ -1,10 +1,15 @@
 // Per-person watch history. Each visit to a video is a session; sessions close
-// together in time form a sitting ("Last night", "Saturday morning"). The seed
-// below is illustrative, anchored to the moment the server starts.
+// together in time form a sitting ("Last night", "Saturday morning").
 
+import { randomUUID } from 'node:crypto'
+
+import { db } from '../db.ts'
+import { getPerson } from './household.ts'
 import { getChannel, getVideo, isInProgress, progressOf, recordProgress, resetProgress, type Video } from './library.ts'
+import { people, videos, watchProgress, watchSessions } from './tables.ts'
 
 export interface WatchSession {
+  id: string
   personId: string
   videoId: string
   startedAt: number
@@ -49,6 +54,16 @@ const MAX_SITTINGS = 50
 
 let sessions: WatchSession[] = []
 
+const writes = new Map<string, Promise<unknown>>()
+
+/** Overlapping progress would persist a stale session. */
+function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
+  let prior = writes.get(key) ?? Promise.resolve()
+  let next = prior.then(work, work)
+  writes.set(key, next.then(() => undefined, () => undefined))
+  return next
+}
+
 function latestSession(personId: string, videoId: string, now: number): WatchSession | undefined {
   for (let i = sessions.length - 1; i >= 0; i--) {
     let session = sessions[i]
@@ -60,7 +75,8 @@ function latestSession(personId: string, videoId: string, now: number): WatchSes
 }
 
 function openSession(personId: string, video: Video, now: number): WatchSession {
-  let session: WatchSession = {
+  return {
+    id: randomUUID(),
     personId,
     videoId: video.id,
     startedAt: now,
@@ -68,25 +84,83 @@ function openSession(personId: string, video: Video, now: number): WatchSession 
     lastT: progressOf(video, personId) ?? 0,
     watchedSec: 0,
   }
-  sessions.push(session)
-  return session
+}
+
+async function persistWatch(session: WatchSession, progress?: { positionSec: number | undefined }) {
+  let person = getPerson(session.personId)
+  if (!person || person.id === person.slug) return
+  if (!(await db.findOne(people, { where: { id: session.personId } }))) return
+  let video = await db.findOne(videos, { where: { slug: session.videoId } })
+  if (!video) return
+  await db.transaction(async (tx) => {
+    let fields = {
+      ended_at: new Date(session.endedAt),
+      last_t: Math.round(session.lastT),
+      watched_sec: Math.round(session.watchedSec),
+    }
+    let row = await tx.findOne(watchSessions, { where: { id: session.id } })
+    if (row) await tx.update(watchSessions, session.id, fields)
+    else {
+      await tx.create(watchSessions, {
+        id: session.id,
+        person_id: session.personId,
+        video_id: video.id,
+        started_at: new Date(session.startedAt),
+        ...fields,
+      })
+    }
+    if (progress) {
+      await tx.deleteMany(watchProgress, { where: { person_id: session.personId, video_id: video.id } })
+      if (progress.positionSec !== undefined) {
+        await tx.create(watchProgress, {
+          person_id: session.personId,
+          video_id: video.id,
+          position_sec: progress.positionSec,
+        })
+      }
+    }
+  })
 }
 
 /** The player started this video for a signed-in person. */
-export function recordWatchStart(personId: string, video: Video, now = Date.now()) {
-  if (!latestSession(personId, video.id, now)) openSession(personId, video, now)
+export async function recordWatchStart(personId: string, video: Video, now = Date.now()) {
+  return serialize(`${personId}:${video.id}`, async () => {
+    if (latestSession(personId, video.id, now)) return
+    let session = openSession(personId, video, now)
+    await persistWatch(session)
+    sessions.push(session)
+  })
 }
 
 /** The player reported a position. Updates both history and the person's resume point. */
-export function recordWatchProgress(personId: string, video: Video, positionSec: number, fileDurationSec?: number, now = Date.now()) {
-  let session = latestSession(personId, video.id, now) ?? openSession(personId, video, now)
-  let delta = positionSec - session.lastT
-  let wall = (now - session.endedAt) / 1000
-  // Forward motion no faster than real time is watching; anything else is a seek.
-  if (delta > 0 && delta <= wall + 5) session.watchedSec += delta
-  session.lastT = positionSec
-  session.endedAt = now
-  recordProgress(video, personId, positionSec, fileDurationSec)
+export async function recordWatchProgress(
+  personId: string,
+  video: Video,
+  positionSec: number,
+  fileDurationSec?: number,
+  now = Date.now(),
+) {
+  return serialize(`${personId}:${video.id}`, async () => {
+    let session = latestSession(personId, video.id, now)
+    let created = !session
+    if (!session) session = openSession(personId, video, now)
+    let delta = positionSec - session.lastT
+    let wall = (now - session.endedAt) / 1000
+    // Forward motion no faster than real time is watching; anything else is a seek.
+    let watchedSec = session.watchedSec
+    if (delta > 0 && delta <= wall + 5) watchedSec += delta
+    let next: WatchSession = { ...session, lastT: positionSec, endedAt: now, watchedSec }
+    let duration = fileDurationSec !== undefined ? Math.round(fileDurationSec) : video.durationSec
+    let clamped = Math.min(Math.max(positionSec, 0), duration)
+    await persistWatch(next, { positionSec: clamped < 5 ? undefined : Math.round(clamped) })
+    if (created) sessions.push(next)
+    else {
+      session.lastT = next.lastT
+      session.endedAt = next.endedAt
+      session.watchedSec = next.watchedSec
+    }
+    recordProgress(video, personId, positionSec, fileDurationSec)
+  })
 }
 
 export function sessionsFor(personId: string): WatchSession[] {
@@ -245,7 +319,15 @@ function seedSitting(personId: string, startedAt: number, watches: SeedWatch[]) 
     if (!video) continue
     let watchedSec = sec ?? video.durationSec
     at += gapMin * MINUTE
-    sessions.push({ personId, videoId, startedAt: at, endedAt: at + watchedSec * 1000, lastT: watchedSec, watchedSec })
+    sessions.push({
+      id: randomUUID(),
+      personId,
+      videoId,
+      startedAt: at,
+      endedAt: at + watchedSec * 1000,
+      lastT: watchedSec,
+      watchedSec,
+    })
     recordProgress(video, personId, watchedSec)
     at += watchedSec * 1000
   }
@@ -296,10 +378,40 @@ function seed(now: number) {
   seedSitting('priya', local(2, 8, 0), [{ videoId: 'cardinal', gapMin: 0 }])
 }
 
+export async function loadCatalogueHistory() {
+  let videoRows = await db.findMany(videos)
+  let slugById = new Map(videoRows.map((row) => [row.id, row.slug]))
+  let present = new Set(sessions.map((session) => session.id))
+  let rows = await db.findMany(watchSessions, { orderBy: ['started_at', 'asc'] })
+  for (let row of rows) {
+    if (present.has(row.id)) continue
+    let videoId = slugById.get(row.video_id)
+    if (!videoId || !getVideo(videoId)) continue
+    let startedAt = row.started_at instanceof Date ? row.started_at.getTime() : Date.parse(String(row.started_at))
+    let endedAt = row.ended_at instanceof Date ? row.ended_at.getTime() : Date.parse(String(row.ended_at))
+    sessions.push({
+      id: row.id,
+      personId: row.person_id,
+      videoId,
+      startedAt: Number.isFinite(startedAt) ? startedAt : Date.now(),
+      endedAt: Number.isFinite(endedAt) ? endedAt : Date.now(),
+      lastT: row.last_t,
+      watchedSec: row.watched_sec,
+    })
+    present.add(row.id)
+  }
+  for (let row of await db.findMany(watchProgress)) {
+    let slug = slugById.get(row.video_id)
+    let video = slug ? getVideo(slug) : undefined
+    if (!video) continue
+    recordProgress(video, row.person_id, row.position_sec)
+  }
+}
+
 export function resetHistory(now = Date.now()) {
   sessions = []
   resetProgress()
-  seed(now)
+  if (process.env.NODE_ENV === 'test') seed(now)
 }
 
-resetHistory()
+if (process.env.NODE_ENV === 'test') resetHistory()
