@@ -1,9 +1,11 @@
 import type { Handle } from 'remix/component'
 
-import type { Person } from '../data/household.ts'
+import { listPeople, type Person } from '../data/household.ts'
 import type { Video } from '../data/library.ts'
 import { playlistLimits, type Playlist, type Visibility } from '../data/playlists.ts'
 import { routes } from '../routes.ts'
+import { Avatar } from '../ui/cards.tsx'
+import { personChannel } from '../ui/playlists.tsx'
 import { Icon, type IconName } from '../ui/public/icons.tsx'
 import { AppShell } from '../ui/shell.tsx'
 
@@ -11,6 +13,7 @@ export interface PlaylistFormValues {
   name: string
   description: string
   visibility: Visibility
+  audienceIds: string[]
 }
 
 export type PlaylistFormField = 'name' | 'description' | 'delete'
@@ -35,6 +38,7 @@ export function readPlaylistForm(formData: FormData): PlaylistFormValues {
     name: text('name'),
     description: text('description'),
     visibility: text('visibility') === 'public' ? 'public' : 'private',
+    audienceIds: formData.getAll('audience').filter((value): value is string => typeof value === 'string'),
   }
 }
 
@@ -56,13 +60,15 @@ export function SignInToCreatePlaylist() {
 }
 
 const visibilityOptions: { value: Visibility; label: string; detail: string; icon: IconName }[] = [
-  { value: 'private', label: 'Private', detail: 'Only you can see it', icon: 'lock' },
+  { value: 'private', label: 'Private', detail: 'You choose who else can see it', icon: 'lock' },
   { value: 'public', label: 'Everyone in the house', detail: 'Anyone in the house can see it', icon: 'channels' },
 ]
 
 export function PlaylistFormPage(handle: Handle<PlaylistFormPageProps>) {
   return () => {
     let { person, playlist, video, values, error, errorField } = handle.props
+    let others = listPeople().filter((other) => other.id !== person.id)
+    let audienceIds = values.audienceIds
     let editing = playlist !== undefined
     let action = playlist ? routes.playlistEdit.action.href({ playlistId: playlist.id }) : routes.playlistNew.action.href()
     let cancel = playlist
@@ -96,7 +102,7 @@ export function PlaylistFormPage(handle: Handle<PlaylistFormPageProps>) {
             </p>
           </header>
 
-          <form class="chform" method="post" action={action}>
+          <form class="chform plform" method="post" action={action}>
             {video ? <input type="hidden" name="video" value={video.id} /> : null}
             <label class="field-label" for="playlist-name">
               Name
@@ -150,6 +156,37 @@ export function PlaylistFormPage(handle: Handle<PlaylistFormPageProps>) {
                     <span class="radio" aria-hidden="true" />
                   </label>
                 ))}
+              </div>
+              <div class="audience-picker">
+                <p class="field-hint">You can always see it. Pick anyone else in the house.</p>
+                <ul class="poster-list">
+                  <li>
+                    <span class="poster poster-owner">
+                      <Avatar channel={personChannel(person)} size="md" />
+                      <span class="poster-name">{person.name}</span>
+                      <span class="poster-role">You · owner</span>
+                    </span>
+                  </li>
+                  {others.map((other) => (
+                    <li>
+                      <label class="poster">
+                        <input
+                          class="poster-input"
+                          type="checkbox"
+                          name="audience"
+                          value={other.id}
+                          checked={audienceIds.includes(other.id)}
+                        />
+                        <Avatar channel={personChannel(other)} size="md" />
+                        <span class="poster-name">{other.name}</span>
+                        <span class="check" aria-hidden="true">
+                          <Icon name="check" size={14} />
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                {others.length === 0 ? <p class="field-hint">Nobody else has joined the house yet.</p> : null}
               </div>
             </fieldset>
 

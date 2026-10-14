@@ -6,7 +6,7 @@ export type PlaylistAccess =
   | { playlist: Playlist; person: Person }
   | { status: 401 | 403 | 404; title: string; detail: string; person: Person | null }
 
-/** Changing a playlist is its owner's alone; a private one doesn't exist for anyone else. */
+/** Changing a playlist is its owner's alone. */
 export function playlistAccess(playlistId: string, person: Person | null): PlaylistAccess {
   let playlist = getPlaylist(playlistId)
   if (!playlist || !canSee(playlist, person?.id)) {

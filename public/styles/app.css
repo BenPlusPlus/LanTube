@@ -2014,11 +2014,13 @@ label.poster:hover {
   margin-top: 16px;
 }
 
-.watch-access .audience-picker {
+.watch-access .audience-picker,
+.plform .audience-picker {
   display: none;
 }
 
-.watch-access:has(input[name='visibility'][value='private']:checked) .audience-picker {
+.watch-access:has(input[name='visibility'][value='private']:checked) .audience-picker,
+.plform:has(input[name='visibility'][value='private']:checked) .audience-picker {
   display: block;
 }
 
