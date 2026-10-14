@@ -16,6 +16,8 @@ import {
   videoAudience,
   videoTags,
   videos,
+  watchProgress,
+  watchSessions,
 } from './tables.ts'
 
 export interface Person {
@@ -259,6 +261,8 @@ export async function useEmptyHouse() {
   extras = []
   catalogueRecords = []
   includeMockup = false
+  await db.deleteMany(watchSessions, { where: notNull(watchSessions.id) })
+  await db.deleteMany(watchProgress, { where: notNull(watchProgress.person_id) })
   await db.deleteMany(playlistVideos, { where: notNull(playlistVideos.playlist_id) })
   await db.deleteMany(playlistTable, { where: notNull(playlistTable.id) })
   await db.deleteMany(videoTags, { where: notNull(videoTags.video_id) })
