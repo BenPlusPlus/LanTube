@@ -70,6 +70,8 @@ describe('playlists directory', () => {
     assert.match(html, /For Rosie’s birthday/)
     assert.match(html, /Private/)
     assert.match(html, /Everyone in the house/)
+    assert.match(html, /You choose who else can see the private ones/)
+    assert.doesNotMatch(html, /Only you can see the private ones/)
     assert.doesNotMatch(html, /Public/)
     assert.match(html, /New playlist/)
     let yours = html.indexOf('id="yours"')
@@ -157,7 +159,7 @@ describe('new playlist', () => {
 describe('playlist page', () => {
   afterEach(() => resetPlaylists())
 
-  it('hides a private playlist from everyone but its owner', async () => {
+  it('does not exist for an unsigned visitor or a Person who is not owner, Audience, or Parent', async () => {
     let path = routes.playlist.href({ playlistId: 'for-rosies-birthday' })
     assert.equal((await get(path)).response.status, 404)
     assert.equal((await get(path, await signIn('ruth'))).response.status, 404)
@@ -191,8 +193,14 @@ describe('playlist page', () => {
       assert.equal((await get(path, await signIn('priya'))).response.status, 404)
       assert.equal((await get(path)).response.status, 404)
 
-      assert.match((await get(routes.playlists.href(), await signIn('leo'))).html, /Issue 22 stack/)
-      assert.match((await get(routes.playlists.href(), await signIn('ruth'))).html, /Issue 22 stack/)
+      let leoHouse = (await get(routes.playlists.href(), await signIn('leo'))).html
+      leoHouse = leoHouse.slice(leoHouse.indexOf('id="house"'))
+      assert.match(leoHouse, /Issue 22 stack/)
+      assert.match(leoHouse, /Private/)
+      let ruthHouse = (await get(routes.playlists.href(), await signIn('ruth'))).html
+      ruthHouse = ruthHouse.slice(ruthHouse.indexOf('id="house"'))
+      assert.match(ruthHouse, /Issue 22 stack/)
+      assert.match(ruthHouse, /Private/)
       assert.doesNotMatch((await get(routes.playlists.href(), await signIn('tomas'))).html, /Issue 22 stack/)
       assert.doesNotMatch((await get(routes.playlists.href(), await signIn('priya'))).html, /Issue 22 stack/)
       assert.doesNotMatch((await get(routes.playlists.href())).html, /Issue 22 stack/)
