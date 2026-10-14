@@ -2,7 +2,7 @@ import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
 import { insertUploadedVideo } from './catalogue.ts'
-import { createPerson, getPerson, resetHousehold, useEmptyHouse, type Person } from './household.ts'
+import { createPerson, getPerson, resetHousehold, updatePersonRoles, useEmptyHouse, type Person } from './household.ts'
 import { addUploadedVideo, canWatch, deleteVideo, resetChannels } from './library.ts'
 import {
   addVideo,
@@ -177,6 +177,30 @@ describe('catalogue playlists', () => {
 })
 
 describe('private Playlist entitlement', () => {
+  it('keeps another Person’s private Playlist hidden from an Admin who is not a Parent', async () => {
+    await useEmptyHouse()
+    let sam = await join('Sam')
+    let alex = await join('Alex')
+    assert.equal(sam.isAdmin, true)
+    assert.equal(sam.isParent, false)
+    let playlist = await createPlaylist(alex.id, {
+      name: 'Alex secret',
+      description: '',
+      visibility: 'private',
+    })
+    assert.ok(!('error' in playlist))
+    assert.equal(canSee(playlist, alex.id), true)
+    assert.equal(canSee(playlist, sam.id), false)
+    assert.equal(
+      housePlaylists(sam.id).some((entry) => entry.id === playlist.id),
+      false,
+    )
+
+    let parent = await updatePersonRoles(sam.id, sam.id, { isAdmin: true, isParent: true })
+    assert.ok(!('error' in parent))
+    assert.equal(canSee(playlist, sam.id), true)
+  })
+
   it('lets the owner, named Audience, and any Parent see a private Playlist; Admin does not', async () => {
     let mia = getPerson('mia')!
     let tomas = getPerson('tomas')!
