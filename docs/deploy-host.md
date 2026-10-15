@@ -19,15 +19,15 @@ mkdir -p "$HOME/.config/lantube"
 cp "$HOME/lantube/compose.override.yaml" "$HOME/.config/lantube/compose.override.yaml"
 cd "$HOME"
 mv lantube lantube.bak
-git clone --branch docker-compose-host https://github.com/BenPlusPlus/LanTube.git lantube
+git clone --branch master https://github.com/BenPlusPlus/LanTube.git lantube
 ln -sfn "$HOME/.config/lantube/compose.override.yaml" "$HOME/lantube/compose.override.yaml"
 cd lantube
 docker compose up -d --build
 ```
 
-Secrets stay in `/etc/lantube/production.env`; the clone does not contain them. After Docker files land on `master`, clone that branch instead and use it in the routine steps.
+Secrets stay in `/etc/lantube/production.env`; the clone does not contain them. Clone from GitHub on the Host. A Windows working copy (CRLF) makes Remix treat already-applied `up.sql` as checksum drift and the process will not listen.
 
-Done when `cd "$HOME/lantube" && git status` shows a branch, and `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1/` prints `200`.
+Done when `cd "$HOME/lantube" && git status` shows `master`, and `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1/` prints `200`.
 
 ## Routine deploy
 
@@ -56,11 +56,11 @@ Skip this the very first time there is no `lantube:local` yet. Done when `docker
 ```sh
 cd "$HOME/lantube"
 git fetch origin
-git checkout docker-compose-host
-git pull --ff-only origin docker-compose-host
+git checkout master
+git pull --ff-only origin master
 ```
 
-Switch `docker-compose-host` to `master` once that branch holds the Docker files. Done when `git log -1 --oneline` is the commit you meant to ship.
+Done when `git log -1 --oneline` is the commit you meant to ship.
 
 ### 4. Build and replace the container
 
