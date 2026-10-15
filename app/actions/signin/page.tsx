@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 
+import { brandName } from '../../data/brand.ts'
 import type { Person } from '../../data/household.ts'
 import { channelStats, type Channel } from '../../data/library.ts'
 import { routes } from '../../routes.ts'
@@ -24,16 +25,17 @@ export function SignInPage(handle: Handle<SignInPageProps>) {
     let { people, selectedId, joining = false, error, joinName = '' } = handle.props
     let selected = selectedId ? people.find((person) => person.id === selectedId) : undefined
     let firstRun = people.length === 0
+    let brand = brandName()
 
     return (
       <AppShell title={firstRun ? 'Start this house' : 'Sign in'} current={null} layout="signin">
         <section class="who" aria-labelledby="who-title">
           <h1 class="who-title" id="who-title">
-            {firstRun ? 'Start this house' : 'Who’s using LanTube?'}
+            {firstRun ? 'Start this house' : `Who’s using ${brand}?`}
           </h1>
           <p class="who-lede">
             {firstRun
-              ? 'You’re the first Person. You’ll run LanTube for the house. Other people on this network can join later.'
+              ? `You’re the first Person. You’ll run ${brand} for the house. Other people on this network can join later.`
               : 'Pick yourself, then enter your password. Anyone on this network can still watch unsigned.'}
           </p>
 

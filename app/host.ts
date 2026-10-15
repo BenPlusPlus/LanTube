@@ -1,4 +1,5 @@
 import { readHostConfig } from './config.ts'
+import { loadHouseSettings } from './data/brand.ts'
 import { loadCatalogueVideos } from './data/catalogue.ts'
 import { loadCatalogueHistory } from './data/history.ts'
 import { loadCataloguePeople } from './data/household.ts'
@@ -15,6 +16,7 @@ export async function prepareHost(
   readHostConfig(options.env ?? process.env)
   await (options.migrate ?? migrateCatalogue)()
   if (!options.migrate) {
+    await loadHouseSettings()
     await loadCataloguePeople()
     await loadCatalogueChannels()
     await loadCatalogueVideos()

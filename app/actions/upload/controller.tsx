@@ -2,6 +2,7 @@ import { MaxFileSizeExceededError, MaxFilesExceededError, MaxTotalSizeExceededEr
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
+import { brandName } from '../../data/brand.ts'
 import { personFromSession } from '../../data/household.ts'
 import { namedAudience } from '../../data/library.ts'
 import { parseTagNames } from '../../data/tags.ts'
@@ -12,8 +13,9 @@ import { defaultUploadValues, SignInToUpload, UploadPage } from '../upload-page.
 
 const MB = 1024 ** 2
 const UNSUPPORTED = 'unsupported'
-const TOO_BIG_WITHOUT_JS =
-  'Without JavaScript, LanTube can take videos up to 512 MB in one go. Turn JavaScript on to send bigger ones.'
+function tooBigWithoutJs() {
+  return `Without JavaScript, ${brandName()} can take videos up to 512 MB in one go. Turn JavaScript on to send bigger ones.`
+}
 
 function readValues(formData: FormData, uploadId: string, ownerId: string): UploadFormValues {
   let text = (name: string) => {
@@ -77,7 +79,7 @@ export default createController(routes.upload, {
           <UploadPage
             person={person}
             values={defaultUploadValues(person, null)}
-            error={tooBig ? TOO_BIG_WITHOUT_JS : 'Send one video at a time.'}
+            error={tooBig ? tooBigWithoutJs() : 'Send one video at a time.'}
             errorField="file"
           />,
           { status: 413 },
@@ -105,7 +107,7 @@ export default createController(routes.upload, {
         )
       }
 
-      if (uploadId === UNSUPPORTED) return fail('LanTube can’t play that kind of file. Choose a video like an MP4, MOV or WebM.', 'file')
+      if (uploadId === UNSUPPORTED) return fail(`${brandName()} can’t play that kind of file. Choose a video like an MP4, MOV or WebM.`, 'file')
 
       let result = await publishUpload(person.id, {
         ...values,
