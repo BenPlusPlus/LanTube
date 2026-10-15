@@ -1,7 +1,7 @@
 import * as assert from 'remix/assert'
 import { describe, it } from 'remix/test'
 
-import { readHostConfig } from './config.ts'
+import { listenHost, readHostConfig } from './config.ts'
 import { db } from './db.ts'
 import { channels, people, videos } from './data/tables.ts'
 import { prepareHost } from './host.ts'
@@ -47,6 +47,18 @@ describe('host config', () => {
     let config = readHostConfig({ NODE_ENV: 'development', SESSION_SECRET: 'dev' })
     assert.equal(config.databaseUrl, 'postgres://localhost/lantube')
     assert.equal(config.mediaDir, './media')
+  })
+
+  it('binds production to all interfaces when HOST is unset', () => {
+    assert.equal(listenHost({ NODE_ENV: 'production' }), '0.0.0.0')
+  })
+
+  it('uses HOST when it is set', () => {
+    assert.equal(listenHost({ NODE_ENV: 'production', HOST: '127.0.0.1' }), '127.0.0.1')
+  })
+
+  it('leaves the development listen address to Node', () => {
+    assert.equal(listenHost({ NODE_ENV: 'development' }), undefined)
   })
 })
 
