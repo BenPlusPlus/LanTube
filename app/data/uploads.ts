@@ -96,6 +96,18 @@ export class UploadTooLargeError extends Error {
   }
 }
 
+/** JSON body for a failed streamed upload. Kept boring so the XHR client can show it. */
+export function stagedUploadErrorResponse(error: unknown): Response {
+  if (error instanceof UploadTooLargeError) {
+    return Response.json({ error: 'That file is too large for the host.' }, { status: 413 })
+  }
+  let code = error && typeof error === 'object' && 'code' in error ? String((error as { code: unknown }).code) : ''
+  if (code === 'EACCES' || code === 'EPERM') {
+    return Response.json({ error: 'The host can’t write to the media folder.' }, { status: 500 })
+  }
+  return Response.json({ error: 'The file stopped arriving.' }, { status: 400 })
+}
+
 /** Streams a video to the host's disk, counting bytes as it goes, and holds it until it's published. */
 export async function stageUpload(
   ownerId: string,
