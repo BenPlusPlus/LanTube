@@ -1,0 +1,14 @@
+.git
+.github
+compose.override.yaml
+.impeccable
+.agents
+node_modules
+media
+test
+**/*.test.ts
+config/development.env
+config/test.env
+tmp
+*.md
+docs

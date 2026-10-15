@@ -14,6 +14,7 @@ import { addVideo, getPlaylist } from '../../data/playlists.ts'
 import { findOrCreateTags, getTag, listTags, resetCatalogueTags } from '../../data/tags.ts'
 import { mediaDir } from '../../data/media.ts'
 import { tags as tagRows, videoTags, videos as videoRows } from '../../data/tables.ts'
+import { stagedUploadErrorResponse, UploadTooLargeError } from '../../data/uploads.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
 
@@ -96,6 +97,20 @@ function videoIdFrom(response: Response) {
   created.push(id)
   return id
 }
+
+describe('staged upload errors', () => {
+  it('names a media-folder write failure', async () => {
+    let error = Object.assign(new Error('denied'), { code: 'EACCES' })
+    let response = stagedUploadErrorResponse(error)
+    assert.equal(response.status, 500)
+    assert.deepEqual(await response.json(), { error: 'The host can’t write to the media folder.' })
+  })
+
+  it('keeps too-large as 413', async () => {
+    let response = stagedUploadErrorResponse(new UploadTooLargeError(1))
+    assert.equal(response.status, 413)
+  })
+})
 
 describe('upload page', () => {
   it('asks visitors to sign in', async () => {

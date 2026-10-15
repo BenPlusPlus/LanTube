@@ -21,7 +21,7 @@ import {
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 import { addVideo, canSee, getPlaylist, moveVideo, removeVideo } from '../data/playlists.ts'
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
-import { getStaged, posterPathFor, stageUpload, UploadTooLargeError, uploadLimits } from '../data/uploads.ts'
+import { getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
 import { routes } from '../routes.ts'
 import { ChannelPage } from './channel-page.tsx'
 import { ChannelsPage } from './channels-page.tsx'
@@ -266,7 +266,10 @@ export default createController(routes, {
     },
     async uploadFile(context) {
       let person = personFromSession(context.session)
-      if (!person) return Response.json({ error: 'Sign in to upload.' }, { status: 401 })
+      if (!person) {
+        await context.request.body?.cancel().catch(() => {})
+        return Response.json({ error: 'Sign in to upload.' }, { status: 401 })
+      }
       let name = new URL(context.request.url).searchParams.get('name') ?? ''
       if (!context.request.body) return Response.json({ error: 'Nothing arrived.' }, { status: 400 })
       try {
@@ -274,8 +277,8 @@ export default createController(routes, {
         if (!upload) return Response.json({ error: 'That isn’t a video file LanTube can keep.' }, { status: 415 })
         return Response.json({ id: upload.id, size: upload.size }, { status: 201 })
       } catch (error) {
-        if (error instanceof UploadTooLargeError) return Response.json({ error: 'That file is too large for the host.' }, { status: 413 })
-        return Response.json({ error: 'The file stopped arriving.' }, { status: 400 })
+        await context.request.body?.cancel().catch(() => {})
+        return stagedUploadErrorResponse(error)
       }
     },
     uploadStaged(context) {
