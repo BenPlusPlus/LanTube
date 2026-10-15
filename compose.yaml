@@ -10,6 +10,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: lantube:local
+    hostname: phantom
     init: true
     restart: unless-stopped
     env_file:
