@@ -1,11 +1,13 @@
 import * as http from 'node:http'
 import { createRequestListener } from 'remix/node-fetch-server'
 
+import { listenHost } from './app/config.ts'
 import { db } from './app/db.ts'
 import { prepareHost } from './app/host.ts'
 import { router } from './app/router.ts'
 
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
+const host = listenHost()
 const hmrProxyPort = process.env.HMR_PROXY_PORT
   ? Number.parseInt(process.env.HMR_PROXY_PORT, 10)
   : null
@@ -21,13 +23,20 @@ try {
 
 const server = http.createServer(createRequestListener(router.fetch, { trustProxy: isHmr }))
 
-server.listen(port, () => {
+function onListening() {
   if (isHmr) {
     import('remix/node-hmr/runtime').then((nodeHmr) => nodeHmr.emitServerReady())
   }
 
-  console.log(`Server listening on http://localhost:${hmrProxyPort ?? port}`)
-})
+  let shownHost = host ?? 'localhost'
+  console.log(`Server listening on http://${shownHost}:${hmrProxyPort ?? port}`)
+}
+
+if (host) {
+  server.listen(port, host, onListening)
+} else {
+  server.listen(port, onListening)
+}
 
 let shuttingDown = false
 
