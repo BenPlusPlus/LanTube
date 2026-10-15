@@ -1,5 +1,6 @@
 .git
 .github
+compose.override.yaml
 .impeccable
 .agents
 node_modules

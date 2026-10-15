@@ -1,7 +1,9 @@
 # LanTube Host on the LAN.
-# Catalogue: existing Postgres (expsql01), not a container.
+# Catalogue: existing Postgres on the LAN, not a container.
 # Bytes: Media share bind-mounted at /media.
 # Secrets: /etc/lantube/production.env on the Host (not in git).
+# House-specific hostname and DNS pins: $HOME/.config/lantube/compose.override.yaml
+# on the Host, symlinked as compose.override.yaml (see compose.override.example.yaml).
 name: lantube
 
 services:
@@ -10,7 +12,6 @@ services:
       context: .
       dockerfile: Dockerfile
     image: lantube:local
-    hostname: phantom
     init: true
     restart: unless-stopped
     env_file:
@@ -24,9 +25,6 @@ services:
       - '80:44100'
     volumes:
       - /mnt/lantube-media:/media
-    extra_hosts:
-      - 'expsql01:192.168.1.133'
-      - 'expsql01.metropolis.excaliburstudios.org:192.168.1.133'
     healthcheck:
       test:
         [

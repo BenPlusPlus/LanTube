@@ -1,0 +1,15 @@
+# House-specific Compose overlay. Copy to the Host as
+# $HOME/.config/lantube/compose.override.yaml and symlink it into the project:
+#   mkdir -p "$HOME/.config/lantube"
+#   cp compose.override.example.yaml "$HOME/.config/lantube/compose.override.yaml"
+#   ln -sfn "$HOME/.config/lantube/compose.override.yaml" compose.override.yaml
+# Compose loads compose.override.yaml automatically. Do not commit the copy.
+
+services:
+  lantube:
+    # Shown on Home as "Streaming from …"
+    hostname: lantube-host
+    # Pin Catalogue DNS if the container cannot resolve the Postgres host
+    # used in DATABASE_URL.
+    extra_hosts:
+      - 'catalogue.example.lan:192.0.2.10'

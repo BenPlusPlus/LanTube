@@ -1,34 +1,33 @@
-# Deploy LanTube on the PHANTOM Host
+# Deploy LanTube on a Docker Host
 
-The Host is Ubuntu in WSL2 on **PHANTOM**. Docker Compose runs the app. Postgres stays on **expsql01**. The Media share is bind-mounted at `/mnt/lantube-media`. Secrets live in `/etc/lantube/production.env` on the Host (never in git).
+The Host is Linux with Docker Compose (Ubuntu in WSL2 is one option). Postgres stays on the LAN, outside Compose. The Media share is bind-mounted at `/mnt/lantube-media`. Secrets live in `/etc/lantube/production.env` on the Host (never in git).
 
-House URLs after a good deploy: [http://lantube.metropolis.excaliburstudios.org/](http://lantube.metropolis.excaliburstudios.org/) and [http://bairdtube.metropolis.excaliburstudios.org/](http://bairdtube.metropolis.excaliburstudios.org/).
+House names, LAN IPs, SSH targets, and Catalogue DNS pins stay on the Host in `$HOME/.config/lantube/compose.override.yaml` (copy from `compose.override.example.yaml` in this repo) and a symlink `compose.override.yaml` in the project. Do not commit that file.
 
 ## Where you type commands
 
-SSH into Ubuntu (not Windows):
+SSH into the Linux that runs Docker. If that is WSL2 and the distro is owned by a different Windows account than the one you SSH as, use the distro's own sshd (or a scheduled task as the owner). Stay in that Linux shell for every step below.
 
-```sh
-ssh -p 2222 ben@phantom
-```
-
-The WSL distro belongs to **METROPOLIS\ben**. A Windows SSH session as `phantom\ben` cannot see that distro. Stay in the Ubuntu shell for every step below.
+Replace `$HOME/lantube` if the checkout lives somewhere else.
 
 ## One-time: turn the checkout into git
 
-The first copy on the Host was a tarball. Git is installed. Do this once so later deploys are `git pull`.
+If the first copy on the Host was a tarball, convert it once so later deploys are `git pull`. Keep the overlay outside the checkout:
 
 ```sh
-cd /home/ben
+mkdir -p "$HOME/.config/lantube"
+cp "$HOME/lantube/compose.override.yaml" "$HOME/.config/lantube/compose.override.yaml"
+cd "$HOME"
 mv lantube lantube.bak
 git clone --branch docker-compose-host https://github.com/BenPlusPlus/LanTube.git lantube
+ln -sfn "$HOME/.config/lantube/compose.override.yaml" "$HOME/lantube/compose.override.yaml"
 cd lantube
 docker compose up -d --build
 ```
 
 Secrets stay in `/etc/lantube/production.env`; the clone does not contain them. After Docker files land on `master`, clone that branch instead and use it in the routine steps.
 
-Done when `cd /home/ben/lantube && git status` shows a branch, and `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1/` prints `200`.
+Done when `cd "$HOME/lantube" && git status` shows a branch, and `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1/` prints `200`.
 
 ## Routine deploy
 
@@ -38,14 +37,15 @@ Done when `cd /home/ben/lantube && git status` shows a branch, and `curl -sS -o 
 findmnt /mnt/lantube-media
 docker info >/dev/null && echo docker_ok
 test -r /etc/lantube/production.env && echo env_ok
+test -r "$HOME/.config/lantube/compose.override.yaml" && echo overlay_ok
 ```
 
-Done when the Media share is `cifs`, Docker answers, and `env_ok` prints. If the share is missing: `sudo systemctl start 'mnt-lantube\x2dmedia.mount'`.
+Done when the Media share is `cifs` (or the filesystem you mount), Docker answers, and `env_ok` and `overlay_ok` print. If the share is missing: `sudo systemctl start 'mnt-lantube\x2dmedia.mount'`.
 
 ### 2. Keep the running image as a rollback tag
 
 ```sh
-cd /home/ben/lantube
+cd "$HOME/lantube"
 docker tag lantube:local lantube:previous
 ```
 
@@ -54,7 +54,7 @@ Skip this the very first time there is no `lantube:local` yet. Done when `docker
 ### 3. Pull the commit you want to run
 
 ```sh
-cd /home/ben/lantube
+cd "$HOME/lantube"
 git fetch origin
 git checkout docker-compose-host
 git pull --ff-only origin docker-compose-host
@@ -65,7 +65,7 @@ Switch `docker-compose-host` to `master` once that branch holds the Docker files
 ### 4. Build and replace the container
 
 ```sh
-cd /home/ben/lantube
+cd "$HOME/lantube"
 docker compose build
 docker compose up -d
 ```
@@ -76,7 +76,7 @@ The Host applies Catalogue migrations on start. If a migration fails, the proces
 docker compose logs --tail 30
 ```
 
-### 5. Smoke the house URL
+### 5. Smoke the Host URL
 
 From the Host:
 
@@ -84,33 +84,21 @@ From the Host:
 curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1/
 ```
 
-From another machine on the LAN:
-
-```sh
-curl -sS -o /dev/null -w '%{http_code}\n' http://lantube.metropolis.excaliburstudios.org/
-```
-
-Done when both print `200`. Open Home in a browser and confirm it still says **Streaming from phantom**.
+From another machine on the LAN, curl the name you use in the browser. Done when both print `200`. Open Home and confirm it still says **Streaming from** the hostname set in the overlay.
 
 ## Roll back
 
 ```sh
-cd /home/ben/lantube
+cd "$HOME/lantube"
 docker tag lantube:previous lantube:local
 docker compose up -d --no-build
 ```
 
 Done when `curl` to `http://127.0.0.1/` is `200` again.
 
-## After a Windows reboot
+## After a Windows reboot (WSL2 Host)
 
-WSL and Docker must be running. Mirrored networking is in `%USERPROFILE%\.wslconfig` for **METROPOLIS\ben**. Then:
-
-```sh
-ssh -p 2222 ben@phantom
-findmnt /mnt/lantube-media
-cd /home/ben/lantube && docker compose up -d
-```
+WSL and Docker must be running. Mirrored networking lives in the WSL owner's `%USERPROFILE%\.wslconfig`. Then SSH into the Linux distro, `findmnt /mnt/lantube-media`, and `cd "$HOME/lantube" && docker compose up -d`.
 
 `restart: unless-stopped` brings the container back once Docker is up.
 
@@ -119,20 +107,21 @@ cd /home/ben/lantube && docker compose up -d
 ```sh
 sudo lantube-write-secrets
 sudo lantube-check-host
-cd /home/ben/lantube && docker compose up -d
+cd "$HOME/lantube" && docker compose up -d
 ```
 
 Type URLs and passwords only on the Host. Do not paste them into chat, and do not run `docker compose config` (it prints env).
 
-The Synology account in `/etc/lantube/cifs.cred` must have **Read/Write** on shared folder **InternetVideo** (share permissions, not only a folder ACL). Uploads write under `/mnt/lantube-media`.
+The account in `/etc/lantube/cifs.cred` must have **Read/Write** on the Media shared folder (share permissions, not only a folder ACL). Uploads write under `/mnt/lantube-media`.
 
 ## Layout (reference)
 
 | Piece | Location |
 | --- | --- |
-| Compose project | `/home/ben/lantube` |
+| Compose project | `$HOME/lantube` |
 | Image | `lantube:local` |
 | Secrets | `/etc/lantube/production.env` (`640 root:docker`) |
+| House overlay | `$HOME/.config/lantube/compose.override.yaml` (symlink in the project) |
 | Media share | `/mnt/lantube-media` → container `/media` |
 | HTTP | Host port 80 → container 44100 |
-| Catalogue | `expsql01:5432` (not a container) |
+| Catalogue | LAN Postgres (not a container); host pin in the overlay |
