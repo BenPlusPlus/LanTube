@@ -4,6 +4,7 @@ import { notNull, sql } from 'remix/data-table'
 
 import { db } from '../db.ts'
 import { hueFor, slugify } from '../ui/public/identity.ts'
+import { resetHouseSettings, restoreDefaultBrand } from './brand.ts'
 import { hashPassword, verifyPasswordHash } from './password.ts'
 import { resetCatalogueTags } from './tags.ts'
 import {
@@ -322,6 +323,7 @@ export function resetHousehold() {
   extras = []
   catalogueRecords = []
   includeMockup = process.env.NODE_ENV === 'test'
+  resetHouseSettings()
 }
 
 /** Zero People: no mockup overlay, empty catalogue. Use in first-run tests. */
@@ -329,6 +331,7 @@ export async function useEmptyHouse() {
   extras = []
   catalogueRecords = []
   includeMockup = false
+  await restoreDefaultBrand()
   await db.deleteMany(watchSessions, { where: notNull(watchSessions.id) })
   await db.deleteMany(watchProgress, { where: notNull(watchProgress.person_id) })
   await db.deleteMany(playlistAudience, { where: notNull(playlistAudience.playlist_id) })

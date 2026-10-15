@@ -1,6 +1,7 @@
 import * as os from 'node:os'
 import type { Handle, RemixNode } from 'remix/component'
 
+import { brandName } from '../data/brand.ts'
 import type { Person } from '../data/household.ts'
 import { getChannels, channelStats, type Channel } from '../data/library.ts'
 import { routes } from '../routes.ts'
@@ -114,9 +115,10 @@ export function AppShell(handle: Handle<AppShellProps>) {
   return () => {
     let { title, current, query = '', children, person = null, layout = 'app' } = handle.props
     let signin = layout === 'signin'
+    let brand = brandName()
 
     return (
-      <Document title={title ? `${title} · LanTube` : 'LanTube'} bodyClass={layout === 'app' ? undefined : `layout-${layout}`}>
+      <Document title={title ? `${title} · ${brand}` : brand} bodyClass={layout === 'app' ? undefined : `layout-${layout}`}>
         <a class="skip-link" href="#main">
           {signin ? 'Skip to sign in' : layout === 'watch' ? 'Skip to video' : 'Skip to videos'}
         </a>
@@ -127,9 +129,9 @@ export function AppShell(handle: Handle<AppShellProps>) {
                 <Icon name="menu" />
               </button>
             )}
-            <a class="brand" href={routes.home.href()} aria-label="LanTube home">
+            <a class="brand" href={routes.home.href()} aria-label={`${brand} home`}>
               <LogoMark />
-              <span class="brand-name">LanTube</span>
+              <span class="brand-name">{brand}</span>
             </a>
           </div>
           <form class="search" role="search" action={routes.home.href()} method="get">
@@ -214,9 +216,9 @@ export function AppShell(handle: Handle<AppShellProps>) {
             >
               <Icon name="close" />
             </button>
-            <a class="brand" href={routes.home.href()} aria-label="LanTube home">
+            <a class="brand" href={routes.home.href()} aria-label={`${brand} home`}>
               <LogoMark />
-              <span class="brand-name">LanTube</span>
+              <span class="brand-name">{brand}</span>
             </a>
           </div>
           <nav aria-label="Main (drawer)">

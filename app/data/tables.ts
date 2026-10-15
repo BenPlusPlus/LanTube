@@ -145,3 +145,11 @@ export const watchProgress = table({
     position_sec: c.integer().notNull(),
   },
 })
+
+export const houseSettings = table({
+  name: 'house_settings',
+  columns: {
+    id: c.text().primaryKey(),
+    brand_name: c.text().notNull(),
+  },
+})

@@ -2,6 +2,7 @@ import type { Handle, RemixNode } from 'remix/component'
 import { ImportMap } from 'remix/component/server'
 
 import { scriptEntry } from '../assets.ts'
+import { brandName } from '../data/brand.ts'
 
 export interface DocumentProps {
   children?: RemixNode
@@ -10,11 +11,9 @@ export interface DocumentProps {
   bodyClass?: string
 }
 
-const DEFAULT_TITLE = 'LanTube'
-
 export function Document(handle: Handle<DocumentProps>) {
   return () => {
-    let { children, head, title = DEFAULT_TITLE, bodyClass } = handle.props
+    let { children, head, title = brandName(), bodyClass } = handle.props
     let { href, importMap, preloads } = scriptEntry
 
     return (

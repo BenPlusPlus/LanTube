@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 
+import { brandName } from '../data/brand.ts'
 import type { Person } from '../data/household.ts'
 import type { Channel, ChannelSort } from '../data/library.ts'
 import { canPost, channelStats, channelVideos, channelsFor, formatPlays, getChannel } from '../data/library.ts'
@@ -125,7 +126,7 @@ function Empty(handle: Handle<{ channel: Channel; person: Person | null }>) {
 
     if (channel.kind === 'folder') {
       heading = 'No videos in this folder yet'
-      detail = `LanTube lists videos it finds in ${channel.path}. Add files there and they’ll show up on their own.`
+      detail = `${brandName()} lists videos it finds in ${channel.path}. Add files there and they’ll show up on their own.`
     } else if (channel.kind === 'person') {
       heading = mine ? 'Your channel is empty' : `${channel.name} hasn’t posted yet`
       detail = mine

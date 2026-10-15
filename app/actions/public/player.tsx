@@ -15,8 +15,9 @@ export interface PlayerProps {
   resumeAt?: number
   activityHref: string
   theater: boolean
-  /** The file LanTube expected, relative to the media folder. */
+  /** The file the house site expected, relative to the media folder. */
   expectedFile: string
+  brand: string
 }
 
 type Failure = 'unsupported' | 'network' | 'missing'
@@ -384,8 +385,8 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
             <Icon name="file-missing" size={40} />
             <p class="player-message-title">This video’s file isn’t on the host</p>
             <p>
-              LanTube looks for <code>{expectedFile}</code> in its media folder. Copy the file there, then reload this
-              page.
+              {handle.props.brand} looks for <code>{expectedFile}</code> in its media folder. Copy the file there, then
+              reload this page.
             </p>
           </div>
         </div>
@@ -555,7 +556,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
             {failure === 'network' ? (
               <>
                 <p class="player-message-title">Lost the connection to the host</p>
-                <p>The machine streaming LanTube stopped responding. Check it’s on, then try again.</p>
+                <p>The machine streaming {handle.props.brand} stopped responding. Check it’s on, then try again.</p>
                 <button
                   class="btn btn-secondary"
                   type="button"
@@ -573,8 +574,8 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               <>
                 <p class="player-message-title">This file can’t play in this browser</p>
                 <p>
-                  LanTube doesn’t convert videos yet. <code>{expectedFile}</code> needs to be MP4 (H.264) or WebM to play
-                  everywhere.
+                  {handle.props.brand} doesn’t convert videos yet. <code>{expectedFile}</code> needs to be MP4 (H.264)
+                  or WebM to play everywhere.
                 </p>
               </>
             )}

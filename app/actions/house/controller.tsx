@@ -1,6 +1,7 @@
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
+import { brandName, setBrandName } from '../../data/brand.ts'
 import {
   listPeople,
   personFromSession,
@@ -15,8 +16,25 @@ function readText(formData: FormData, name: string) {
   return typeof formData.get(name) === 'string' ? (formData.get(name) as string) : ''
 }
 
-function page(person: Person, error?: string, errorPersonId?: string, errorField?: 'roles' | 'password') {
-  return <HousePage person={person} people={listPeople()} error={error} errorPersonId={errorPersonId} errorField={errorField} />
+type HouseErrorField = 'roles' | 'password' | 'brand'
+
+function page(
+  person: Person,
+  error?: string,
+  errorPersonId?: string,
+  errorField?: HouseErrorField,
+  brand = brandName(),
+) {
+  return (
+    <HousePage
+      person={person}
+      people={listPeople()}
+      brand={brand}
+      error={error}
+      errorPersonId={errorPersonId}
+      errorField={errorField}
+    />
+  )
 }
 
 export default createController(routes.house, {
@@ -37,8 +55,15 @@ export default createController(routes.house, {
       }
 
       let personId = readText(context.formData, 'personId')
-      let fail = (error: string, errorField: 'roles' | 'password') =>
-        context.render(page(person, error, personId, errorField), { status: 400 })
+      let fail = (error: string, errorField: HouseErrorField, brand?: string) =>
+        context.render(page(person, error, personId, errorField, brand), { status: 400 })
+
+      if (readText(context.formData, 'intent') === 'brand') {
+        let brand = readText(context.formData, 'brand')
+        let saved = await setBrandName(brand)
+        if (saved !== true) return fail(saved.error, 'brand', brand)
+        return redirect(routes.house.index.href(), 303)
+      }
 
       if (readText(context.formData, 'intent') === 'password') {
         let password = readText(context.formData, 'password')
