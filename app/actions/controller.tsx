@@ -4,6 +4,7 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
+import { brandName } from '../data/brand.ts'
 import { listVisibleVideos, saveUploadedVideo } from '../data/catalogue.ts'
 import { getPerson, listPeople, personFromSession, type Person } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
@@ -274,7 +275,7 @@ export default createController(routes, {
       if (!context.request.body) return Response.json({ error: 'Nothing arrived.' }, { status: 400 })
       try {
         let upload = await stageUpload(person.id, name, context.request.body)
-        if (!upload) return Response.json({ error: 'That isn’t a video file LanTube can keep.' }, { status: 415 })
+        if (!upload) return Response.json({ error: `That isn’t a video file ${brandName()} can keep.` }, { status: 415 })
         return Response.json({ id: upload.id, size: upload.size }, { status: 201 })
       } catch (error) {
         await context.request.body?.cancel().catch(() => {})

@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 
+import { brandName } from '../data/brand.ts'
 import { getPerson, type Person } from '../data/household.ts'
 import type { Channel, Video } from '../data/library.ts'
 import {
@@ -201,11 +202,12 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               activityHref={routes.watchActivity.href({ videoId: video.id })}
               theater={theater}
               expectedFile={expectedFile}
+              brand={brandName()}
             />
             {playable ? (
               <noscript>
                 <p class="watch-noscript">
-                  The LanTube player needs JavaScript.{' '}
+                  The {brandName()} player needs JavaScript.{' '}
                   <a href={routes.media.href({ videoId: video.id })}>Open the video file directly</a>.
                 </p>
               </noscript>

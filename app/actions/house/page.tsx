@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 
+import { brandLimits, brandName } from '../../data/brand.ts'
 import type { Person } from '../../data/household.ts'
 import { routes } from '../../routes.ts'
 import { Avatar } from '../../ui/cards.tsx'
@@ -18,7 +19,7 @@ export function HouseForbidden(handle: Handle<{ person: Person }>) {
         <section class="empty" aria-labelledby="page-title">
           <Icon name="home" size={40} />
           <h1 id="page-title">You need to be an Admin</h1>
-          <p>House is for people who run LanTube for the house.</p>
+          <p>House is for people who run {brandName()} for the house.</p>
           <a class="btn btn-secondary" href={routes.home.href()}>
             Back to home
           </a>
@@ -31,15 +32,17 @@ export function HouseForbidden(handle: Handle<{ person: Person }>) {
 export interface HousePageProps {
   person: Person
   people: Person[]
+  brand: string
   error?: string
   errorPersonId?: string
-  errorField?: 'roles' | 'password'
+  errorField?: 'roles' | 'password' | 'brand'
 }
 
 export function HousePage(handle: Handle<HousePageProps>) {
   return () => {
-    let { person, people, error, errorPersonId, errorField } = handle.props
+    let { person, people, brand, error, errorPersonId, errorField } = handle.props
     let adminCount = people.filter((member) => member.isAdmin).length
+    let brandInvalid = error && errorField === 'brand'
     return (
       <AppShell current={null} title="House" person={person}>
         <header class="page-head">
@@ -48,6 +51,43 @@ export function HousePage(handle: Handle<HousePageProps>) {
             <p class="page-lede">People who can join on this network, and folders on the Media share.</p>
           </div>
         </header>
+
+        <section class="house-section" aria-labelledby="house-brand">
+          <header class="shelf-head">
+            <h2 class="shelf-title" id="house-brand">
+              Branding
+            </h2>
+          </header>
+          <form class="house-brand" method="post" action={routes.house.action.href()}>
+            <input type="hidden" name="intent" value="brand" />
+            <label class="field-label" for="house-brand-name">
+              Name
+            </label>
+            <input
+              id="house-brand-name"
+              class="field"
+              type="text"
+              name="brand"
+              value={brand}
+              maxlength={brandLimits.name}
+              autocomplete="off"
+              required
+              aria-invalid={brandInvalid ? 'true' : undefined}
+              aria-describedby={brandInvalid ? 'house-brand-error' : 'house-brand-hint'}
+            />
+            <p class="field-hint" id="house-brand-hint">
+              Shown in the top bar, titles, and messages around the house.
+            </p>
+            {brandInvalid ? (
+              <p class="field-error" id="house-brand-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <button class="btn btn-secondary" type="submit">
+              Save
+            </button>
+          </form>
+        </section>
 
         <section class="house-section" aria-labelledby="house-people">
           <header class="shelf-head">

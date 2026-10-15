@@ -71,6 +71,7 @@ export interface UploadFormProps {
   accept: string
   /** Shown in the drop well: "MP4, MOV, WebM, MKV, AVI". */
   typesLabel: string
+  brand: string
 }
 
 type Transfer =
@@ -267,7 +268,7 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
     notice = null
     if (!handle.props.accept.split(',').includes(ext)) {
       waiting = false
-      transfer = { state: 'failed', message: `LanTube keeps ${handle.props.typesLabel} files. Choose another file.`, retryable: false }
+      transfer = { state: 'failed', message: `${handle.props.brand} keeps ${handle.props.typesLabel} files. Choose another file.`, retryable: false }
       handle.update()
       return
     }

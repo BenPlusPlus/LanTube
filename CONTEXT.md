@@ -68,6 +68,10 @@ _Avoid_: Handle, username, key, id (the row identity is not the slug)
 The machine on the LAN that runs LanTube.
 _Avoid_: Server, backend, instance, NAS (the NAS holds bytes; it may or may not be the Host)
 
+**Site name**:
+The name people see in the running app in place of LanTube. An Admin sets it on House. Until then it is LanTube.
+_Avoid_: Brand, instance name, title
+
 **Media share**:
 The LAN filesystem that holds the bytes — video files, posters, and photos.
 _Avoid_: Bucket, CDN, S3, volume (except as a mount)
