@@ -56,5 +56,5 @@ single-context: glossary in `CONTEXT.md`, ADRs in `docs/adr/`. See `docs/agents/
 
 ### Host deploy
 
-Shipping a new image to PHANTOM (Docker in WSL2): `docs/deploy-host.md`.
+Shipping a new image to a Docker Host: `docs/deploy-host.md`. House names and IPs stay in the Host overlay (`compose.override.yaml`), not in git.
 
