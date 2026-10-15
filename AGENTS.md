@@ -54,3 +54,7 @@ Canonical roles map 1:1 to `needs-triage`, `needs-info`, `ready-for-agent`, `rea
 
 single-context: glossary in `CONTEXT.md`, ADRs in `docs/adr/`. See `docs/agents/domain.md`.
 
+### Host deploy
+
+Shipping a new image to PHANTOM (Docker in WSL2): `docs/deploy-host.md`.
+
