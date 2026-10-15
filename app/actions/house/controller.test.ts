@@ -64,22 +64,22 @@ function postHouse(fields: [string, string][], cookie?: string) {
   )
 }
 
+async function occupied() {
+  await useEmptyHouse()
+  let first = await postSignin('intent=join&name=Sam&password=lantern&confirm=lantern')
+  let later = await postSignin('intent=join&name=Alex&password=lantern&confirm=lantern')
+  assert.equal(first.status, 303)
+  assert.equal(later.status, 303)
+  let samId = (await sessionFrom(first)).get('personId') as string
+  let alexId = (await sessionFrom(later)).get('personId') as string
+  return { first, later, samId, alexId, admin: cookieFrom(first), member: cookieFrom(later) }
+}
+
 describe('house people', () => {
   afterEach(async () => {
     await useEmptyHouse()
     resetHousehold()
   })
-
-  async function occupied() {
-    await useEmptyHouse()
-    let first = await postSignin('intent=join&name=Sam&password=lantern&confirm=lantern')
-    let later = await postSignin('intent=join&name=Alex&password=lantern&confirm=lantern')
-    assert.equal(first.status, 303)
-    assert.equal(later.status, 303)
-    let samId = (await sessionFrom(first)).get('personId') as string
-    let alexId = (await sessionFrom(later)).get('personId') as string
-    return { first, later, samId, alexId, admin: cookieFrom(first), member: cookieFrom(later) }
-  }
 
   it('redirects a signed-out POST to sign-in', async () => {
     let response = await postHouse([['personId', 'nobody']])
@@ -190,5 +190,56 @@ describe('house people', () => {
 
     let rejected = await postSignin(`intent=signin&personId=${alexId}&password=lantern`)
     assert.equal(rejected.status, 400)
+  })
+})
+
+describe('house branding', () => {
+  afterEach(async () => {
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  it('lets an Admin set the site name people see in the top bar and on sign-in', async () => {
+    let { admin } = await occupied()
+    let page = await get(routes.house.index.href(), admin)
+    assert.equal(page.response.status, 200)
+    assert.match(page.html, /id="house-brand-name"/)
+    assert.match(page.html, /<span class="brand-name">LanTube<\/span>/)
+
+    let saved = await postHouse(
+      [
+        ['intent', 'brand'],
+        ['brand', '  Metro Tube  '],
+      ],
+      admin,
+    )
+    assert.equal(saved.status, 303)
+    assert.equal(saved.headers.get('Location'), routes.house.index.href())
+
+    let house = await get(routes.house.index.href(), admin)
+    assert.match(house.html, /<title>House · Metro Tube<\/title>/)
+    assert.match(house.html, /<span class="brand-name">Metro Tube<\/span>/)
+    assert.match(house.html, /aria-label="Metro Tube home"/)
+    assert.match(house.html, /id="house-brand-name"[^>]*value="Metro Tube"|value="Metro Tube"[^>]*id="house-brand-name"/)
+
+    let signin = await get(routes.signin.index.href())
+    assert.match(signin.html, /Who’s using Metro Tube\?/)
+    assert.match(signin.html, /<span class="brand-name">Metro Tube<\/span>/)
+  })
+
+  it('rejects a blank site name and keeps LanTube', async () => {
+    let { admin } = await occupied()
+    let response = await postHouse(
+      [
+        ['intent', 'brand'],
+        ['brand', '   '],
+      ],
+      admin,
+    )
+    let html = await response.text()
+    assert.equal(response.status, 400)
+    assert.match(html, /role="alert"/)
+    assert.match(html, /Give the site a name between 1 and 40 characters/)
+    assert.match(html, /<span class="brand-name">LanTube<\/span>/)
   })
 })

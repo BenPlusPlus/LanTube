@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 
+import { brandName } from '../data/brand.ts'
 import { getPerson, listPeople, type Person } from '../data/household.ts'
 import { channelsFor, channelVideos, formatAdded, formatPlays, getChannel, thumbUrl, type Channel } from '../data/library.ts'
 import { videoExtensions } from '../data/media.ts'
@@ -108,6 +109,7 @@ export function UploadPage(handle: Handle<UploadPageProps>) {
             titleMax={uploadLimits.title}
             accept={videoExtensions.join(',')}
             typesLabel={typesLabel}
+            brand={brandName()}
           />
         </section>
       </AppShell>

@@ -58,7 +58,7 @@ Undecided (do not invent):
 
 ## Brand Commitments
 
-The product name is LanTube. Keep it in UI, copy, and identity.
+The product name is LanTube. Keep it in UI, copy, and identity unless an Admin has set a house site name on House; that name is what people see in the running app.
 
 LanTube follows established video-site conventions (top bar with search, left nav, thumbnail grid) at the craft level of YouTube and Rumble, rather than a novel visual world. It must not copy YouTube's colour scheme (no red-on-white/black brand look).
 
