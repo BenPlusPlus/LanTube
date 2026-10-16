@@ -4,21 +4,24 @@ import * as path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import { insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
+import { deleteCatalogueCustomChannel, deleteCatalogueVideo, insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
 import { slugify } from './household.ts'
 import {
   addUploadedVideo,
   canPost,
   channelsFor,
+  deleteVideo,
+  dropCustomChannel,
   getChannel,
   getVideo,
   namedAudience,
+  videos,
   type Channel,
   type Video,
 } from './library.ts'
 import { findOrCreateTags, parseTagNames } from './tags.ts'
-import { mediaDir, videoExtensions } from './media.ts'
-import { addVideo, getPlaylist } from './playlists.ts'
+import { mediaDir, mediaFileFor, videoExtensions } from './media.ts'
+import { addVideo, dropFromPlaylists, getPlaylist } from './playlists.ts'
 
 /** Uploads land in the media folder, so they stream like everything else on the host. */
 const uploadsDir = path.join(mediaDir, 'uploads')
@@ -277,4 +280,35 @@ export function posterPathFor(video: Video): string | null {
   if (video.thumb !== `/poster/${video.id}`) return null
   let file = path.join(postersDir, `${video.id}.jpg`)
   return fs.existsSync(file) ? file : null
+}
+
+async function unlinkLanTubeBytes(video: Video) {
+  let media = mediaFileFor(video)
+  if (media) {
+    let root = path.resolve(uploadsDir)
+    if (media.path === root || media.path.startsWith(root + path.sep)) await fsp.rm(media.path, { force: true })
+  }
+  let poster = posterPathFor(video)
+  if (poster) await fsp.rm(poster, { force: true })
+}
+
+/** Catalogue row, then bytes LanTube wrote, then in-memory library. */
+export async function deleteUploadedVideo(video: Video) {
+  await deleteCatalogueVideo(video.id)
+  await unlinkLanTubeBytes(video)
+  deleteVideo(video.id)
+  dropFromPlaylists(video.id)
+}
+
+/** Catalogue channel and its Videos, then upload bytes, then in-memory library. */
+export async function deleteCustomChannel(channel: Channel) {
+  if (channel.kind !== 'custom') return
+  let onChannel = videos.filter((video) => video.channelId === channel.id)
+  await deleteCatalogueCustomChannel(channel.id)
+  for (let video of onChannel) {
+    await unlinkLanTubeBytes(video)
+    deleteVideo(video.id)
+    dropFromPlaylists(video.id)
+  }
+  dropCustomChannel(channel.id)
 }

@@ -9,6 +9,7 @@ import { listVisibleVideos, saveUploadedVideo } from '../data/catalogue.ts'
 import { getPerson, listPeople, personFromSession, type Person } from '../data/household.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
 import {
+  canDeleteVideo,
   canEditVideo,
   canWatch,
   getChannel,
@@ -22,7 +23,7 @@ import {
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 import { addVideo, canSee, getPlaylist, moveVideo, removeVideo } from '../data/playlists.ts'
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
-import { getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
+import { deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
 import { routes } from '../routes.ts'
 import { ChannelPage } from './channel-page.tsx'
 import { ChannelsPage } from './channels-page.tsx'
@@ -89,6 +90,7 @@ export default createController(routes, {
           people={listPeople()}
           list={list}
           canEdit={canEditVideo(video, person?.id)}
+          canDelete={canDeleteVideo(video, person?.id)}
         />,
       )
     },
@@ -132,6 +134,7 @@ export default createController(routes, {
             person={person}
             people={listPeople()}
             canEdit
+            canDelete={canDeleteVideo(video, person.id)}
             edit={edit}
             error={error}
             errorField={errorField}
@@ -166,6 +169,38 @@ export default createController(routes, {
         video.audience = undefined
       }
       return redirect(routes.watch.href({ videoId: video.id }), 303)
+    },
+    async watchDelete(context) {
+      let person = personFromSession(context.session)
+      let video = watchable(context.params.videoId, person?.id)
+      if (!video) {
+        return context.render(
+          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
+          { status: 404 },
+        )
+      }
+      if (!person || !canDeleteVideo(video, person.id)) {
+        return new Response('Forbidden', { status: 403 })
+      }
+      if (context.formData.get('confirm') !== '1') {
+        return context.render(
+          <WatchPage
+            video={video}
+            media={mediaFileFor(video)}
+            theater={/(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')}
+            person={person}
+            people={listPeople()}
+            canEdit={canEditVideo(video, person.id)}
+            canDelete
+            error="Tick the box to confirm, then delete."
+            errorField="delete"
+          />,
+          { status: 400 },
+        )
+      }
+      let channelId = video.channelId
+      await deleteUploadedVideo(video)
+      return redirect(routes.channel.href({ channelId }), 303)
     },
     async media(context) {
       let video = watchable(context.params.videoId, personFromSession(context.session)?.id)
