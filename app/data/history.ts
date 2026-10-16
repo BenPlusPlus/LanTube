@@ -414,4 +414,8 @@ export function resetHistory(now = Date.now()) {
   if (process.env.NODE_ENV === 'test') seed(now)
 }
 
+export function forgetRemovedPerson(personId: string) {
+  sessions = sessions.filter((session) => session.personId !== personId)
+}
+
 if (process.env.NODE_ENV === 'test') resetHistory()

@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
 
 import { brandName } from '../data/brand.ts'
-import type { Person } from '../data/household.ts'
+import { getPerson, type Person } from '../data/household.ts'
 import type { Channel, ChannelSort } from '../data/library.ts'
 import { canPost, channelStats, channelVideos, channelsFor, formatPlays, getChannel } from '../data/library.ts'
 import { routes } from '../routes.ts'
@@ -128,10 +128,13 @@ function Empty(handle: Handle<{ channel: Channel; person: Person | null }>) {
       heading = 'No videos in this folder yet'
       detail = `${brandName()} lists videos it finds in ${channel.path}. Add files there and they’ll show up on their own.`
     } else if (channel.kind === 'person') {
+      let frozen = getPerson(channel.id) == null
       heading = mine ? 'Your channel is empty' : `${channel.name} hasn’t posted yet`
-      detail = mine
-        ? 'Upload a video and everyone on the home network can watch it here.'
-        : `When ${channel.name} uploads something, it will show up here.`
+      detail = frozen
+        ? 'This channel is frozen. Nobody can post here.'
+        : mine
+          ? 'Upload a video and everyone on the home network can watch it here.'
+          : `When ${channel.name} uploads something, it will show up here.`
     } else {
       let names = [channel.ownerId, ...(channel.managerIds ?? [])]
         .map((id) => (id === person?.id ? 'you' : id ? getChannel(id)?.name : undefined))

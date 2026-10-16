@@ -174,9 +174,10 @@ function seedCustomChannels(): Channel[] {
 }
 
 let customChannels: Channel[] = process.env.NODE_ENV === 'test' ? seedCustomChannels() : []
+let frozenHomeChannels: Channel[] = []
 
 export function getChannels(): Channel[] {
-  return [...listPeople().map(personChannel), ...customChannels, ...folderChannels]
+  return [...listPeople().map(personChannel), ...frozenHomeChannels, ...customChannels, ...folderChannels]
 }
 
 const mockupVideos: Video[] = [
@@ -209,6 +210,8 @@ export const NEW_WINDOW_DAYS = 3
 export function getChannel(id: string): Channel | undefined {
   let person = getHouseholdPerson(id)
   if (person) return personChannel(person)
+  let frozen = frozenHomeChannels.find((channel) => channel.id === id || channel.ownerId === id)
+  if (frozen) return frozen
   return customChannels.find((channel) => channel.id === id) ?? folderChannels.find((channel) => channel.id === id)
 }
 
@@ -278,7 +281,7 @@ function cleanInput(input: ChannelInput, ownerId: string, editingId?: string): C
 async function persistCustomChannel(channel: Channel) {
   if (!channel.ownerId) return
   let cataloguePeople = await db.findMany(people)
-  let known = new Set(cataloguePeople.map((row) => row.id))
+  let known = new Set(cataloguePeople.filter((row) => row.removed_at == null).map((row) => row.id))
   if (!known.has(channel.ownerId)) return
   let row = await db.findOne(channels, { where: { slug: channel.id } })
   if (row && row.kind !== 'custom') return
@@ -369,10 +372,21 @@ export async function loadCatalogueChannels() {
     if (list) list.push(join.person_id)
     else managersByChannel.set(join.channel_id, [join.person_id])
   }
-  let present = new Set([...customChannels, ...folderChannels].map((channel) => channel.id))
+  let present = new Set([...customChannels, ...folderChannels, ...frozenHomeChannels].map((channel) => channel.id))
   for (let row of rows) {
     if (present.has(row.slug)) continue
-    if (row.kind === 'custom') {
+    if (row.kind === 'person') {
+      if (getHouseholdPerson(row.slug) || (row.owner_id && getHouseholdPerson(row.owner_id))) continue
+      frozenHomeChannels.push({
+        id: row.slug,
+        name: row.name,
+        kind: 'person',
+        hue: row.hue,
+        photo: row.photo_path ?? undefined,
+        ownerId: row.owner_id ?? undefined,
+      })
+      present.add(row.slug)
+    } else if (row.kind === 'custom') {
       customChannels.push({
         id: row.slug,
         name: row.name,
@@ -413,6 +427,35 @@ export function clearFolderChannels() {
 export function resetChannels() {
   customChannels = process.env.NODE_ENV === 'test' ? seedCustomChannels() : []
   folderChannels = process.env.NODE_ENV === 'test' ? seedFolderChannels() : []
+  frozenHomeChannels = []
+}
+
+/** Home channel stays Frozen; Custom channels pass to the Admin who removed the Person. */
+export function forgetRemovedPerson(person: Person, newOwnerId: string) {
+  if (!frozenHomeChannels.some((channel) => channel.id === person.slug)) {
+    frozenHomeChannels.push({
+      id: person.slug,
+      name: person.name,
+      kind: 'person',
+      hue: person.hue,
+      photo: person.photo,
+      ownerId: person.id,
+    })
+  }
+  for (let channel of customChannels) {
+    if (channel.ownerId === person.id) {
+      channel.ownerId = newOwnerId
+      channel.managerIds = (channel.managerIds ?? []).filter((id) => id !== person.id && id !== newOwnerId)
+    } else {
+      channel.managerIds = (channel.managerIds ?? []).filter((id) => id !== person.id)
+    }
+  }
+  for (let video of videos) {
+    if (video.audience?.includes(person.id)) {
+      video.audience = video.audience.filter((id) => id !== person.id)
+    }
+  }
+  progressByPerson.delete(person.id)
 }
 
 export function dropCustomChannel(id: string) {

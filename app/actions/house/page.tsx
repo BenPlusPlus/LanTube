@@ -30,7 +30,7 @@ export function HouseForbidden(handle: Handle<{ person: Person }>) {
   }
 }
 
-export type HouseErrorField = 'roles' | 'password' | 'brand' | 'path' | 'name' | 'detach' | 'scan'
+export type HouseErrorField = 'roles' | 'password' | 'remove' | 'brand' | 'path' | 'name' | 'detach' | 'scan'
 
 export interface HousePageProps {
   person: Person
@@ -115,6 +115,7 @@ export function HousePage(handle: Handle<HousePageProps>) {
               let adminId = `house-admin-${member.id}`
               let parentId = `house-parent-${member.id}`
               let passwordId = `house-password-${member.id}`
+              let removeId = `house-remove-${member.id}`
               let errorId = `house-error-${member.id}`
               return (
                 <li class="house-person">
@@ -197,6 +198,44 @@ export function HousePage(handle: Handle<HousePageProps>) {
                           {error}
                         </p>
                       ) : null}
+                    </form>
+                  )}
+                  {lastAdmin ? (
+                    invalid && errorField === 'remove' ? (
+                      <p class="field-error" id={errorId} role="alert">
+                        {error}
+                      </p>
+                    ) : null
+                  ) : (
+                    <form class="house-person-remove" method="post" action={routes.house.action.href()}>
+                      <input type="hidden" name="intent" value="remove" />
+                      <input type="hidden" name="personId" value={member.id} />
+                      <p class="field-hint">
+                        They cannot sign in. Their Home channel freezes. Playlists and History go. Custom channels they
+                        owned pass to you.
+                      </p>
+                      <label class="chform-remove" for={removeId}>
+                        <input
+                          id={removeId}
+                          type="checkbox"
+                          name="confirm"
+                          value="1"
+                          aria-invalid={invalid && errorField === 'remove' ? 'true' : undefined}
+                          aria-describedby={invalid && errorField === 'remove' ? errorId : undefined}
+                        />
+                        <span class="check" aria-hidden="true">
+                          <Icon name="check" size={14} />
+                        </span>
+                        Yes, remove {member.name}
+                      </label>
+                      {invalid && errorField === 'remove' ? (
+                        <p class="field-error" id={errorId} role="alert">
+                          {error}
+                        </p>
+                      ) : null}
+                      <button class="btn btn-secondary btn-sm" type="submit">
+                        Remove
+                      </button>
                     </form>
                   )}
                 </li>

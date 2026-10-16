@@ -158,6 +158,15 @@ export function resetPlaylists() {
   playlists = process.env.NODE_ENV === 'test' ? seed() : []
 }
 
+export function forgetRemovedPerson(personId: string) {
+  playlists = playlists.filter((playlist) => playlist.ownerId !== personId)
+  for (let playlist of playlists) {
+    if (playlist.audience?.includes(personId)) {
+      playlist.audience = playlist.audience.filter((id) => id !== personId)
+    }
+  }
+}
+
 function newestActivityFirst(list: Playlist[]): Playlist[] {
   return [...list].sort((a, b) => b.activity.at - a.activity.at)
 }

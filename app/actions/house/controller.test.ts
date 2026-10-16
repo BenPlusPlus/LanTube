@@ -4,8 +4,18 @@ import * as path from 'node:path'
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
+import { insertUploadedVideo } from '../../data/catalogue.ts'
 import { getPerson, resetHousehold, useEmptyHouse, verifyPassword } from '../../data/household.ts'
-import { clearFolderChannels, deleteVideo, getChannel, getVideo, resetChannels, videos } from '../../data/library.ts'
+import {
+  addUploadedVideo,
+  clearFolderChannels,
+  createChannel,
+  deleteVideo,
+  getChannel,
+  getVideo,
+  resetChannels,
+  videos,
+} from '../../data/library.ts'
 import { mediaDir } from '../../data/media.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
@@ -107,6 +117,7 @@ describe('house people', () => {
   afterEach(async () => {
     await useEmptyHouse()
     resetHousehold()
+    resetChannels()
   })
 
   it('redirects a signed-out POST to sign-in', async () => {
@@ -130,7 +141,7 @@ describe('house people', () => {
     assert.equal(getPerson(samId)?.isAdmin, true)
   })
 
-  it('lists every Person with Admin and Parent checkboxes, a password field on others, and no Remove', async () => {
+  it('lists every Person with Admin and Parent checkboxes, a password field on others, and Remove on everyone but the last Admin', async () => {
     let { samId, alexId, admin } = await occupied()
     let { response, html } = await get(routes.house.index.href(), admin)
 
@@ -144,7 +155,12 @@ describe('house people', () => {
     assert.match(html, new RegExp(`id="house-admin-${samId}"[^>]*disabled|disabled[^>]*id="house-admin-${samId}"`))
     assert.doesNotMatch(html, new RegExp(`id="house-password-${samId}"`))
     assert.match(html, new RegExp(`id="house-password-${alexId}"`))
-    assert.doesNotMatch(html, /Remove/)
+    assert.match(html, new RegExp(`id="house-remove-${alexId}"`))
+    assert.match(html, /Yes, remove Alex/)
+    assert.match(html, /They cannot sign in/)
+    assert.match(html, /Home channel freezes/)
+    assert.match(html, /Custom channels they\s+owned pass to you/)
+    assert.doesNotMatch(html, new RegExp(`id="house-remove-${samId}"`))
   })
 
   it('lets an Admin grant and revoke Admin and Parent on another Person', async () => {
@@ -218,6 +234,119 @@ describe('house people', () => {
 
     let rejected = await postSignin(`intent=signin&personId=${alexId}&password=lantern`)
     assert.equal(rejected.status, 400)
+  })
+
+  it('lets an Admin remove a Person with one confirm, then they vanish from House and the who-grid', async () => {
+    let { alexId, admin, member } = await occupied()
+
+    let asked = await postHouse(
+      [
+        ['intent', 'remove'],
+        ['personId', alexId],
+      ],
+      admin,
+    )
+    let askedHtml = await asked.text()
+    assert.equal(asked.status, 400)
+    assert.match(askedHtml, /Tick the box to confirm, then remove/)
+    assert.equal(getPerson(alexId)?.name, 'Alex')
+
+    let removed = await postHouse(
+      [
+        ['intent', 'remove'],
+        ['personId', alexId],
+        ['confirm', '1'],
+      ],
+      admin,
+    )
+    assert.equal(removed.status, 303)
+    assert.equal(removed.headers.get('Location'), routes.house.index.href())
+    assert.equal(getPerson(alexId), undefined)
+
+    let house = await get(routes.house.index.href(), admin)
+    assert.match(house.html, /house-person-name">Sam/)
+    assert.doesNotMatch(house.html, /house-person-name">Alex/)
+    assert.doesNotMatch(house.html, new RegExp(`id="house-remove-${alexId}"`))
+    assert.match(house.html, /href="\/channel\/alex"/)
+
+    let signin = await get(routes.signin.index.href())
+    assert.match(signin.html, /who-name">Sam/)
+    assert.doesNotMatch(signin.html, /who-name">Alex/)
+
+    let login = await postSignin(`intent=signin&personId=${alexId}&password=lantern`)
+    assert.equal(login.status, 400)
+
+    let home = await get(routes.home.href(), member)
+    assert.doesNotMatch(home.html, /account-name">Alex/)
+
+    let frozen = await get(routes.channel.href({ channelId: 'alex' }), admin)
+    assert.equal(frozen.response.status, 200)
+    assert.match(frozen.html, /This channel is frozen/)
+    assert.doesNotMatch(frozen.html, /When Alex uploads something/)
+  })
+
+  it('still names the Removed Person on a Video they posted after their Custom channel transfers', async () => {
+    let { samId, alexId, admin } = await occupied()
+    let channel = await createChannel(alexId, { name: 'Board Games', description: '', managerIds: [] })
+    assert.ok(!('error' in channel))
+    let slug = 'issue-29-posted-name'
+    let inserted = await insertUploadedVideo({
+      slug,
+      title: slug,
+      channelSlug: channel.id,
+      ownerId: alexId,
+      durationSec: 12,
+      filePath: `uploads/${channel.id}/${slug}.mp4`,
+      posterPath: null,
+      visibility: 'house',
+    })
+    assert.ok(inserted)
+    addUploadedVideo({
+      id: slug,
+      title: slug,
+      channelId: channel.id,
+      durationSec: 12,
+      thumb: '',
+      tags: [],
+      file: `uploads/${channel.id}/${slug}.mp4`,
+      postedBy: alexId,
+    })
+
+    let removed = await postHouse(
+      [
+        ['intent', 'remove'],
+        ['personId', alexId],
+        ['confirm', '1'],
+      ],
+      admin,
+    )
+    assert.equal(removed.status, 303)
+
+    let watch = await get(routes.watch.href({ videoId: slug }), admin)
+    assert.equal(watch.response.status, 200)
+    assert.match(watch.html, /poster-name">Alex/)
+    assert.match(watch.html, />Owner</)
+    assert.doesNotMatch(watch.html, /You · owner/)
+    assert.equal(getChannel(channel.id)?.ownerId, samId)
+    deleteVideo(slug)
+  })
+
+  it('rejects a POST that would remove the last Admin', async () => {
+    let { samId, admin } = await occupied()
+
+    let response = await postHouse(
+      [
+        ['intent', 'remove'],
+        ['personId', samId],
+        ['confirm', '1'],
+      ],
+      admin,
+    )
+    let html = await response.text()
+    assert.equal(response.status, 400)
+    assert.match(html, /role="alert"/)
+    assert.match(html, /The house needs at least one Admin/)
+    assert.equal(getPerson(samId)?.isAdmin, true)
   })
 })
 
