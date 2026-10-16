@@ -488,6 +488,14 @@ export async function updatePlaylist(playlist: Playlist, input: PlaylistInput): 
   })
 }
 
+/** Drop a deleted Video from in-memory playlists. Catalogue membership already cascaded. */
+export function dropFromPlaylists(videoId: string) {
+  for (let playlist of playlists) {
+    playlist.videoIds = playlist.videoIds.filter((id) => id !== videoId)
+    playlist.activity.videoIds = playlist.activity.videoIds.filter((id) => id !== videoId)
+  }
+}
+
 export async function deletePlaylist(playlist: Playlist) {
   return serialize(playlist.id, async () => {
     let row = await db.findOne(playlistTable, { where: { slug: playlist.id } })

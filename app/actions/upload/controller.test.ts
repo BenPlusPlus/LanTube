@@ -1334,3 +1334,186 @@ describe('Custom channel post and Watch edit', () => {
     assert.equal((await saveWatch(ownerSlug, [['title', 'Stolen'], ['visibility', 'house']], managerCookie)).status, 404)
   })
 })
+
+describe('delete uploaded Video', () => {
+  afterEach(async () => {
+    for (let id of created.splice(0)) deleteVideo(id)
+    fs.rmSync(path.join(mediaDir, 'uploads'), { recursive: true, force: true })
+    fs.rmSync(path.join(mediaDir, '.lantube'), { recursive: true, force: true })
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+  })
+
+  async function join(name: string) {
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `intent=join&name=${encodeURIComponent(name)}&password=lantern&confirm=lantern`,
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(response.status, 303)
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    let person = listPeople().find((entry) => entry.name === name)
+    assert.ok(person)
+    return { cookie: header.split(';', 1)[0], person }
+  }
+
+  it('shows a confirm delete zone only to people who may delete that uploaded Video', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie } = await join('Sam')
+    let { cookie: otherCookie } = await join('Alex')
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Lake day'],
+        ['visibility', 'house'],
+      ],
+      ownerCookie,
+    )
+    assert.equal(response.status, 303)
+    let slug = videoIdFrom(response)
+    let watch = routes.watch.href({ videoId: slug })
+
+    let owner = await get(watch, ownerCookie)
+    assert.match(owner.html, /Delete this video/)
+    assert.match(owner.html, /name="confirm"/)
+    assert.match(owner.html, new RegExp(`action="${routes.watchDelete.href({ videoId: slug })}"`))
+
+    let other = await get(watch, otherCookie)
+    assert.doesNotMatch(other.html, /Delete this video/)
+    assert.doesNotMatch(other.html, /name="confirm"/)
+
+    let unsigned = await get(watch)
+    assert.doesNotMatch(unsigned.html, /Delete this video/)
+  })
+
+  function deleteWatch(videoId: string, fields: [string, string][], cookie?: string) {
+    let body = new FormData()
+    for (let [key, value] of fields) body.append(key, value)
+    return router.fetch(
+      new Request(new URL(routes.watchDelete.href({ videoId }), 'http://localhost'), {
+        method: 'POST',
+        headers: cookie ? { Cookie: cookie } : undefined,
+        body,
+        redirect: 'manual',
+      }),
+    )
+  }
+
+  it('asks to tick confirm and does not delete', async () => {
+    await useEmptyHouse()
+    let { cookie } = await join('Sam')
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Lake day'],
+        ['visibility', 'house'],
+      ],
+      cookie,
+    )
+    let slug = videoIdFrom(response)
+    let denied = await deleteWatch(slug, [], cookie)
+    assert.equal(denied.status, 400)
+    assert.match(await denied.text(), /Tick the box to confirm, then delete/)
+    assert.ok(getVideo(slug))
+  })
+
+  it('deletes the catalogue row and LanTube-created bytes, then redirects to the channel', async () => {
+    await useEmptyHouse()
+    let { cookie } = await join('Sam')
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Lake day'],
+        ['visibility', 'house'],
+        ['poster', new Blob([jpeg], { type: 'image/jpeg' }), 'poster.jpg'],
+      ],
+      cookie,
+    )
+    let slug = videoIdFrom(response)
+    let video = getVideo(slug)
+    assert.ok(video?.file)
+    let file = path.join(mediaDir, video.file)
+    let poster = path.join(mediaDir, '.lantube', 'posters', `${slug}.jpg`)
+    assert.equal(fs.existsSync(file), true)
+    assert.equal(fs.existsSync(poster), true)
+
+    let deleted = await deleteWatch(slug, [['confirm', '1']], cookie)
+    assert.equal(deleted.status, 303)
+    assert.equal(deleted.headers.get('Location'), routes.channel.href({ channelId: 'sam' }))
+    assert.equal(getVideo(slug), undefined)
+    assert.equal(fs.existsSync(file), false)
+    assert.equal(fs.existsSync(poster), false)
+    assert.equal((await get(routes.watch.href({ videoId: slug }), cookie)).response.status, 404)
+    assert.equal(
+      (await listVisibleVideos()).some((entry) => entry.id === slug),
+      false,
+    )
+  })
+
+  it('lets a Custom channel Manager delete a Video they did not post', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie } = await join('Sam')
+    let { cookie: managerCookie, person: named } = await join('Alex')
+    assert.equal(
+      (
+        await router.fetch(
+          new Request(new URL(routes.channelNew.action.href(), 'http://localhost'), {
+            method: 'POST',
+            headers: { Cookie: ownerCookie },
+            body: (() => {
+              let body = new FormData()
+              body.append('name', 'Board Games')
+              body.append('managers', named.id)
+              return body
+            })(),
+            redirect: 'manual',
+          }),
+        )
+      ).status,
+      303,
+    )
+    let published = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'board-games'],
+        ['title', 'Catan night'],
+        ['visibility', 'house'],
+      ],
+      ownerCookie,
+    )
+    let slug = videoIdFrom(published)
+    let watch = await get(routes.watch.href({ videoId: slug }), managerCookie)
+    assert.match(watch.html, /Delete this video/)
+    let deleted = await deleteWatch(slug, [['confirm', '1']], managerCookie)
+    assert.equal(deleted.status, 303)
+    assert.equal(deleted.headers.get('Location'), routes.channel.href({ channelId: 'board-games' }))
+    assert.equal(getVideo(slug), undefined)
+  })
+
+  it('forbids people who may not delete', async () => {
+    await useEmptyHouse()
+    let { cookie: ownerCookie } = await join('Sam')
+    let { cookie: otherCookie } = await join('Alex')
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Lake day'],
+        ['visibility', 'house'],
+      ],
+      ownerCookie,
+    )
+    let slug = videoIdFrom(response)
+    assert.equal((await deleteWatch(slug, [['confirm', '1']], otherCookie)).status, 403)
+    assert.equal((await deleteWatch(slug, [['confirm', '1']])).status, 403)
+    assert.ok(getVideo(slug))
+  })
+})

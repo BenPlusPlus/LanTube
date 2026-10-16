@@ -193,3 +193,21 @@ export async function saveUploadedVideo(input: {
   })
   return true
 }
+
+export async function deleteCatalogueVideo(slug: string) {
+  let row = await db.findOne(videos, { where: { slug } })
+  if (!row) return false
+  await db.delete(videos, row.id)
+  return true
+}
+
+export async function deleteCatalogueCustomChannel(slug: string) {
+  let row = await db.findOne(channels, { where: { slug } })
+  if (!row || row.kind !== 'custom') return false
+  let rows = await db.findMany(videos, { where: { channel_id: row.id } })
+  await db.transaction(async (tx) => {
+    for (let video of rows) await tx.delete(videos, video.id)
+    await tx.delete(channels, row.id)
+  })
+  return true
+}

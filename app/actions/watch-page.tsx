@@ -45,9 +45,10 @@ export interface WatchPageProps {
   /** Playing through a playlist that holds this video. */
   list?: Playlist
   canEdit?: boolean
+  canDelete?: boolean
   edit?: WatchEditValues
   error?: string
-  errorField?: 'title' | 'tags'
+  errorField?: 'title' | 'tags' | 'delete'
 }
 
 const longDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' })
@@ -166,7 +167,7 @@ function ListPanel(handle: Handle<{ playlist: Playlist; video: Video; person: Pe
 
 export function WatchPage(handle: Handle<WatchPageProps>) {
   return () => {
-    let { video, media, theater, person = null, people = [], list, canEdit = false, error, errorField } = handle.props
+    let { video, media, theater, person = null, people = [], list, canEdit = false, canDelete = false, error, errorField } = handle.props
     let channel = getChannel(video.channelId)!
     let stats = channelStats(channel.id, person?.id)
     let published = publishedAt(video)
@@ -383,6 +384,38 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                 <div class="chform-actions">
                   <button class="btn btn-primary" type="submit">
                     Save
+                  </button>
+                </div>
+              </form>
+            ) : null}
+            {canDelete ? (
+              <form class="pldelete" method="post" action={routes.watchDelete.href({ videoId: video.id })} aria-labelledby="vdelete-title">
+                <h2 class="pldelete-title" id="vdelete-title">
+                  Delete this video
+                </h2>
+                <p class="field-hint">The video leaves the house. The file LanTube wrote is removed from the Media share.</p>
+                <label class="chform-remove">
+                  <input
+                    type="checkbox"
+                    name="confirm"
+                    value="1"
+                    aria-invalid={errorField === 'delete' ? 'true' : undefined}
+                    aria-describedby={errorField === 'delete' ? 'watch-delete-error' : undefined}
+                  />
+                  <span class="check" aria-hidden="true">
+                    <Icon name="check" size={14} />
+                  </span>
+                  Yes, delete {edit.title || video.title}
+                </label>
+                {errorField === 'delete' && error ? (
+                  <p class="field-error" id="watch-delete-error" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                <div>
+                  <button class="btn btn-secondary" type="submit">
+                    <Icon name="trash" size={18} />
+                    Delete video
                   </button>
                 </div>
               </form>

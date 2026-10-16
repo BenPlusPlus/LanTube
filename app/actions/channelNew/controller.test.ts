@@ -1,8 +1,12 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
 import { listPeople, resetHousehold, useEmptyHouse } from '../../data/household.ts'
-import { resetChannels } from '../../data/library.ts'
+import { deleteVideo, getVideo, resetChannels } from '../../data/library.ts'
+import { mediaDir } from '../../data/media.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
 
@@ -239,6 +243,139 @@ describe('edit channel', () => {
     let home = await get(routes.channel.href({ channelId: 'mia' }), cookie)
     assert.doesNotMatch(home.html, /<dt>Managers<\/dt>/)
     assert.doesNotMatch(home.html, /name="managers"/)
+    assert.doesNotMatch(home.html, /Delete this channel/)
+  })
+})
+
+describe('delete Custom channel', () => {
+  it('shows a confirm delete zone only to the Channel owner', async () => {
+    let owner = await get(routes.channelEdit.index.href({ channelId: 'twice' }), await signIn('mia'))
+    assert.equal(owner.response.status, 200)
+    assert.match(owner.html, /Delete this channel/)
+    assert.match(owner.html, /name="confirm"/)
+    assert.match(owner.html, /name="intent" value="delete"/)
+
+    let manager = await get(routes.channelEdit.index.href({ channelId: 'twice' }), await signIn('priya'))
+    assert.equal(manager.response.status, 200)
+    assert.doesNotMatch(manager.html, /Delete this channel/)
+    assert.doesNotMatch(manager.html, /name="intent" value="delete"/)
+
+    let adminManager = await get(routes.channelEdit.index.href({ channelId: 'video-games' }), await signIn('tomas'))
+    assert.equal(adminManager.response.status, 200)
+    assert.doesNotMatch(adminManager.html, /Delete this channel/)
+  })
+
+  it('asks to tick confirm and keeps the channel', async () => {
+    let cookie = await signIn('mia')
+    let denied = await post(routes.channelEdit.action.href({ channelId: 'twice' }), [['intent', 'delete']], cookie)
+    assert.equal(denied.status, 400)
+    assert.match(await denied.text(), /Tick the box to confirm, then delete/)
+    assert.equal((await get(routes.channel.href({ channelId: 'twice' }))).response.status, 200)
+  })
+
+  it('forbids a Manager from deleting the channel', async () => {
+    let denied = await post(
+      routes.channelEdit.action.href({ channelId: 'twice' }),
+      [
+        ['intent', 'delete'],
+        ['confirm', '1'],
+      ],
+      await signIn('priya'),
+    )
+    assert.equal(denied.status, 403)
+    assert.equal((await get(routes.channel.href({ channelId: 'twice' }))).response.status, 200)
+  })
+
+  describe('catalogue Custom channel', () => {
+    const created: string[] = []
+    const clip = new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 2, 0])
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 0xff, 0xd9])
+
+    afterEach(async () => {
+      for (let id of created.splice(0)) deleteVideo(id)
+      fs.rmSync(path.join(mediaDir, 'uploads'), { recursive: true, force: true })
+      fs.rmSync(path.join(mediaDir, '.lantube'), { recursive: true, force: true })
+      await useEmptyHouse()
+      resetHousehold()
+      resetChannels()
+    })
+
+    async function join(name: string) {
+      let response = await router.fetch(
+        new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `intent=join&name=${encodeURIComponent(name)}&password=lantern&confirm=lantern`,
+          redirect: 'manual',
+        }),
+      )
+      assert.equal(response.status, 303)
+      let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+      assert.ok(header, 'Expected an lt_session cookie')
+      let person = listPeople().find((entry) => entry.name === name)
+      assert.ok(person)
+      return { cookie: header.split(';', 1)[0], person }
+    }
+
+    it('deletes the channel and its uploads, then redirects to /channels', async () => {
+      await useEmptyHouse()
+      let { cookie: ownerCookie } = await join('Sam')
+      let { cookie: managerCookie, person: manager } = await join('Alex')
+      assert.equal(
+        (
+          await post(
+            routes.channelNew.action.href(),
+            [
+              ['name', 'Board Games'],
+              ['managers', manager.id],
+            ],
+            ownerCookie,
+          )
+        ).status,
+        303,
+      )
+
+      let body = new FormData()
+      body.append('video', new Blob([clip], { type: 'video/mp4' }), 'catan.mp4')
+      body.append('channel', 'board-games')
+      body.append('title', 'Catan night')
+      body.append('visibility', 'house')
+      body.append('poster', new Blob([jpeg], { type: 'image/jpeg' }), 'poster.jpg')
+      let published = await router.fetch(
+        new Request(new URL(routes.upload.action.href(), 'http://localhost'), {
+          method: 'POST',
+          headers: { Cookie: managerCookie },
+          body,
+          redirect: 'manual',
+        }),
+      )
+      assert.equal(published.status, 303)
+      let slug = decodeURIComponent((published.headers.get('Location') ?? '').split('/').pop() ?? '')
+      created.push(slug)
+      let video = getVideo(slug)
+      assert.ok(video?.file)
+      let file = path.join(mediaDir, video.file)
+      let poster = path.join(mediaDir, '.lantube', 'posters', `${slug}.jpg`)
+      assert.equal(fs.existsSync(file), true)
+      assert.equal(fs.existsSync(poster), true)
+
+      let deleted = await post(
+        routes.channelEdit.action.href({ channelId: 'board-games' }),
+        [
+          ['intent', 'delete'],
+          ['confirm', '1'],
+        ],
+        ownerCookie,
+      )
+      assert.equal(deleted.status, 303)
+      assert.equal(deleted.headers.get('Location'), routes.channels.href())
+      assert.equal((await get(routes.channel.href({ channelId: 'board-games' }))).response.status, 404)
+      assert.equal((await get(routes.watch.href({ videoId: slug }))).response.status, 404)
+      assert.equal(getVideo(slug), undefined)
+      assert.equal(fs.existsSync(file), false)
+      assert.equal(fs.existsSync(poster), false)
+      assert.doesNotMatch((await get(routes.channels.href())).html, /Board Games/)
+    })
   })
 })
 

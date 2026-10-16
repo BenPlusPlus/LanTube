@@ -2,7 +2,8 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { listPeople, personFromSession, type Person } from '../../data/household.ts'
-import { canPost, getChannel, updateChannel, type Channel } from '../../data/library.ts'
+import { canDeleteCustomChannel, canPost, getChannel, updateChannel, type Channel } from '../../data/library.ts'
+import { deleteCustomChannel } from '../../data/uploads.ts'
 import { readPhoto } from '../../data/photo.ts'
 import { routes } from '../../routes.ts'
 import { readChannelForm } from '../channel-form.ts'
@@ -46,6 +47,7 @@ export default createController(routes.channelEdit, {
           people={listPeople()}
           channel={channel}
           canNameManagers={canNameManagers}
+          canDelete={canDeleteCustomChannel(channel, person.id)}
           values={{ name: channel.name, description: channel.description ?? '', managerIds: channel.managerIds ?? [] }}
         />,
       )
@@ -57,6 +59,27 @@ export default createController(routes.channelEdit, {
       }
       let { channel, person } = result
       let canNameManagers = channel.ownerId === person.id
+      let canDelete = canDeleteCustomChannel(channel, person.id)
+      if (context.formData.get('intent') === 'delete') {
+        if (!canDelete) return new Response('Forbidden', { status: 403 })
+        if (context.formData.get('confirm') !== '1') {
+          return context.render(
+            <ChannelFormPage
+              person={person}
+              people={listPeople()}
+              channel={channel}
+              canNameManagers={canNameManagers}
+              canDelete
+              values={{ name: channel.name, description: channel.description ?? '', managerIds: channel.managerIds ?? [] }}
+              error="Tick the box to confirm, then delete."
+              errorField="delete"
+            />,
+            { status: 400 },
+          )
+        }
+        await deleteCustomChannel(channel)
+        return redirect(routes.channels.href(), 303)
+      }
       let values = readChannelForm(context.formData)
       let fail = (error: string, errorField: 'name' | 'description' | 'photo') =>
         context.render(
@@ -65,6 +88,7 @@ export default createController(routes.channelEdit, {
             people={listPeople()}
             channel={channel}
             canNameManagers={canNameManagers}
+            canDelete={canDelete}
             values={values}
             error={error}
             errorField={errorField}

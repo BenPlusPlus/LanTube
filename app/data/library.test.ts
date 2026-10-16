@@ -4,6 +4,8 @@ import { afterEach, describe, it } from 'remix/test'
 import { createPerson, getPerson, resetHousehold, updatePersonRoles, useEmptyHouse } from './household.ts'
 import {
   addUploadedVideo,
+  canDeleteCustomChannel,
+  canDeleteVideo,
   canPost,
   canWatch,
   createChannel,
@@ -165,6 +167,60 @@ describe('private Video entitlement', () => {
     } finally {
       resetChannels()
     }
+  })
+})
+
+describe('who may delete a Video', () => {
+  it('lets the Video owner delete an uploaded Video and keeps unsigned people out', () => {
+    let video = clip({ id: 'delete-owner', postedBy: 'mia', channelId: 'mia' })
+    assert.equal(canDeleteVideo(video, 'mia'), true)
+    assert.equal(canDeleteVideo(video, 'tomas'), false)
+    assert.equal(canDeleteVideo(video, undefined), false)
+    assert.equal(canDeleteVideo(video, null), false)
+  })
+
+  it('lets a Custom channel owner and Managers delete a Video they did not post', () => {
+    let video = clip({ id: 'delete-custom', postedBy: 'priya', channelId: 'twice' })
+    assert.equal(canDeleteVideo(video, 'priya'), true)
+    assert.equal(canDeleteVideo(video, 'mia'), true)
+    assert.equal(canDeleteVideo(video, 'tomas'), false)
+    assert.equal(canDeleteVideo(video, 'ruth'), false)
+  })
+
+  it('does not let anyone drop a Folder Video this way', () => {
+    let video = getVideo('christmas-2009')!
+    assert.equal(canDeleteVideo(video, 'mia'), false)
+    assert.equal(canDeleteVideo(video, 'tomas'), false)
+  })
+
+  it('keeps the Video owner able to delete after they stop being a Manager', async () => {
+    let channel = getChannel('twice')!
+    let own = clip({ id: 'delete-ex-manager-own', postedBy: 'priya', channelId: 'twice' })
+    let other = clip({ id: 'delete-ex-manager-other', postedBy: 'mia', channelId: 'twice' })
+    await updateChannel(channel, { name: channel.name, description: channel.description ?? '', managerIds: [] })
+    try {
+      assert.equal(canDeleteVideo(own, 'priya'), true)
+      assert.equal(canDeleteVideo(other, 'priya'), false)
+      assert.equal(canDeleteVideo(other, 'mia'), true)
+    } finally {
+      resetChannels()
+    }
+  })
+})
+
+describe('who may delete a Custom channel', () => {
+  it('lets only the Channel owner delete it', () => {
+    let channel = getChannel('twice')!
+    assert.equal(canDeleteCustomChannel(channel, 'mia'), true)
+    assert.equal(canDeleteCustomChannel(channel, 'priya'), false)
+    assert.equal(canDeleteCustomChannel(channel, 'tomas'), false)
+    assert.equal(canDeleteCustomChannel(channel, 'ruth'), false)
+    assert.equal(canDeleteCustomChannel(channel, undefined), false)
+  })
+
+  it('does not offer delete on a Home channel', () => {
+    let home = getChannel('mia')!
+    assert.equal(canDeleteCustomChannel(home, 'mia'), false)
   })
 })
 

@@ -23,7 +23,9 @@ export interface ChannelFormPageProps {
   /** Only the Channel owner names Managers. Hidden when a Manager edits. */
   canNameManagers?: boolean
   error?: string
-  errorField?: 'name' | 'description' | 'photo'
+  errorField?: 'name' | 'description' | 'photo' | 'delete'
+  /** Only the Channel owner may delete a Custom channel. */
+  canDelete?: boolean
 }
 
 function asChannel(person: Person): Channel {
@@ -52,6 +54,7 @@ export function ChannelFormPage(handle: Handle<ChannelFormPageProps>) {
     let { person, people, channel, values, error, errorField } = handle.props
     let editing = channel !== undefined
     let canNameManagers = handle.props.canNameManagers ?? true
+    let canDelete = handle.props.canDelete ?? false
     let action = channel ? routes.channelEdit.action.href({ channelId: channel.id }) : routes.channelNew.action.href()
     let cancel = channel ? routes.channel.href({ channelId: channel.id }) : routes.channels.href()
     let heading = channel ? `Edit ${channel.name}` : 'New channel'
@@ -180,6 +183,30 @@ export function ChannelFormPage(handle: Handle<ChannelFormPageProps>) {
               </a>
             </div>
           </form>
+
+          {canDelete && channel ? (
+            <form class="pldelete" method="post" action={action} aria-labelledby="chdelete-title">
+              <input type="hidden" name="intent" value="delete" />
+              <h2 class="pldelete-title" id="chdelete-title">
+                Delete this channel
+              </h2>
+              <p class="field-hint">The channel and every video on it go. Uploads leave the Media share.</p>
+              <label class="chform-remove">
+                <input type="checkbox" name="confirm" value="1" aria-invalid={invalid('delete')} aria-describedby={describedBy('delete')} />
+                <span class="check" aria-hidden="true">
+                  <Icon name="check" size={14} />
+                </span>
+                Yes, delete {channel.name}
+              </label>
+              {errorField === 'delete' ? errorMessage : null}
+              <div>
+                <button class="btn btn-secondary" type="submit">
+                  <Icon name="trash" size={18} />
+                  Delete channel
+                </button>
+              </div>
+            </form>
+          ) : null}
         </section>
       </AppShell>
     )
