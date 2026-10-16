@@ -28,5 +28,11 @@ tmp/
 
 # Local video files streamed by LanTube (LANTUBE_MEDIA_DIR)
 /media/
+
+# House-specific Compose overlay (hostname, Catalogue DNS pins)
+/compose.override.yaml
+
+# Local Catalogue URL and session secret
+/config/development.env
 /.impeccable/mocks/decision
 /.agents/skills

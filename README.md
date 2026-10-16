@@ -23,6 +23,7 @@ A minimal Remix application starter with a home page.
 
 ```sh
 pnpm i
+cp config/development.env.example config/development.env
 pnpm dev
 pnpm hmr
 pnpm start
