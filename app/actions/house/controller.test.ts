@@ -1,10 +1,38 @@
+import * as fsp from 'node:fs/promises'
+import * as path from 'node:path'
+
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
 import { getPerson, resetHousehold, useEmptyHouse, verifyPassword } from '../../data/household.ts'
+import { clearFolderChannels, deleteVideo, getChannel, getVideo, resetChannels, videos } from '../../data/library.ts'
+import { mediaDir } from '../../data/media.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
 import { sessionCookie, sessionStorage } from '../../session.ts'
+
+const scanDirName = 'cabin-tapes'
+const scanDir = path.join(mediaDir, scanDirName)
+const scanFile = path.join(scanDir, 'cabin-weekend.mp4')
+const nestedFile = path.join(scanDir, 'more', 'lake.mp4')
+const fixtureMp4 = path.join(mediaDir, 'tahoe-day-2.mp4')
+
+async function seedScanDir() {
+  await fsp.mkdir(path.join(scanDir, 'more'), { recursive: true })
+  await fsp.copyFile(fixtureMp4, scanFile)
+  await fsp.copyFile(fixtureMp4, nestedFile)
+}
+
+async function wipeScanDir() {
+  await fsp.rm(scanDir, { recursive: true, force: true })
+}
+
+function forgetIndexed() {
+  for (let video of [...videos]) {
+    if (video.channelId === 'cabin-tapes') deleteVideo(video.id)
+  }
+  resetChannels()
+}
 
 async function get(path: string, cookie?: string) {
   let response = await router.fetch(
@@ -241,5 +269,186 @@ describe('house branding', () => {
     assert.match(html, /role="alert"/)
     assert.match(html, /Give the site a name between 1 and 40 characters/)
     assert.match(html, /<span class="brand-name">LanTube<\/span>/)
+  })
+})
+
+describe('house folders', () => {
+  afterEach(async () => {
+    forgetIndexed()
+    await wipeScanDir()
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  it('lets an Admin attach a Folder under the Media share, scan it, and anyone on the LAN can watch', async () => {
+    await seedScanDir()
+    let { admin } = await occupied()
+    clearFolderChannels()
+
+    let attached = await postHouse(
+      [
+        ['intent', 'attach'],
+        ['path', scanDirName],
+        ['name', 'Cabin tapes'],
+      ],
+      admin,
+    )
+    assert.equal(attached.status, 303)
+    assert.equal(attached.headers.get('Location'), routes.house.index.href())
+
+    let house = await get(routes.house.index.href(), admin)
+    assert.equal(house.response.status, 200)
+    assert.match(house.html, /Cabin tapes/)
+    assert.match(house.html, /cabin-tapes/)
+    assert.match(house.html, />Scan now</)
+    assert.match(house.html, />Detach</)
+    assert.doesNotMatch(house.html, /No folders attached yet/)
+
+    let scanned = await postHouse(
+      [
+        ['intent', 'scan'],
+        ['folderId', 'cabin-tapes'],
+      ],
+      admin,
+    )
+    assert.equal(scanned.status, 303)
+
+    let folder = getChannel('cabin-tapes')
+    assert.ok(folder)
+    assert.equal(folder.kind, 'folder')
+    assert.equal(folder.path, 'cabin-tapes')
+    let weekend = getVideo('cabin-weekend')
+    assert.ok(weekend)
+    assert.equal(weekend.title, 'cabin-weekend')
+    assert.equal(weekend.channelId, 'cabin-tapes')
+    assert.equal(weekend.postedBy, undefined)
+    assert.equal(weekend.private, undefined)
+    assert.deepEqual(weekend.tags, [])
+    assert.equal(weekend.file, 'cabin-tapes/cabin-weekend.mp4')
+    let lake = getVideo('lake')
+    assert.ok(lake)
+    assert.equal(lake.file, 'cabin-tapes/more/lake.mp4')
+
+    let home = await get(routes.home.href())
+    assert.equal(home.response.status, 200)
+    assert.match(home.html, /cabin-weekend/)
+    assert.match(home.html, /lake/)
+
+    let channels = await get(routes.channels.href())
+    assert.match(channels.html, /Cabin tapes/)
+    assert.match(channels.html, /<h2[^>]*>Folders<\/h2>/)
+
+    let channel = await get(routes.channel.href({ channelId: 'cabin-tapes' }))
+    assert.equal(channel.response.status, 200)
+    assert.match(channel.html, /<h1 class="chhead-name">Cabin tapes<\/h1>/)
+    assert.match(channel.html, /cabin-weekend/)
+
+    let watch = await get(routes.watch.href({ videoId: 'cabin-weekend' }))
+    assert.equal(watch.response.status, 200)
+    assert.match(watch.html, /cabin-weekend/)
+    assert.match(watch.html, /Indexed from cabin-tapes/)
+
+    let media = await router.fetch(new Request(new URL(routes.media.href({ videoId: 'cabin-weekend' }), 'http://localhost')))
+    assert.equal(media.status, 200)
+    assert.match(media.headers.get('Content-Type') ?? '', /video\/mp4/)
+  })
+
+  it('forbids a Person who is not an Admin from attaching a Folder', async () => {
+    await seedScanDir()
+    let { member } = await occupied()
+    clearFolderChannels()
+    let response = await postHouse(
+      [
+        ['intent', 'attach'],
+        ['path', scanDirName],
+        ['name', 'Cabin tapes'],
+      ],
+      member,
+    )
+    let html = await response.text()
+    assert.equal(response.status, 403)
+    assert.match(html, /You need to be an Admin/)
+    assert.equal(getChannel('cabin-tapes'), undefined)
+  })
+
+  it('rejects a path that is not under the Media share', async () => {
+    let { admin } = await occupied()
+    clearFolderChannels()
+    let response = await postHouse(
+      [
+        ['intent', 'attach'],
+        ['path', '..'],
+        ['name', 'Outside'],
+      ],
+      admin,
+    )
+    let html = await response.text()
+    assert.equal(response.status, 400)
+    assert.match(html, /role="alert"/)
+    assert.match(html, /That path has to sit under the Media share/)
+    assert.equal(getChannel('outside'), undefined)
+  })
+
+  it('detaches a Folder from the catalogue and leaves the files on the share', async () => {
+    await seedScanDir()
+    let { admin } = await occupied()
+    clearFolderChannels()
+    assert.equal(
+      (
+        await postHouse(
+          [
+            ['intent', 'attach'],
+            ['path', scanDirName],
+            ['name', 'Cabin tapes'],
+          ],
+          admin,
+        )
+      ).status,
+      303,
+    )
+    assert.equal(
+      (
+        await postHouse(
+          [
+            ['intent', 'scan'],
+            ['folderId', 'cabin-tapes'],
+          ],
+          admin,
+        )
+      ).status,
+      303,
+    )
+    assert.ok(getVideo('cabin-weekend'))
+
+    let asked = await postHouse(
+      [
+        ['intent', 'detach'],
+        ['folderId', 'cabin-tapes'],
+      ],
+      admin,
+    )
+    assert.equal(asked.status, 400)
+    assert.match(await asked.text(), /Tick the box to confirm, then detach/)
+    assert.ok(getChannel('cabin-tapes'))
+    assert.ok(getVideo('cabin-weekend'))
+
+    let detached = await postHouse(
+      [
+        ['intent', 'detach'],
+        ['folderId', 'cabin-tapes'],
+        ['confirm', '1'],
+      ],
+      admin,
+    )
+    assert.equal(detached.status, 303)
+    assert.equal(getChannel('cabin-tapes'), undefined)
+    assert.equal(getVideo('cabin-weekend'), undefined)
+    await fsp.access(scanFile)
+    await fsp.access(nestedFile)
+
+    let home = await get(routes.home.href())
+    assert.doesNotMatch(home.html, /cabin-weekend/)
+    let watch = await get(routes.watch.href({ videoId: 'cabin-weekend' }))
+    assert.equal(watch.response.status, 404)
   })
 })

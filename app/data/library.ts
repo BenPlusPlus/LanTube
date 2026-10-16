@@ -114,10 +114,11 @@ function personChannel(person: Person): Channel {
   return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
-const folderChannels: Channel[] =
-  process.env.NODE_ENV === 'test'
-    ? [{ id: 'home-movies', name: 'Home Movies', kind: 'folder', path: '/media/Home Movies', hue: 214 }]
-    : []
+function seedFolderChannels(): Channel[] {
+  return [{ id: 'home-movies', name: 'Home Movies', kind: 'folder', path: '/media/Home Movies', hue: 214 }]
+}
+
+let folderChannels: Channel[] = process.env.NODE_ENV === 'test' ? seedFolderChannels() : []
 
 function seedCustomChannels(): Channel[] {
   return [
@@ -347,25 +348,50 @@ export async function loadCatalogueChannels() {
     if (list) list.push(join.person_id)
     else managersByChannel.set(join.channel_id, [join.person_id])
   }
-  let present = new Set(customChannels.map((channel) => channel.id))
+  let present = new Set([...customChannels, ...folderChannels].map((channel) => channel.id))
   for (let row of rows) {
-    if (row.kind !== 'custom' || present.has(row.slug)) continue
-    customChannels.push({
-      id: row.slug,
-      name: row.name,
-      kind: 'custom',
-      hue: row.hue,
-      ownerId: row.owner_id ?? undefined,
-      managerIds: managersByChannel.get(row.id) ?? [],
-      description: row.description ?? undefined,
-      photo: row.photo_path ?? undefined,
-    })
-    present.add(row.slug)
+    if (present.has(row.slug)) continue
+    if (row.kind === 'custom') {
+      customChannels.push({
+        id: row.slug,
+        name: row.name,
+        kind: 'custom',
+        hue: row.hue,
+        ownerId: row.owner_id ?? undefined,
+        managerIds: managersByChannel.get(row.id) ?? [],
+        description: row.description ?? undefined,
+        photo: row.photo_path ?? undefined,
+      })
+      present.add(row.slug)
+    } else if (row.kind === 'folder') {
+      folderChannels.push({
+        id: row.slug,
+        name: row.name,
+        kind: 'folder',
+        path: row.path ?? undefined,
+        hue: row.hue,
+        photo: row.photo_path ?? undefined,
+      })
+      present.add(row.slug)
+    }
   }
+}
+
+export function rememberFolder(channel: Channel) {
+  if (!folderChannels.some((entry) => entry.id === channel.id)) folderChannels.push(channel)
+}
+
+export function dropFolderChannel(id: string) {
+  folderChannels = folderChannels.filter((channel) => channel.id !== id)
+}
+
+export function clearFolderChannels() {
+  folderChannels = []
 }
 
 export function resetChannels() {
   customChannels = process.env.NODE_ENV === 'test' ? seedCustomChannels() : []
+  folderChannels = process.env.NODE_ENV === 'test' ? seedFolderChannels() : []
 }
 
 export function dropCustomChannel(id: string) {
