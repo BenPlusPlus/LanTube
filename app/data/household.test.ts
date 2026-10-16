@@ -4,7 +4,9 @@ import { afterEach, describe, it } from 'remix/test'
 import {
   createPerson,
   getPerson,
+  listPeople,
   loadCataloguePeople,
+  removePerson,
   resetHousehold,
   setPersonPassword,
   updatePersonRoles,
@@ -12,10 +14,12 @@ import {
   verifyPassword,
   type Person,
 } from './household.ts'
+import { resetChannels } from './library.ts'
 
 afterEach(async () => {
   await useEmptyHouse()
   resetHousehold()
+  resetChannels()
 })
 
 async function join(name: string) {
@@ -153,6 +157,61 @@ describe('Admin-set password', () => {
 
     let result = await setPersonPassword(alex.id, sam.id, 'torch')
     assert.ok(result !== true)
+    assert.equal(verifyPassword(sam.id, 'lantern'), true)
+  })
+})
+
+describe('Remove a Person', () => {
+  it('lets an Admin remove a Person, who cannot sign in after, and keeps the slug reserved after reload', async () => {
+    let sam = await join('Sam')
+    let alex = await join('Alex')
+    assert.equal(verifyPassword(alex.id, 'lantern'), true)
+
+    let result = await removePerson(sam.id, alex.id)
+    assert.equal(result, true)
+    assert.equal(getPerson(alex.id), undefined)
+    assert.equal(getPerson(alex.slug), undefined)
+    assert.equal(
+      listPeople().some((person) => person.id === alex.id),
+      false,
+    )
+    assert.equal(verifyPassword(alex.id, 'lantern'), false)
+    assert.equal(verifyPassword(alex.slug, 'lantern'), false)
+
+    let reuse = await createPerson('Alex', 'lantern')
+    assert.ok(!('error' in reuse))
+    assert.notEqual(reuse.slug, alex.slug)
+
+    resetHousehold()
+    await loadCataloguePeople()
+    assert.equal(getPerson(alex.id), undefined)
+    assert.equal(verifyPassword(alex.id, 'lantern'), false)
+    let again = await createPerson('Alex Lane', 'lantern')
+    assert.ok(!('error' in again))
+    assert.notEqual(again.slug, alex.slug)
+  })
+
+  it('does not let the last Admin remove themselves', async () => {
+    let sam = await join('Sam')
+    await join('Alex')
+
+    let result = await removePerson(sam.id, sam.id)
+    assert.deepEqual(result, { error: 'The house needs at least one Admin.' })
+    assert.equal(getPerson(sam.id)?.isAdmin, true)
+    assert.equal(verifyPassword(sam.id, 'lantern'), true)
+
+    resetHousehold()
+    await loadCataloguePeople()
+    assert.equal(getPerson(sam.id)?.isAdmin, true)
+  })
+
+  it('does not let a Person who is not an Admin remove someone', async () => {
+    let sam = await join('Sam')
+    let alex = await join('Alex')
+
+    let result = await removePerson(alex.id, sam.id)
+    assert.deepEqual(result, { error: 'You need to be an Admin.' })
+    assert.equal(getPerson(sam.id)?.isAdmin, true)
     assert.equal(verifyPassword(sam.id, 'lantern'), true)
   })
 })

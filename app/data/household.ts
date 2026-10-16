@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { notNull, sql } from 'remix/data-table'
+import { and, isNull, notNull, sql } from 'remix/data-table'
 
 import { db } from '../db.ts'
 import { hueFor, slugify } from '../ui/public/identity.ts'
@@ -49,6 +49,8 @@ const mockup: Record[] = [
 let extras: Record[] = []
 let catalogueRecords: Record[] = []
 let includeMockup = process.env.NODE_ENV === 'test'
+/** Slugs of Removed People stay reserved so Frozen Home channels keep their URLs. */
+let reservedSlugs = new Set<string>()
 
 function records(): Record[] {
   return includeMockup ? [...mockup, ...catalogueRecords, ...extras] : [...catalogueRecords, ...extras]
@@ -112,6 +114,7 @@ export { hueFor, slugify }
 export async function loadCataloguePeople() {
   let rows = await db.findMany(people)
   catalogueRecords = rows.filter((row) => row.removed_at == null).map(personFromRow)
+  reservedSlugs = new Set(rows.filter((row) => row.removed_at != null).map((row) => row.slug))
 }
 
 /** `isIdTaken` lets callers reserve slugs outside the household, such as custom channel URLs. */
@@ -137,7 +140,12 @@ export async function createPerson(
   let base = slugify(trimmed)
   let slug = base
   let n = 2
-  while (getPerson(slug) || isIdTaken(slug) || catalogueRecords.some((row) => row.person.slug === slug)) {
+  while (
+    getPerson(slug) ||
+    isIdTaken(slug) ||
+    reservedSlugs.has(slug) ||
+    catalogueRecords.some((row) => row.person.slug === slug)
+  ) {
     slug = `${base}-${n}`
     n++
   }
@@ -217,7 +225,7 @@ export async function updatePersonRoles(
       if (!roles.isAdmin) {
         let current = await tx.find(people, row.person.id)
         if (current?.is_admin) {
-          let admins = await tx.count(people, { where: { is_admin: true } })
+          let admins = await tx.count(people, { where: and({ is_admin: true }, isNull(people.removed_at)) })
           if (admins <= 1) return true
         }
       }
@@ -230,6 +238,62 @@ export async function updatePersonRoles(
   row.person.isAdmin = roles.isAdmin
   row.person.isParent = roles.isParent
   return row.person
+}
+
+/** Admin removes a Person. The last Admin cannot be removed. The slug stays reserved. */
+export async function removePerson(actorId: string, targetId: string): Promise<true | { error: string }> {
+  let actor = recordOf(actorId)
+  if (!actor?.person.isAdmin) return { error: 'You need to be an Admin.' }
+  let row = recordOf(targetId)
+  if (!row) return { error: 'That person isn’t in the house.' }
+
+  if (row.person.isAdmin && listPeople().filter((person) => person.isAdmin).length === 1) {
+    return { error: 'The house needs at least one Admin.' }
+  }
+
+  if (isCataloguePerson(row.person.id)) {
+    let blocked = await db.transaction(async (tx) => {
+      await tx.exec(sql`lock table people in share row exclusive mode`)
+      let current = await tx.find(people, row.person.id)
+      if (!current || current.removed_at != null) return 'missing' as const
+      if (current.is_admin) {
+        let admins = await tx.count(people, { where: and({ is_admin: true }, isNull(people.removed_at)) })
+        if (admins <= 1) return 'last-admin' as const
+      }
+
+      await tx.deleteMany(playlistAudience, { where: { person_id: row.person.id } })
+      let ownedPlaylists = await tx.findMany(playlistTable, { where: { owner_id: row.person.id } })
+      for (let playlist of ownedPlaylists) {
+        await tx.deleteMany(playlistVideos, { where: { playlist_id: playlist.id } })
+        await tx.deleteMany(playlistAudience, { where: { playlist_id: playlist.id } })
+      }
+      await tx.deleteMany(playlistTable, { where: { owner_id: row.person.id } })
+      await tx.deleteMany(watchSessions, { where: { person_id: row.person.id } })
+      await tx.deleteMany(watchProgress, { where: { person_id: row.person.id } })
+      await tx.deleteMany(videoAudience, { where: { person_id: row.person.id } })
+      await tx.deleteMany(channelManagers, { where: { person_id: row.person.id } })
+      await tx.updateMany(channels, { owner_id: actor.person.id }, { where: { owner_id: row.person.id, kind: 'custom' } })
+      let nowOwned = await tx.findMany(channels, { where: { owner_id: actor.person.id, kind: 'custom' } })
+      for (let channel of nowOwned) {
+        await tx.deleteMany(channelManagers, { where: { channel_id: channel.id, person_id: actor.person.id } })
+      }
+      await tx.update(people, row.person.id, { removed_at: new Date() })
+      return false as const
+    })
+    if (blocked === 'last-admin') return { error: 'The house needs at least one Admin.' }
+    if (blocked === 'missing') return { error: 'That person isn’t in the house.' }
+  }
+
+  catalogueRecords = catalogueRecords.filter((entry) => entry.person.id !== row.person.id)
+  extras = extras.filter((entry) => entry.person.id !== row.person.id)
+  reservedSlugs.add(row.person.slug)
+  let { forgetRemovedPerson: forgetFromLibrary } = await import('./library.ts')
+  let { forgetRemovedPerson: forgetFromPlaylists } = await import('./playlists.ts')
+  let { forgetRemovedPerson: forgetFromHistory } = await import('./history.ts')
+  forgetFromLibrary(row.person, actor.person.id)
+  forgetFromPlaylists(row.person.id)
+  forgetFromHistory(row.person.id)
+  return true
 }
 
 /** An Admin may set a new password for someone else; the old password is not required. */
@@ -326,6 +390,7 @@ export async function changeOwnPassword(
 export function resetHousehold() {
   extras = []
   catalogueRecords = []
+  reservedSlugs = new Set()
   includeMockup = process.env.NODE_ENV === 'test'
   resetHouseSettings()
 }

@@ -6,6 +6,7 @@ import { attachFolder, detachFolder, scanFolder } from '../../data/folders.ts'
 import {
   listPeople,
   personFromSession,
+  removePerson,
   setPersonPassword,
   updatePersonRoles,
   type Person,
@@ -72,6 +73,15 @@ export default createController(routes.house, {
         let brand = readText(context.formData, 'brand')
         let saved = await setBrandName(brand)
         if (saved !== true) return fail(saved.error, 'brand', { brand })
+        return redirect(routes.house.index.href(), 303)
+      }
+
+      if (readText(context.formData, 'intent') === 'remove') {
+        if (readText(context.formData, 'confirm') !== '1') {
+          return fail('Tick the box to confirm, then remove.', 'remove')
+        }
+        let removed = await removePerson(person.id, personId)
+        if (removed !== true) return fail(removed.error, 'remove')
         return redirect(routes.house.index.href(), 303)
       }
 

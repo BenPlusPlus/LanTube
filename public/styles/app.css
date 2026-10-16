@@ -2956,7 +2956,8 @@ label.poster:hover {
 }
 
 .house-person-roles,
-.house-person-password {
+.house-person-password,
+.house-person-remove {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2969,6 +2970,15 @@ label.poster:hover {
 
 .house-person-password {
   flex: 1 1 240px;
+}
+
+.house-person-remove {
+  flex: 1 1 100%;
+}
+
+.house-person-remove .field-hint {
+  flex: 1 1 100%;
+  margin: 0;
 }
 
 .house-person-password .field {
