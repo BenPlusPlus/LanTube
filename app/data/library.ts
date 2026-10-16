@@ -68,6 +68,15 @@ export function canEditVideo(video: Video, personId: string | undefined | null):
   return channel.kind === 'custom' && canPost(channel, personId)
 }
 
+/** An uploaded Video: its Video owner, and on a Custom channel also the Channel owner and Managers. */
+export function canDeleteVideo(video: Video, personId: string | undefined | null): boolean {
+  if (!personId) return false
+  let channel = getChannel(video.channelId)
+  if (!channel || channel.kind === 'folder') return false
+  if (video.postedBy === personId) return true
+  return channel.kind === 'custom' && canPost(channel, personId)
+}
+
 /** Drops the owner and anyone who is not a Person in the house. */
 export function namedAudience(ownerId: string, ids: Iterable<string>): string[] {
   let known = new Set(listPeople().map((person) => person.id))
@@ -98,6 +107,7 @@ export function addUploadedVideo(video: Omit<Video, 'addedDaysAgo' | 'plays'>, a
 export function deleteVideo(id: string) {
   let index = videos.findIndex((video) => video.id === id)
   if (index !== -1) videos.splice(index, 1)
+  for (let own of progressByPerson.values()) own.delete(id)
 }
 
 function personChannel(person: Person): Channel {
@@ -187,6 +197,11 @@ export function channelsFor(personId: string): { runs: Channel[]; postsTo: Chann
     runs: customChannels.filter((channel) => channel.ownerId === id),
     postsTo: customChannels.filter((channel) => channel.managerIds?.includes(id)),
   }
+}
+
+/** Only the Channel owner may delete a Custom channel. Home channels are not deleted this way. */
+export function canDeleteCustomChannel(channel: Channel, personId: string | undefined | null): boolean {
+  return channel.kind === 'custom' && personId != null && channel.ownerId === personId
 }
 
 export function canPost(channel: Channel, personId: string | undefined): boolean {
@@ -351,6 +366,10 @@ export async function loadCatalogueChannels() {
 
 export function resetChannels() {
   customChannels = process.env.NODE_ENV === 'test' ? seedCustomChannels() : []
+}
+
+export function dropCustomChannel(id: string) {
+  customChannels = customChannels.filter((channel) => channel.id !== id)
 }
 
 export const channelLimits = { name: NAME_MAX, description: DESCRIPTION_MAX } as const

@@ -71,6 +71,11 @@ describe('watch page', () => {
     assert.equal(response.status, 404)
   })
 
+  it('does not offer delete on a Folder Video', async () => {
+    let { html } = await get(routes.watch.href({ videoId: 'christmas-2009' }), await signIn('mia'))
+    assert.doesNotMatch(html, /Delete this video/)
+  })
+
   it('renders the player, facts, and related videos', async () => {
     let { response, html } = await get(routes.watch.href({ videoId: 'tahoe-day-2' }))
 
