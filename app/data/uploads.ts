@@ -4,8 +4,7 @@ import * as path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import { deleteCatalogueCustomChannel, deleteCatalogueVideo, insertUploadedVideo, videoSlugTaken } from './catalogue.ts'
-import { slugify } from './household.ts'
+import { deleteCatalogueCustomChannel, deleteCatalogueVideo, insertUploadedVideo, uniqueVideoSlug } from './catalogue.ts'
 import {
   addUploadedVideo,
   canPost,
@@ -13,7 +12,6 @@ import {
   deleteVideo,
   dropCustomChannel,
   getChannel,
-  getVideo,
   namedAudience,
   videos,
   type Channel,
@@ -185,17 +183,6 @@ function isJpeg(bytes: Uint8Array) {
   return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
 }
 
-async function uniqueVideoId(title: string): Promise<string> {
-  let base = slugify(title, 'video').slice(0, 60).replace(/-+$/, '') || 'video'
-  let id = base
-  let n = 2
-  while (getVideo(id) || (await videoSlugTaken(id))) {
-    id = `${base}-${n}`
-    n++
-  }
-  return id
-}
-
 /** Checks the details, moves the staged file into the library, and adds the video. */
 export async function publishUpload(personId: string, input: UploadInput): Promise<UploadResult> {
   let upload = getStaged(input.uploadId, personId)
@@ -225,7 +212,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
   if (parsed.error) return { error: parsed.error, field: 'tags' }
   let tagRows = await findOrCreateTags(parsed.names)
   let tags = tagRows.map((tag) => tag.slug)
-  let id = await uniqueVideoId(title)
+  let id = await uniqueVideoSlug(title)
   let relative = path.posix.join('uploads', channel.id, `${id}${upload.ext}`)
   let destination = path.join(uploadsDir, channel.id, `${id}${upload.ext}`)
 

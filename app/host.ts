@@ -1,6 +1,7 @@
 import { readHostConfig } from './config.ts'
 import { loadHouseSettings } from './data/brand.ts'
 import { loadCatalogueVideos } from './data/catalogue.ts'
+import { scanAttachedFolders } from './data/folders.ts'
 import { loadCatalogueHistory } from './data/history.ts'
 import { loadCataloguePeople } from './data/household.ts'
 import { loadCatalogueChannels } from './data/library.ts'
@@ -20,6 +21,7 @@ export async function prepareHost(
     await loadCataloguePeople()
     await loadCatalogueChannels()
     await loadCatalogueVideos()
+    await scanAttachedFolders()
     await loadCataloguePlaylists()
     await loadCatalogueHistory()
   }

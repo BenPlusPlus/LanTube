@@ -1,0 +1,2 @@
+# Remix checksums SHA-256 of up.sql bytes. CRLF checkouts drift the journal.
+db/migrations/**/*.sql text eol=lf

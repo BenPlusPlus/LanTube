@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 
 import { brandLimits, brandName } from '../../data/brand.ts'
 import type { Person } from '../../data/household.ts'
+import { channelLimits, getChannels } from '../../data/library.ts'
 import { routes } from '../../routes.ts'
 import { Avatar } from '../../ui/cards.tsx'
 import { Icon } from '../../ui/public/icons.tsx'
@@ -29,20 +30,28 @@ export function HouseForbidden(handle: Handle<{ person: Person }>) {
   }
 }
 
+export type HouseErrorField = 'roles' | 'password' | 'brand' | 'path' | 'name' | 'detach' | 'scan'
+
 export interface HousePageProps {
   person: Person
   people: Person[]
   brand: string
   error?: string
   errorPersonId?: string
-  errorField?: 'roles' | 'password' | 'brand'
+  errorFolderId?: string
+  errorField?: HouseErrorField
+  folderPath?: string
+  folderName?: string
 }
 
 export function HousePage(handle: Handle<HousePageProps>) {
   return () => {
-    let { person, people, brand, error, errorPersonId, errorField } = handle.props
+    let { person, people, brand, error, errorPersonId, errorFolderId, errorField, folderPath, folderName } = handle.props
     let adminCount = people.filter((member) => member.isAdmin).length
     let brandInvalid = error && errorField === 'brand'
+    let pathInvalid = error && errorField === 'path'
+    let nameInvalid = error && errorField === 'name'
+    let folders = getChannels().filter((channel) => channel.kind === 'folder')
     return (
       <AppShell current={null} title="House" person={person}>
         <header class="page-head">
@@ -203,9 +212,116 @@ export function HousePage(handle: Handle<HousePageProps>) {
             </h2>
           </header>
           <p class="page-lede">Index a folder on the Media share. Those videos show on Home as house-visible.</p>
-          <div class="chlist-empty">
-            <p>No folders attached yet.</p>
-          </div>
+          <form class="house-folder-attach" method="post" action={routes.house.action.href()}>
+            <input type="hidden" name="intent" value="attach" />
+            <label class="field-label" for="house-folder-path">
+              Path
+            </label>
+            <input
+              id="house-folder-path"
+              class="field"
+              type="text"
+              name="path"
+              value={folderPath ?? ''}
+              autocomplete="off"
+              required
+              aria-invalid={pathInvalid ? 'true' : undefined}
+              aria-describedby={pathInvalid ? 'house-folder-path-error' : 'house-folder-path-hint'}
+            />
+            <p class="field-hint" id="house-folder-path-hint">
+              A folder under the Media share. Type the path; there isn’t a file picker.
+            </p>
+            {pathInvalid ? (
+              <p class="field-error" id="house-folder-path-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <label class="field-label" for="house-folder-name">
+              Name
+            </label>
+            <input
+              id="house-folder-name"
+              class="field"
+              type="text"
+              name="name"
+              value={folderName ?? ''}
+              maxlength={channelLimits.name}
+              autocomplete="off"
+              aria-invalid={nameInvalid ? 'true' : undefined}
+              aria-describedby={nameInvalid ? 'house-folder-name-error' : 'house-folder-name-hint'}
+            />
+            <p class="field-hint" id="house-folder-name-hint">
+              Shown in the house. Leave blank to use the directory name.
+            </p>
+            {nameInvalid ? (
+              <p class="field-error" id="house-folder-name-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <button class="btn btn-secondary" type="submit">
+              Attach folder
+            </button>
+          </form>
+          {error && (errorField === 'scan' || (errorField === 'detach' && !errorFolderId)) ? (
+            <p class="field-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {folders.length === 0 ? (
+            <div class="chlist-empty">
+              <p>No folders attached yet.</p>
+            </div>
+          ) : (
+            <ul class="house-folders">
+              {folders.map((folder) => {
+                let detachInvalid = error && errorField === 'detach' && errorFolderId === folder.id
+                let confirmId = `house-detach-${folder.id}`
+                let errorId = `house-detach-error-${folder.id}`
+                return (
+                  <li class="house-folder">
+                    <Icon name="folder" size={24} />
+                    <span class="house-folder-text">
+                      <span class="house-folder-name">{folder.name}</span>
+                      {folder.path ? <span class="house-folder-path path-chip">{folder.path}</span> : null}
+                    </span>
+                    <form class="house-folder-scan" method="post" action={routes.house.action.href()}>
+                      <input type="hidden" name="intent" value="scan" />
+                      <input type="hidden" name="folderId" value={folder.id} />
+                      <button class="btn btn-secondary btn-sm" type="submit">
+                        Scan now
+                      </button>
+                    </form>
+                    <form class="house-folder-detach" method="post" action={routes.house.action.href()}>
+                      <input type="hidden" name="intent" value="detach" />
+                      <input type="hidden" name="folderId" value={folder.id} />
+                      <label class="chform-remove" for={confirmId}>
+                        <input
+                          id={confirmId}
+                          type="checkbox"
+                          name="confirm"
+                          value="1"
+                          aria-invalid={detachInvalid ? 'true' : undefined}
+                          aria-describedby={detachInvalid ? errorId : undefined}
+                        />
+                        <span class="check" aria-hidden="true">
+                          <Icon name="check" size={14} />
+                        </span>
+                        Indexed videos leave the catalogue. Files on the share stay.
+                      </label>
+                      {detachInvalid ? (
+                        <p class="field-error" id={errorId} role="alert">
+                          {error}
+                        </p>
+                      ) : null}
+                      <button class="btn btn-secondary btn-sm" type="submit">
+                        Detach
+                      </button>
+                    </form>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </section>
       </AppShell>
     )

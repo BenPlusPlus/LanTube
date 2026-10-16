@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { db } from '../db.ts'
+import { slugify } from './household.ts'
 import { canWatch, getVideo, videos as memoryVideos, type Video } from './library.ts'
 import { loadCatalogueTags } from './tags.ts'
 import { channels, videoAudience, videoTags, videos, tags as tagRows } from './tables.ts'
@@ -110,6 +111,17 @@ export async function videoSlugTaken(slug: string) {
   return (await db.findOne(videos, { where: { slug } })) != null
 }
 
+export async function uniqueVideoSlug(title: string) {
+  let base = slugify(title, 'video').slice(0, 60).replace(/-+$/, '') || 'video'
+  let id = base
+  let n = 2
+  while (getVideo(id) || (await videoSlugTaken(id))) {
+    id = `${base}-${n}`
+    n++
+  }
+  return id
+}
+
 /** Remember catalogue Videos in the in-memory library so Watch and channels work after Host start. */
 export async function loadCatalogueVideos() {
   await loadCatalogueTags()
@@ -164,6 +176,58 @@ export async function insertUploadedVideo(input: {
   return { id, slug: input.slug }
 }
 
+export async function insertIndexedVideo(input: {
+  slug: string
+  title: string
+  channelSlug: string
+  filePath: string
+}): Promise<{ id: string; slug: string } | null> {
+  let channel = await db.findOne(channels, { where: { slug: input.channelSlug } })
+  if (!channel || channel.kind !== 'folder') return null
+  let id = randomUUID()
+  await db.create(videos, {
+    id,
+    slug: input.slug,
+    title: input.title,
+    channel_id: channel.id,
+    duration_sec: null,
+    poster_path: null,
+    plays: 0,
+    file_path: input.filePath,
+    owner_id: null,
+    visibility: 'house',
+  })
+  return { id, slug: input.slug }
+}
+
+export async function folderPathTaken(relative: string) {
+  let rows = await db.findMany(channels, { where: { kind: 'folder' } })
+  return rows.some((row) => row.path === relative)
+}
+
+export async function insertFolderChannel(input: {
+  slug: string
+  name: string
+  path: string
+  hue: number
+}): Promise<{ id: string; slug: string } | null> {
+  if (await db.findOne(channels, { where: { slug: input.slug } })) return null
+  if (await folderPathTaken(input.path)) return null
+  let id = randomUUID()
+  await db.create(channels, {
+    id,
+    slug: input.slug,
+    name: input.name,
+    kind: 'folder',
+    path: input.path,
+    hue: input.hue,
+    photo_path: null,
+    owner_id: null,
+    description: null,
+  })
+  return { id, slug: input.slug }
+}
+
 export async function saveUploadedVideo(input: {
   slug: string
   title: string
@@ -204,6 +268,17 @@ export async function deleteCatalogueVideo(slug: string) {
 export async function deleteCatalogueCustomChannel(slug: string) {
   let row = await db.findOne(channels, { where: { slug } })
   if (!row || row.kind !== 'custom') return false
+  let rows = await db.findMany(videos, { where: { channel_id: row.id } })
+  await db.transaction(async (tx) => {
+    for (let video of rows) await tx.delete(videos, video.id)
+    await tx.delete(channels, row.id)
+  })
+  return true
+}
+
+export async function deleteCatalogueFolder(slug: string) {
+  let row = await db.findOne(channels, { where: { slug } })
+  if (!row || row.kind !== 'folder') return false
   let rows = await db.findMany(videos, { where: { channel_id: row.id } })
   await db.transaction(async (tx) => {
     for (let video of rows) await tx.delete(videos, video.id)

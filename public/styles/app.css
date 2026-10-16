@@ -3019,6 +3019,70 @@ label.poster:hover {
   justify-self: start;
 }
 
+.house-folder-attach {
+  display: grid;
+  max-width: 28rem;
+  margin-bottom: 16px;
+}
+
+.house-folder-attach .field {
+  margin-bottom: 8px;
+}
+
+.house-folder-attach .field-hint {
+  margin: 0 0 16px;
+}
+
+.house-folder-attach .field-error {
+  margin: -8px 0 16px;
+}
+
+.house-folder-attach .btn {
+  justify-self: start;
+}
+
+.house-folders {
+  display: grid;
+  gap: 4px;
+}
+
+.house-folder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+}
+
+.house-folder-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 160px;
+}
+
+.house-folder-name {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.house-folder-path {
+  justify-self: start;
+}
+
+.house-folder-scan,
+.house-folder-detach {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.house-folder-detach {
+  flex: 1 1 280px;
+}
+
 @media (max-width: 900px) {
   .who-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

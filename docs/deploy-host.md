@@ -25,7 +25,7 @@ cd lantube
 docker compose up -d --build
 ```
 
-Secrets stay in `/etc/lantube/production.env`; the clone does not contain them. Clone from GitHub on the Host. A Windows working copy (CRLF) makes Remix treat already-applied `up.sql` as checksum drift and the process will not listen.
+Secrets stay in `/etc/lantube/production.env`; the clone does not contain them. Clone from GitHub on the Host. Migration SQL is LF (`.gitattributes`) so a Windows checkout hashes the same `up.sql` bytes as the Host.
 
 Done when `cd "$HOME/lantube" && git status` shows `master`, and `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1/` prints `200`.
 

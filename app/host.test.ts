@@ -1,10 +1,32 @@
+import * as fsp from 'node:fs/promises'
+import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import * as assert from 'remix/assert'
-import { describe, it } from 'remix/test'
+import { afterEach, describe, it } from 'remix/test'
 
 import { listenHost, readHostConfig } from './config.ts'
+import { attachFolder } from './data/folders.ts'
+import { createPerson, resetHousehold, useEmptyHouse } from './data/household.ts'
+import { clearFolderChannels, deleteVideo, getVideo, resetChannels, videos } from './data/library.ts'
+import { mediaDir } from './data/media.ts'
+import { channels, people, videos as videoTable } from './data/tables.ts'
 import { db } from './db.ts'
-import { channels, people, videos } from './data/tables.ts'
 import { prepareHost } from './host.ts'
+
+describe('catalogue migrations', () => {
+  it('keeps applied up.sql as LF so Remix checksums match the Host journal', async () => {
+    let dir = fileURLToPath(new URL('../db/migrations/', import.meta.url))
+    let names = (await fsp.readdir(dir, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+    assert.ok(names.length > 0)
+    for (let name of names) {
+      let bytes = await fsp.readFile(path.join(dir, name, 'up.sql'))
+      assert.equal(bytes.includes(13), false, `${name}/up.sql contains CR`)
+    }
+  })
+})
 
 describe('host config', () => {
   it('refuses production start when DATABASE_URL is missing', () => {
@@ -116,12 +138,51 @@ describe('host start', () => {
   it('does not insert People, Videos, or Folders when applying migrations', async () => {
     let before = {
       people: await db.count(people),
-      videos: await db.count(videos),
+      videos: await db.count(videoTable),
       folders: await db.count(channels, { where: { kind: 'folder' } }),
     }
     await prepareHost()
     assert.equal(await db.count(people), before.people)
-    assert.equal(await db.count(videos), before.videos)
+    assert.equal(await db.count(videoTable), before.videos)
     assert.equal(await db.count(channels, { where: { kind: 'folder' } }), before.folders)
+  })
+})
+
+describe('host folder scan', () => {
+  const scanDirName = 'cabin-tapes'
+  const scanDir = path.join(mediaDir, scanDirName)
+
+  afterEach(async () => {
+    for (let video of [...videos]) {
+      if (video.channelId === 'cabin-tapes') deleteVideo(video.id)
+    }
+    resetChannels()
+    await fsp.rm(scanDir, { recursive: true, force: true })
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  it('indexes attached Folder videos when the Host becomes ready to listen', async () => {
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    clearFolderChannels()
+    await fsp.mkdir(scanDir, { recursive: true })
+    await fsp.copyFile(path.join(mediaDir, 'tahoe-day-2.mp4'), path.join(scanDir, 'cabin-weekend.mp4'))
+    let person = await createPerson('Sam', 'lantern')
+    assert.ok(!('error' in person))
+    let folder = await attachFolder({ path: scanDirName, name: 'Cabin tapes' })
+    assert.ok(!('error' in folder))
+    assert.equal(getVideo('cabin-weekend'), undefined)
+
+    resetChannels()
+    clearFolderChannels()
+    await prepareHost()
+
+    let video = getVideo('cabin-weekend')
+    assert.ok(video)
+    assert.equal(video.channelId, 'cabin-tapes')
+    assert.equal(video.postedBy, undefined)
+    assert.equal(video.file, 'cabin-tapes/cabin-weekend.mp4')
   })
 })
