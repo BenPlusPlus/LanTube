@@ -31,5 +31,8 @@ tmp/
 
 # House-specific Compose overlay (hostname, Catalogue DNS pins)
 /compose.override.yaml
+
+# Local Catalogue URL and session secret
+/config/development.env
 /.impeccable/mocks/decision
 /.agents/skills
