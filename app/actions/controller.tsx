@@ -5,12 +5,16 @@ import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
 import { brandName } from '../data/brand.ts'
-import { listVisibleVideos, saveUploadedVideo } from '../data/catalogue.ts'
+import { listVisibleVideos, saveIndexedVideo, saveUploadedVideo } from '../data/catalogue.ts'
 import { getPerson, listPeople, personFromSession, type Person } from '../data/household.ts'
+import { dropIndexedVideo } from '../data/folders.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
 import {
   canDeleteVideo,
+  canDropFolderVideo,
   canEditVideo,
+  canEditVideoTags,
+  canEditVideoTitle,
   canWatch,
   getChannel,
   getVideo,
@@ -44,6 +48,16 @@ function safeReturn(value: FormDataEntryValue | null): string | undefined {
 function watchable(videoId: string, viewerId: string | undefined): Video | undefined {
   let video = getVideo(videoId)
   return video && canWatch(video, viewerId) ? video : undefined
+}
+
+function watchFields(video: Video, personId: string | undefined | null) {
+  return {
+    canEditTitle: canEditVideoTitle(video, personId),
+    canEditTags: canEditVideoTags(video, personId),
+    canEditAccess: canEditVideo(video, personId),
+    canDelete: canDeleteVideo(video, personId),
+    canDrop: canDropFolderVideo(video, personId),
+  }
 }
 
 export default createController(routes, {
@@ -89,8 +103,7 @@ export default createController(routes, {
           person={person}
           people={listPeople()}
           list={list}
-          canEdit={canEditVideo(video, person?.id)}
-          canDelete={canDeleteVideo(video, person?.id)}
+          {...watchFields(video, person?.id)}
         />,
       )
     },
@@ -103,12 +116,14 @@ export default createController(routes, {
           { status: 404 },
         )
       }
-      if (!person || !canEditVideo(video, person.id)) {
+      let fields = watchFields(video, person?.id)
+      if (!person || !(fields.canEditTitle || fields.canEditTags || fields.canEditAccess)) {
         return new Response('Forbidden', { status: 403 })
       }
       let form = context.formData
       let rawTitle = form.get('title')
-      let title = typeof rawTitle === 'string' ? rawTitle.trim().replace(/\s+/g, ' ') : ''
+      let postedTitle = typeof rawTitle === 'string' ? rawTitle.trim().replace(/\s+/g, ' ') : ''
+      let title = fields.canEditTitle ? postedTitle : video.title
       let parsed = parseTagNames(form.getAll('tags').filter((value): value is string => typeof value === 'string'))
       let visibility: 'house' | 'private' = form.get('visibility') === 'private' ? 'private' : 'house'
       let audienceIds =
@@ -119,7 +134,7 @@ export default createController(routes, {
             )
           : []
       let edit = {
-        title: typeof rawTitle === 'string' ? rawTitle : '',
+        title: fields.canEditTitle && typeof rawTitle === 'string' ? rawTitle : video.title,
         tags: parsed.names,
         tagDraft: parsed.leftover,
         visibility,
@@ -133,26 +148,29 @@ export default createController(routes, {
             theater={/(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')}
             person={person}
             people={listPeople()}
-            canEdit
-            canDelete={canDeleteVideo(video, person.id)}
+            {...fields}
             edit={edit}
             error={error}
             errorField={errorField}
           />,
           { status: 400 },
         )
-      if (title.length < 1 || title.length > uploadLimits.title) {
+      if (fields.canEditTitle && (title.length < 1 || title.length > uploadLimits.title)) {
         return fail(`Give the video a title between 1 and ${uploadLimits.title} characters.`, 'title')
       }
-      if (parsed.error) return fail(parsed.error, 'tags')
-      let tagRows = await findOrCreateTags(parsed.names)
-      let saved = await saveUploadedVideo({
-        slug: video.id,
-        title,
-        visibility,
-        audienceIds,
-        tagIds: tagRows.map((tag) => tag.id),
-      })
+      if (fields.canEditTags && parsed.error) return fail(parsed.error, 'tags')
+      let folder = getChannel(video.channelId)?.kind === 'folder'
+      let tagRows = fields.canEditTags ? await findOrCreateTags(parsed.names) : []
+      let tagIds = fields.canEditTags ? tagRows.map((tag) => tag.id) : []
+      let saved = folder
+        ? await saveIndexedVideo({ slug: video.id, title, tagIds })
+        : await saveUploadedVideo({
+            slug: video.id,
+            title,
+            visibility,
+            audienceIds,
+            tagIds,
+          })
       if (!saved) {
         return context.render(
           <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
@@ -160,13 +178,15 @@ export default createController(routes, {
         )
       }
       video.title = title
-      video.tags = tagRows.map((tag) => tag.slug)
-      if (visibility === 'private') {
-        video.private = true
-        video.audience = audienceIds
-      } else {
-        video.private = undefined
-        video.audience = undefined
+      if (fields.canEditTags) video.tags = tagRows.map((tag) => tag.slug)
+      if (!folder) {
+        if (visibility === 'private') {
+          video.private = true
+          video.audience = audienceIds
+        } else {
+          video.private = undefined
+          video.audience = undefined
+        }
       }
       return redirect(routes.watch.href({ videoId: video.id }), 303)
     },
@@ -179,7 +199,9 @@ export default createController(routes, {
           { status: 404 },
         )
       }
-      if (!person || !canDeleteVideo(video, person.id)) {
+      let fields = watchFields(video, person?.id)
+      let folder = getChannel(video.channelId)?.kind === 'folder'
+      if (!person || (folder ? !fields.canDrop : !fields.canDelete)) {
         return new Response('Forbidden', { status: 403 })
       }
       if (context.formData.get('confirm') !== '1') {
@@ -190,16 +212,16 @@ export default createController(routes, {
             theater={/(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')}
             person={person}
             people={listPeople()}
-            canEdit={canEditVideo(video, person.id)}
-            canDelete
-            error="Tick the box to confirm, then delete."
-            errorField="delete"
+            {...fields}
+            error={folder ? 'Tick the box to confirm, then drop.' : 'Tick the box to confirm, then delete.'}
+            errorField={folder ? 'drop' : 'delete'}
           />,
           { status: 400 },
         )
       }
       let channelId = video.channelId
-      await deleteUploadedVideo(video)
+      if (folder) await dropIndexedVideo(video.id)
+      else await deleteUploadedVideo(video)
       return redirect(routes.channel.href({ channelId }), 303)
     },
     async media(context) {

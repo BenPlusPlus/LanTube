@@ -228,6 +228,28 @@ export async function insertFolderChannel(input: {
   return { id, slug: input.slug }
 }
 
+export async function saveIndexedVideo(input: {
+  slug: string
+  title: string
+  tagIds: string[]
+}): Promise<boolean> {
+  let row = await db.findOne(videos, { where: { slug: input.slug } })
+  if (!row || row.owner_id != null) return false
+  let channel = await db.findOne(channels, { where: { id: row.channel_id } })
+  if (!channel || channel.kind !== 'folder') return false
+  await db.transaction(async (tx) => {
+    await tx.update(videos, row.id, { title: input.title })
+    await tx.deleteMany(videoTags, { where: { video_id: row.id } })
+    if (input.tagIds.length) {
+      await tx.createMany(
+        videoTags,
+        input.tagIds.map((tagId) => ({ video_id: row.id, tag_id: tagId })),
+      )
+    }
+  })
+  return true
+}
+
 export async function saveUploadedVideo(input: {
   slug: string
   title: string

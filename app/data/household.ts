@@ -90,6 +90,10 @@ export function isParent(personId: string | undefined | null): boolean {
   return personId != null && getPerson(personId)?.isParent === true
 }
 
+export function isAdmin(personId: string | undefined | null): boolean {
+  return personId != null && getPerson(personId)?.isAdmin === true
+}
+
 export function personFromSession(session: { get(key: string): unknown }): Person | null {
   let id = session.get('personId')
   if (typeof id !== 'string') return null

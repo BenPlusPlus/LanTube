@@ -4,6 +4,7 @@ import * as path from 'node:path'
 
 import {
   deleteCatalogueFolder,
+  deleteCatalogueVideo,
   folderPathTaken,
   insertFolderChannel,
   insertIndexedVideo,
@@ -146,8 +147,10 @@ export async function scanFolder(channel: Channel) {
   }
   if (!stat.isDirectory()) return
 
+  let present = new Set<string>()
   for (let file of await listVideoFiles(absolute)) {
     let relative = posixRelative(file)
+    present.add(relative)
     if (alreadyIndexed(relative)) continue
     let title = path.parse(file).name || 'video'
     let slug = await uniqueVideoSlug(title)
@@ -168,6 +171,21 @@ export async function scanFolder(channel: Channel) {
       file: relative,
     })
   }
+  for (let video of videos.filter((entry) => entry.channelId === channel.id)) {
+    if (video.file && present.has(video.file)) continue
+    await dropIndexedVideo(video.id)
+  }
+}
+
+export async function dropIndexedVideo(id: string) {
+  let video = videos.find((entry) => entry.id === id)
+  if (!video) return false
+  let channel = getChannel(video.channelId)
+  if (!channel || channel.kind !== 'folder') return false
+  await deleteCatalogueVideo(video.id)
+  deleteVideo(video.id)
+  dropFromPlaylists(video.id)
+  return true
 }
 
 export async function scanAttachedFolders() {

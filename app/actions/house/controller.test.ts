@@ -452,3 +452,187 @@ describe('house folders', () => {
     assert.equal(watch.response.status, 404)
   })
 })
+
+function saveWatch(videoId: string, fields: [string, string][], cookie?: string) {
+  let body = new FormData()
+  for (let [key, value] of fields) body.append(key, value)
+  return router.fetch(
+    new Request(new URL(routes.watchSave.href({ videoId }), 'http://localhost'), {
+      method: 'POST',
+      headers: cookie ? { Cookie: cookie } : undefined,
+      body,
+      redirect: 'manual',
+    }),
+  )
+}
+
+function dropWatch(videoId: string, fields: [string, string][], cookie?: string) {
+  let body = new FormData()
+  for (let [key, value] of fields) body.append(key, value)
+  return router.fetch(
+    new Request(new URL(routes.watchDelete.href({ videoId }), 'http://localhost'), {
+      method: 'POST',
+      headers: cookie ? { Cookie: cookie } : undefined,
+      body,
+      redirect: 'manual',
+    }),
+  )
+}
+
+describe('folder titles, Tags, drop, and rescan', () => {
+  afterEach(async () => {
+    forgetIndexed()
+    await wipeScanDir()
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  async function attachAndScan(cookie: string) {
+    await seedScanDir()
+    clearFolderChannels()
+    assert.equal(
+      (
+        await postHouse(
+          [
+            ['intent', 'attach'],
+            ['path', scanDirName],
+            ['name', 'Cabin tapes'],
+          ],
+          cookie,
+        )
+      ).status,
+      303,
+    )
+    assert.equal(
+      (
+        await postHouse(
+          [
+            ['intent', 'scan'],
+            ['folderId', 'cabin-tapes'],
+          ],
+          cookie,
+        )
+      ).status,
+      303,
+    )
+  }
+
+  it('lets an Admin change the title and any signed-in Person change Tags, with no visibility controls', async () => {
+    let { admin, member } = await occupied()
+    await attachAndScan(admin)
+
+    let adminWatch = await get(routes.watch.href({ videoId: 'cabin-weekend' }), admin)
+    assert.equal(adminWatch.response.status, 200)
+    assert.match(adminWatch.html, /name="title"/)
+    assert.match(adminWatch.html, /name="tags"/)
+    assert.match(adminWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: 'cabin-weekend' })}"`))
+    assert.doesNotMatch(adminWatch.html, /Who can see it/)
+    assert.doesNotMatch(adminWatch.html, /name="visibility"/)
+    assert.doesNotMatch(adminWatch.html, /name="audience"/)
+    assert.match(adminWatch.html, /Drop this video/)
+    assert.doesNotMatch(adminWatch.html, /Delete this video/)
+
+    let saved = await saveWatch(
+      'cabin-weekend',
+      [
+        ['title', '  Cabin   weekend  '],
+        ['tags', 'Trips'],
+        ['visibility', 'private'],
+        ['audience', 'nobody'],
+      ],
+      admin,
+    )
+    assert.equal(saved.status, 303)
+    let video = getVideo('cabin-weekend')
+    assert.equal(video?.title, 'Cabin weekend')
+    assert.deepEqual(video?.tags, ['trips'])
+    assert.equal(video?.private, undefined)
+    assert.equal(video?.file, 'cabin-tapes/cabin-weekend.mp4')
+
+    let memberWatch = await get(routes.watch.href({ videoId: 'cabin-weekend' }), member)
+    assert.equal(memberWatch.response.status, 200)
+    assert.match(memberWatch.html, /<h1[^>]*>Cabin weekend<\/h1>/)
+    assert.doesNotMatch(memberWatch.html, /name="title"/)
+    assert.match(memberWatch.html, /name="tags"/)
+    assert.match(memberWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: 'cabin-weekend' })}"`))
+    assert.doesNotMatch(memberWatch.html, /Who can see it/)
+    assert.doesNotMatch(memberWatch.html, /Drop this video/)
+
+    let tagged = await saveWatch(
+      'cabin-weekend',
+      [
+        ['title', 'Hijacked title'],
+        ['tags', 'Kids'],
+      ],
+      member,
+    )
+    assert.equal(tagged.status, 303)
+    assert.equal(getVideo('cabin-weekend')?.title, 'Cabin weekend')
+    assert.deepEqual(getVideo('cabin-weekend')?.tags, ['kids'])
+
+    let unsigned = await get(routes.watch.href({ videoId: 'cabin-weekend' }))
+    assert.match(unsigned.html, /<h1[^>]*>Cabin weekend<\/h1>/)
+    assert.doesNotMatch(unsigned.html, /name="tags"/)
+    assert.doesNotMatch(unsigned.html, new RegExp(`action="${routes.watchSave.href({ videoId: 'cabin-weekend' })}"`))
+    assert.equal((await saveWatch('cabin-weekend', [['tags', 'Garden']])).status, 403)
+  })
+
+  it('lets an Admin drop a Folder Video from the catalogue and leaves the file on the share', async () => {
+    let { admin, member } = await occupied()
+    await attachAndScan(admin)
+
+    assert.equal((await dropWatch('cabin-weekend', [['confirm', '1']], member)).status, 403)
+    assert.ok(getVideo('cabin-weekend'))
+
+    let asked = await dropWatch('cabin-weekend', [], admin)
+    assert.equal(asked.status, 400)
+    assert.match(await asked.text(), /Tick the box to confirm, then drop/)
+    assert.ok(getVideo('cabin-weekend'))
+
+    let dropped = await dropWatch('cabin-weekend', [['confirm', '1']], admin)
+    assert.equal(dropped.status, 303)
+    assert.equal(dropped.headers.get('Location'), routes.channel.href({ channelId: 'cabin-tapes' }))
+    assert.equal(getVideo('cabin-weekend'), undefined)
+    await fsp.access(scanFile)
+
+    let watch = await get(routes.watch.href({ videoId: 'cabin-weekend' }))
+    assert.equal(watch.response.status, 404)
+  })
+
+  it('shows an honest missing-file player until rescan drops a renamed path', async () => {
+    let { admin } = await occupied()
+    await attachAndScan(admin)
+
+    await fsp.rm(scanFile)
+    let missing = await get(routes.watch.href({ videoId: 'cabin-weekend' }))
+    assert.equal(missing.response.status, 200)
+    assert.match(missing.html, /isn’t on the host/)
+    assert.match(missing.html, /cabin-tapes\/cabin-weekend\.mp4/)
+    assert.ok(getVideo('cabin-weekend'))
+
+    await fsp.copyFile(fixtureMp4, path.join(scanDir, 'porch-evening.mp4'))
+    assert.equal(
+      (
+        await postHouse(
+          [
+            ['intent', 'scan'],
+            ['folderId', 'cabin-tapes'],
+          ],
+          admin,
+        )
+      ).status,
+      303,
+    )
+
+    assert.equal(getVideo('cabin-weekend'), undefined)
+    assert.equal((await get(routes.watch.href({ videoId: 'cabin-weekend' }))).response.status, 404)
+    let renamed = getVideo('porch-evening')
+    assert.ok(renamed)
+    assert.equal(renamed.title, 'porch-evening')
+    assert.deepEqual(renamed.tags, [])
+    let watch = await get(routes.watch.href({ videoId: 'porch-evening' }))
+    assert.equal(watch.response.status, 200)
+    assert.match(watch.html, /porch-evening/)
+  })
+})
+

@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { db } from '../db.ts'
-import { hueFor, isParent, listPeople, getPerson as getHouseholdPerson, slugify, type Person } from './household.ts'
+import { hueFor, isAdmin, isParent, listPeople, getPerson as getHouseholdPerson, slugify, type Person } from './household.ts'
 import { channelManagers, channels, people } from './tables.ts'
 
 /** `person`: everyone's home channel. `custom`: a named channel someone runs. `folder`: an indexed share. */
@@ -66,6 +66,27 @@ export function canEditVideo(video: Video, personId: string | undefined | null):
   if (!channel || channel.kind === 'folder') return false
   if (video.postedBy === personId) return true
   return channel.kind === 'custom' && canPost(channel, personId)
+}
+
+/** Uploaded: same as `canEditVideo`. Folder: Admin only. */
+export function canEditVideoTitle(video: Video, personId: string | undefined | null): boolean {
+  let channel = getChannel(video.channelId)
+  if (channel?.kind === 'folder') return isAdmin(personId)
+  return canEditVideo(video, personId)
+}
+
+/** Uploaded: same as `canEditVideo`. Folder: any signed-in Person. */
+export function canEditVideoTags(video: Video, personId: string | undefined | null): boolean {
+  if (!personId) return false
+  let channel = getChannel(video.channelId)
+  if (channel?.kind === 'folder') return true
+  return canEditVideo(video, personId)
+}
+
+/** An indexed Folder Video: Admin only. The file on the Media share stays. */
+export function canDropFolderVideo(video: Video, personId: string | undefined | null): boolean {
+  let channel = getChannel(video.channelId)
+  return channel?.kind === 'folder' && isAdmin(personId)
 }
 
 /** An uploaded Video: its Video owner, and on a Custom channel also the Channel owner and Managers. */

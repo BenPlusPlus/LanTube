@@ -6,6 +6,10 @@ import {
   addUploadedVideo,
   canDeleteCustomChannel,
   canDeleteVideo,
+  canDropFolderVideo,
+  canEditVideo,
+  canEditVideoTags,
+  canEditVideoTitle,
   canPost,
   canWatch,
   createChannel,
@@ -205,6 +209,54 @@ describe('who may delete a Video', () => {
     } finally {
       resetChannels()
     }
+  })
+})
+
+describe('who may change a Folder Video', () => {
+  it('lets only an Admin change the title', () => {
+    let video = getVideo('christmas-2009')!
+    let mia = getPerson('mia')!
+    mia.isAdmin = true
+    try {
+      assert.equal(canEditVideoTitle(video, 'mia'), true)
+      assert.equal(canEditVideoTitle(video, 'leo'), false)
+      assert.equal(canEditVideoTitle(video, undefined), false)
+      assert.equal(canEditVideoTitle(video, null), false)
+    } finally {
+      delete mia.isAdmin
+    }
+  })
+
+  it('lets any signed-in Person attach Tags and keeps unsigned people out', () => {
+    let video = getVideo('christmas-2009')!
+    assert.equal(canEditVideoTags(video, 'leo'), true)
+    assert.equal(canEditVideoTags(video, 'mia'), true)
+    assert.equal(canEditVideoTags(video, undefined), false)
+    assert.equal(canEditVideoTags(video, null), false)
+  })
+
+  it('lets only an Admin drop a Folder Video from the catalogue', () => {
+    let video = getVideo('christmas-2009')!
+    let mia = getPerson('mia')!
+    mia.isAdmin = true
+    try {
+      assert.equal(canDropFolderVideo(video, 'mia'), true)
+      assert.equal(canDropFolderVideo(video, 'leo'), false)
+      assert.equal(canDropFolderVideo(video, undefined), false)
+      assert.equal(canDeleteVideo(video, 'mia'), false)
+    } finally {
+      delete mia.isAdmin
+    }
+  })
+
+  it('keeps uploaded title, Tags, and visibility with the Video owner', () => {
+    let video = clip({ id: 'folder-rights-uploaded', postedBy: 'mia', channelId: 'mia' })
+    assert.equal(canEditVideo(video, 'mia'), true)
+    assert.equal(canEditVideoTitle(video, 'mia'), true)
+    assert.equal(canEditVideoTags(video, 'mia'), true)
+    assert.equal(canEditVideoTitle(video, 'leo'), false)
+    assert.equal(canEditVideoTags(video, 'leo'), false)
+    assert.equal(canDropFolderVideo(video, 'mia'), false)
   })
 })
 

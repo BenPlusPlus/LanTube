@@ -44,11 +44,14 @@ export interface WatchPageProps {
   people?: Person[]
   /** Playing through a playlist that holds this video. */
   list?: Playlist
-  canEdit?: boolean
+  canEditTitle?: boolean
+  canEditTags?: boolean
+  canEditAccess?: boolean
   canDelete?: boolean
+  canDrop?: boolean
   edit?: WatchEditValues
   error?: string
-  errorField?: 'title' | 'tags' | 'delete'
+  errorField?: 'title' | 'tags' | 'delete' | 'drop'
 }
 
 const longDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' })
@@ -167,7 +170,22 @@ function ListPanel(handle: Handle<{ playlist: Playlist; video: Video; person: Pe
 
 export function WatchPage(handle: Handle<WatchPageProps>) {
   return () => {
-    let { video, media, theater, person = null, people = [], list, canEdit = false, canDelete = false, error, errorField } = handle.props
+    let {
+      video,
+      media,
+      theater,
+      person = null,
+      people = [],
+      list,
+      canEditTitle = false,
+      canEditTags = false,
+      canEditAccess = false,
+      canDelete = false,
+      canDrop = false,
+      error,
+      errorField,
+    } = handle.props
+    let canSave = canEditTitle || canEditTags || canEditAccess
     let channel = getChannel(video.channelId)!
     let stats = channelStats(channel.id, person?.id)
     let published = publishedAt(video)
@@ -189,7 +207,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
     let tagError = error && errorField === 'tags' ? error : undefined
 
     return (
-      <AppShell current={null} title={canEdit ? edit.title || video.title : video.title} person={person} layout="watch">
+      <AppShell current={null} title={canEditTitle ? edit.title || video.title : video.title} person={person} layout="watch">
         <div class={theater ? 'watch is-theater' : 'watch'}>
           <div class="watch-player">
             <Player
@@ -216,7 +234,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
           </div>
 
           <section class="watch-info" aria-labelledby="watch-title">
-            {canEdit ? (
+            {canEditTitle ? (
               <>
                 <input
                   id="watch-title"
@@ -298,7 +316,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                   </>
                 ) : null}
               </p>
-              {canEdit ? (
+              {canEditTags ? (
                 <TagsField
                   tags={edit.tags}
                   tagDraft={edit.tagDraft}
@@ -321,66 +339,68 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               ) : null}
               {isFolder && channel.path ? <p class="watch-source">Indexed from {channel.path}</p> : null}
             </div>
-            {canEdit && person ? (
+            {canSave && person ? (
               <form id="watch-save" class="watch-access" method="post" action={routes.watchSave.href({ videoId: video.id })}>
-                <fieldset class="chform-posters upload-who">
-                  <legend class="field-label">Who can see it</legend>
-                  <div class="pvis-options">
-                    <label class="poster pvis-option">
-                      <input class="poster-input" type="radio" name="visibility" value="house" checked={edit.visibility !== 'private'} />
-                      <Icon name="channels" size={20} />
-                      <span class="pvis-option-text">
-                        <span class="poster-name">Everyone in the house</span>
-                        <span class="poster-role">On Home and on the channel</span>
-                      </span>
-                      <span class="radio" aria-hidden="true" />
-                    </label>
-                    <label class="poster pvis-option">
-                      <input class="poster-input" type="radio" name="visibility" value="private" checked={edit.visibility === 'private'} />
-                      <Icon name="lock" size={20} />
-                      <span class="pvis-option-text">
-                        <span class="poster-name">Private</span>
-                        <span class="poster-role">You choose who else can see it</span>
-                      </span>
-                      <span class="radio" aria-hidden="true" />
-                    </label>
-                  </div>
-                  <div class="audience-picker">
-                    <p class="field-hint">
-                      {videoOwner && videoOwner.id === person.id
-                        ? 'You can always see it. Pick anyone else in the house.'
-                        : `${videoOwner?.name ?? 'The Video owner'} can always see it. Pick anyone else in the house.`}
-                    </p>
-                    <ul class="poster-list">
-                      <li>
-                        <span class="poster poster-owner">
-                          <Avatar channel={asChannel(videoOwner ?? person)} size="md" />
-                          <span class="poster-name">{videoOwner?.name ?? person.name}</span>
-                          <span class="poster-role">{videoOwner?.id === person.id ? 'You · owner' : 'Owner'}</span>
+                {canEditAccess ? (
+                  <fieldset class="chform-posters upload-who">
+                    <legend class="field-label">Who can see it</legend>
+                    <div class="pvis-options">
+                      <label class="poster pvis-option">
+                        <input class="poster-input" type="radio" name="visibility" value="house" checked={edit.visibility !== 'private'} />
+                        <Icon name="channels" size={20} />
+                        <span class="pvis-option-text">
+                          <span class="poster-name">Everyone in the house</span>
+                          <span class="poster-role">On Home and on the channel</span>
                         </span>
-                      </li>
-                      {others.map((other) => (
+                        <span class="radio" aria-hidden="true" />
+                      </label>
+                      <label class="poster pvis-option">
+                        <input class="poster-input" type="radio" name="visibility" value="private" checked={edit.visibility === 'private'} />
+                        <Icon name="lock" size={20} />
+                        <span class="pvis-option-text">
+                          <span class="poster-name">Private</span>
+                          <span class="poster-role">You choose who else can see it</span>
+                        </span>
+                        <span class="radio" aria-hidden="true" />
+                      </label>
+                    </div>
+                    <div class="audience-picker">
+                      <p class="field-hint">
+                        {videoOwner && videoOwner.id === person.id
+                          ? 'You can always see it. Pick anyone else in the house.'
+                          : `${videoOwner?.name ?? 'The Video owner'} can always see it. Pick anyone else in the house.`}
+                      </p>
+                      <ul class="poster-list">
                         <li>
-                          <label class="poster">
-                            <input
-                              class="poster-input"
-                              type="checkbox"
-                              name="audience"
-                              value={other.id}
-                              checked={audienceIds.includes(other.id)}
-                            />
-                            <Avatar channel={asChannel(other)} size="md" />
-                            <span class="poster-name">{other.name}</span>
-                            <span class="check" aria-hidden="true">
-                              <Icon name="check" size={14} />
-                            </span>
-                          </label>
+                          <span class="poster poster-owner">
+                            <Avatar channel={asChannel(videoOwner ?? person)} size="md" />
+                            <span class="poster-name">{videoOwner?.name ?? person.name}</span>
+                            <span class="poster-role">{videoOwner?.id === person.id ? 'You · owner' : 'Owner'}</span>
+                          </span>
                         </li>
-                      ))}
-                    </ul>
-                    {others.length === 0 ? <p class="field-hint">Nobody else has joined the house yet.</p> : null}
-                  </div>
-                </fieldset>
+                        {others.map((other) => (
+                          <li>
+                            <label class="poster">
+                              <input
+                                class="poster-input"
+                                type="checkbox"
+                                name="audience"
+                                value={other.id}
+                                checked={audienceIds.includes(other.id)}
+                              />
+                              <Avatar channel={asChannel(other)} size="md" />
+                              <span class="poster-name">{other.name}</span>
+                              <span class="check" aria-hidden="true">
+                                <Icon name="check" size={14} />
+                              </span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                      {others.length === 0 ? <p class="field-hint">Nobody else has joined the house yet.</p> : null}
+                    </div>
+                  </fieldset>
+                ) : null}
                 <div class="chform-actions">
                   <button class="btn btn-primary" type="submit">
                     Save
@@ -416,6 +436,38 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                   <button class="btn btn-secondary" type="submit">
                     <Icon name="trash" size={18} />
                     Delete video
+                  </button>
+                </div>
+              </form>
+            ) : null}
+            {canDrop ? (
+              <form class="pldelete" method="post" action={routes.watchDelete.href({ videoId: video.id })} aria-labelledby="vdrop-title">
+                <h2 class="pldelete-title" id="vdrop-title">
+                  Drop this video
+                </h2>
+                <p class="field-hint">The video leaves the house catalogue. The file on the Media share stays.</p>
+                <label class="chform-remove">
+                  <input
+                    type="checkbox"
+                    name="confirm"
+                    value="1"
+                    aria-invalid={errorField === 'drop' ? 'true' : undefined}
+                    aria-describedby={errorField === 'drop' ? 'watch-drop-error' : undefined}
+                  />
+                  <span class="check" aria-hidden="true">
+                    <Icon name="check" size={14} />
+                  </span>
+                  Yes, drop {edit.title || video.title}
+                </label>
+                {errorField === 'drop' && error ? (
+                  <p class="field-error" id="watch-drop-error" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                <div>
+                  <button class="btn btn-secondary" type="submit">
+                    <Icon name="trash" size={18} />
+                    Drop video
                   </button>
                 </div>
               </form>
