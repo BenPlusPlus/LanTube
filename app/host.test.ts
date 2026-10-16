@@ -1,5 +1,6 @@
 import * as fsp from 'node:fs/promises'
 import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
@@ -12,6 +13,20 @@ import { mediaDir } from './data/media.ts'
 import { channels, people, videos as videoTable } from './data/tables.ts'
 import { db } from './db.ts'
 import { prepareHost } from './host.ts'
+
+describe('catalogue migrations', () => {
+  it('keeps applied up.sql as LF so Remix checksums match the Host journal', async () => {
+    let dir = fileURLToPath(new URL('../db/migrations/', import.meta.url))
+    let names = (await fsp.readdir(dir, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+    assert.ok(names.length > 0)
+    for (let name of names) {
+      let bytes = await fsp.readFile(path.join(dir, name, 'up.sql'))
+      assert.equal(bytes.includes(13), false, `${name}/up.sql contains CR`)
+    }
+  })
+})
 
 describe('host config', () => {
   it('refuses production start when DATABASE_URL is missing', () => {
