@@ -175,6 +175,11 @@ export function AppShell(handle: Handle<AppShellProps>) {
                   <a class="account-menu-item" href={routes.details.index.href()}>
                     Your details
                   </a>
+                  {person.isParent ? (
+                    <a class="account-menu-item" href={routes.controls.index.href()}>
+                      Parental controls
+                    </a>
+                  ) : null}
                   {person.isAdmin ? (
                     <a class="account-menu-item" href={routes.house.index.href()}>
                       House

@@ -51,6 +51,8 @@ const SITTING_GAP = 45 * MINUTE
 /** Below this, a session is a skim, not a watch. */
 const MIN_WATCHED_SEC = 5
 const MAX_SITTINGS = 50
+/** The player's fastest speed. Faster forward motion is a seek. */
+const MAX_PLAYBACK_RATE = 2
 
 let sessions: WatchSession[] = []
 
@@ -146,9 +148,9 @@ export async function recordWatchProgress(
     if (!session) session = openSession(personId, video, now)
     let delta = positionSec - session.lastT
     let wall = (now - session.endedAt) / 1000
-    // Forward motion no faster than real time is watching; anything else is a seek.
+    // Forward motion no faster than the player's top speed is watching; anything else is a seek.
     let watchedSec = session.watchedSec
-    if (delta > 0 && delta <= wall + 5) watchedSec += delta
+    if (delta > 0 && delta <= wall * MAX_PLAYBACK_RATE + 5) watchedSec += delta
     let next: WatchSession = { ...session, lastT: positionSec, endedAt: now, watchedSec }
     let duration = fileDurationSec !== undefined ? Math.round(fileDurationSec) : video.durationSec
     let clamped = Math.min(Math.max(positionSec, 0), duration)
