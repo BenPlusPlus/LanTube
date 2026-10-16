@@ -42,6 +42,8 @@ test -r "$HOME/.config/lantube/compose.override.yaml" && echo overlay_ok
 
 Done when the Media share is `cifs` (or the filesystem you mount), Docker answers, and `env_ok` and `overlay_ok` print. If the share is missing: `sudo systemctl start 'mnt-lantube\x2dmedia.mount'`.
 
+If that unit fails with `could not resolve address`, WSL regenerated `/etc/hosts` and dropped the CIFS server pin. Confirm with `getent hosts` on the name in the mount unit `What=` line. Restore the pin (the Host boot unit `lantube-nas-hosts.service` does this), start the mount again, then `cd "$HOME/lantube" && docker compose restart` so the container bind sees the CIFS filesystem instead of the empty directory underneath.
+
 ### 2. Keep the running image as a rollback tag
 
 ```sh
@@ -98,9 +100,11 @@ Done when `curl` to `http://127.0.0.1/` is `200` again.
 
 ## After a Windows reboot (WSL2 Host)
 
-WSL and Docker must be running. Mirrored networking lives in the WSL owner's `%USERPROFILE%\.wslconfig`. Then SSH into the Linux distro, `findmnt /mnt/lantube-media`, and `cd "$HOME/lantube" && docker compose up -d`.
+WSL and Docker must be running. Mirrored networking lives in the WSL owner's `%USERPROFILE%\.wslconfig` (`networkingMode=mirrored`, plus `vmIdleTimeout=-1` and `[general] instanceIdleTimeout=-1` so the distro does not exit when no `wsl.exe` client is attached). `vmIdleTimeout=0` means shut down immediately. Then SSH into the Linux distro, `findmnt /mnt/lantube-media`, and `cd "$HOME/lantube" && docker compose up -d`. If `findmnt` is empty after a reboot, start the CIFS unit as in step 1 (including the hosts pin if name resolution failed) and restart Compose so `/media` in the container is CIFS.
 
-`restart: unless-stopped` brings the container back once Docker is up.
+`restart: unless-stopped` brings the container back once Docker is up. If the distro is owned by a different Windows account than the one you SSH as, register logon and periodic scheduled tasks as that owner to start WSL and run a keep-up script that brings Compose back when `http://127.0.0.1/` is not 200.
+
+If Ubuntu boots into emergency mode, Docker and `:2222` stay down. A common cause is an `/etc/fstab` drvfs line for `/mnt/lantube-media-win` without `nofail`: that unit fails, `local-fs.target` fails, systemd isolates `emergency.target`, and `systemctl start docker` is canceled. Comment that fstab line (Compose bind-mounts the Linux CIFS path `/mnt/lantube-media`), `systemctl daemon-reload`, then `systemctl isolate multi-user.target`.
 
 ## Changing secrets or the Media share
 
@@ -113,6 +117,8 @@ cd "$HOME/lantube" && docker compose up -d
 Type URLs and passwords only on the Host. Do not paste them into chat, and do not run `docker compose config` (it prints env).
 
 The account in `/etc/lantube/cifs.cred` must have **Read/Write** on the Media shared folder (share permissions, not only a folder ACL). Uploads write under `/mnt/lantube-media`.
+
+If the library is a subdirectory of the share, put that path in the mount unit `What=` (`//server/share/subdir`). The `prefixpath=` option is ignored on kernels after 3.10, so the mount lands on the share root and the container sees the whole share. After changing `What=`, `systemctl daemon-reload`, restart the unit, then `docker compose restart` so `/media` picks up the new filesystem.
 
 ## Layout (reference)
 
