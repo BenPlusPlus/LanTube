@@ -11,7 +11,7 @@ import { createPerson, resetHousehold, useEmptyHouse } from './data/household.ts
 import { clearFolderChannels, deleteVideo, getVideo, resetChannels, videos } from './data/library.ts'
 import { mediaDir } from './data/media.ts'
 import { channels, people, videos as videoTable } from './data/tables.ts'
-import { db } from './db.ts'
+import { db, loadCatalogueMigrations, sqlWithLf } from './db.ts'
 import { prepareHost } from './host.ts'
 
 describe('catalogue migrations', () => {
@@ -24,6 +24,24 @@ describe('catalogue migrations', () => {
     for (let name of names) {
       let bytes = await fsp.readFile(path.join(dir, name, 'up.sql'))
       assert.equal(bytes.includes(13), false, `${name}/up.sql contains CR`)
+    }
+  })
+
+  it('checksums CRLF up.sql as LF so a Windows save does not drift the journal', () => {
+    let lf = 'create table watch_limits (\n  person_id uuid primary key\n);\n'
+    let crlf = 'create table watch_limits (\r\n  person_id uuid primary key\r\n);\r\n'
+    assert.equal(sqlWithLf(crlf), lf)
+    assert.equal(sqlWithLf(lf), lf)
+  })
+
+  it('loads catalogue migrations with CR stripped before Remix checksums them', async () => {
+    let migrations = await loadCatalogueMigrations()
+    assert.ok(migrations.length > 0)
+    for (let migration of migrations) {
+      assert.equal(migration.up.includes('\r'), false, `${migration.id} up contains CR`)
+      if (migration.down !== undefined) {
+        assert.equal(migration.down.includes('\r'), false, `${migration.id} down contains CR`)
+      }
     }
   })
 })

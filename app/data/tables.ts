@@ -146,6 +146,28 @@ export const watchProgress = table({
   },
 })
 
+export const watchLimits = table({
+  name: 'watch_limits',
+  primaryKey: ['person_id'],
+  columns: {
+    person_id: c.uuid().notNull(),
+    daily_min: c.integer().notNull(),
+  },
+})
+
+export const watchExtensions = table({
+  name: 'watch_extensions',
+  columns: {
+    id: c.uuid().primaryKey(),
+    person_id: c.uuid().notNull(),
+    /** The watch day it belongs to, "2026-05-20"; days start at 5 am host time. */
+    day: c.text().notNull(),
+    minutes: c.integer().notNull(),
+    granted_by: c.uuid().nullable(),
+    created_at: c.timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+})
+
 export const houseSettings = table({
   name: 'house_settings',
   columns: {

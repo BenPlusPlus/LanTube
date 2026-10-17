@@ -25,7 +25,7 @@ cd lantube
 docker compose up -d --build
 ```
 
-Secrets stay in `/etc/lantube/production.env`; the clone does not contain them. Clone from GitHub on the Host. Migration SQL is LF (`.gitattributes`) so a Windows checkout hashes the same `up.sql` bytes as the Host.
+Secrets stay in `/etc/lantube/production.env`; the clone does not contain them. Clone from GitHub on the Host. Migration SQL is LF (`.gitattributes`), and Host start strips CR before Remix checksums `up.sql`, so a Windows editor save hashes the same as the Host journal.
 
 Done when `cd "$HOME/lantube" && git status` shows `master`, and `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1/` prints `200`.
 

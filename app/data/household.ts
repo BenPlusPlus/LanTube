@@ -18,6 +18,8 @@ import {
   videoAudience,
   videoTags,
   videos,
+  watchExtensions,
+  watchLimits,
   watchProgress,
   watchSessions,
 } from './tables.ts'
@@ -270,6 +272,9 @@ export async function removePerson(actorId: string, targetId: string): Promise<t
       await tx.deleteMany(playlistTable, { where: { owner_id: row.person.id } })
       await tx.deleteMany(watchSessions, { where: { person_id: row.person.id } })
       await tx.deleteMany(watchProgress, { where: { person_id: row.person.id } })
+      await tx.deleteMany(watchLimits, { where: { person_id: row.person.id } })
+      await tx.deleteMany(watchExtensions, { where: { person_id: row.person.id } })
+      await tx.updateMany(watchExtensions, { granted_by: null }, { where: { granted_by: row.person.id } })
       await tx.deleteMany(videoAudience, { where: { person_id: row.person.id } })
       await tx.deleteMany(channelManagers, { where: { person_id: row.person.id } })
       await tx.updateMany(channels, { owner_id: actor.person.id }, { where: { owner_id: row.person.id, kind: 'custom' } })
@@ -290,9 +295,11 @@ export async function removePerson(actorId: string, targetId: string): Promise<t
   let { forgetRemovedPerson: forgetFromLibrary } = await import('./library.ts')
   let { forgetRemovedPerson: forgetFromPlaylists } = await import('./playlists.ts')
   let { forgetRemovedPerson: forgetFromHistory } = await import('./history.ts')
+  let { forgetRemovedPerson: forgetFromWatchLimits } = await import('./watch-limits.ts')
   forgetFromLibrary(row.person, actor.person.id)
   forgetFromPlaylists(row.person.id)
   forgetFromHistory(row.person.id)
+  forgetFromWatchLimits(row.person.id)
   return true
 }
 
@@ -403,6 +410,8 @@ export async function useEmptyHouse() {
   await restoreDefaultBrand()
   await db.deleteMany(watchSessions, { where: notNull(watchSessions.id) })
   await db.deleteMany(watchProgress, { where: notNull(watchProgress.person_id) })
+  await db.deleteMany(watchExtensions, { where: notNull(watchExtensions.id) })
+  await db.deleteMany(watchLimits, { where: notNull(watchLimits.person_id) })
   await db.deleteMany(playlistAudience, { where: notNull(playlistAudience.playlist_id) })
   await db.deleteMany(playlistVideos, { where: notNull(playlistVideos.playlist_id) })
   await db.deleteMany(playlistTable, { where: notNull(playlistTable.id) })

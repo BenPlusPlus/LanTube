@@ -18,9 +18,11 @@ export interface PlayerProps {
   /** The file the house site expected, relative to the media folder. */
   expectedFile: string
   brand: string
+  /** Seconds this viewer may still watch today; omitted when they have no limit. */
+  timeLeftSec?: number
 }
 
-type Failure = 'unsupported' | 'network' | 'missing'
+type Failure = 'unsupported' | 'network' | 'missing' | 'time-up'
 
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 const HIDE_AFTER_MS = 2600
@@ -66,7 +68,9 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   let playing = false
   let ended = false
   let waiting = false
-  let failure: Failure | null = handle.props.src ? null : 'missing'
+  let failure: Failure | null = !handle.props.src ? 'missing' : handle.props.timeLeftSec === 0 ? 'time-up' : null
+  let timeLeft: number | null = handle.props.timeLeftSec ?? null
+  let lastPos: number | null = null
   let current = handle.props.resumeAt ?? 0
   let duration = handle.props.durationSec
   let bufferedEnd = 0
@@ -103,7 +107,48 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
       navigator.sendBeacon(handle.props.activityHref, body)
       return
     }
-    fetch(handle.props.activityHref, { method: 'POST', body, keepalive: true }).catch(() => {})
+    fetch(handle.props.activityHref, { method: 'POST', body, keepalive: true })
+      .then(async (response) => {
+        if (failure) return
+        // 204 means this viewer has no limit (any more), so stop counting down.
+        if (response.status === 204) {
+          timeLeft = null
+          return
+        }
+        if (response.status !== 200) return
+        let { remainingSec } = (await response.json()) as { remainingSec?: unknown }
+        if (typeof remainingSec !== 'number') return
+        timeLeft = remainingSec
+        lastPos = video?.currentTime ?? null
+        if (timeLeft <= 0) stopForToday()
+      })
+      .catch(() => {})
+  }
+
+  /** The house's daily limit ran out: stop here and keep the place for tomorrow. */
+  function stopForToday() {
+    if (failure === 'time-up') return
+    if (video && !video.paused) {
+      saveProgress()
+      video.pause()
+    }
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    failure = 'time-up'
+    playing = false
+    waiting = false
+    handle.update()
+  }
+
+  /** Counts forward play against today's limit; seeks don't count. */
+  function spend() {
+    if (timeLeft === null || !video) return
+    let t = video.currentTime
+    if (lastPos !== null) {
+      let delta = t - lastPos
+      if (delta > 0 && delta < 3) timeLeft -= delta
+    }
+    lastPos = t
+    if (timeLeft <= 0) stopForToday()
   }
 
   function saveProgress(beacon = false) {
@@ -377,6 +422,25 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     if (fullscreen) classes.push('is-fullscreen')
     if (failure) classes.push('has-failure')
 
+    if (failure === 'time-up') {
+      return (
+        <div class="player has-failure is-time-up" aria-label={`Video player: ${title}`} role="region">
+          {poster ? <img class="player-poster" src={poster} alt="" /> : null}
+          <div class="player-message" role="alert">
+            <Icon name="timer" size={40} />
+            <p class="player-message-title">That’s all the watching for today</p>
+            <p>
+              {startedOnce ? `${clock(current)} is saved, so you can pick up here. ` : ''}More time starts at 5 am, or a
+              parent can give you some now.
+            </p>
+            <a class="btn btn-secondary" href="">
+              Check again
+            </a>
+          </div>
+        </div>
+      )
+    }
+
     if (failure === 'missing' || src === null) {
       return (
         <div class="player has-failure" aria-label={`Video player: ${title}`} role="region">
@@ -485,6 +549,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
             on('seeked', () => {
               clearTimeout(waitTimer)
               waiting = false
+              lastPos = video!.currentTime
               handle.update()
             }),
             on('timeupdate', () => {
@@ -492,6 +557,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
                 current = video!.currentTime
                 handle.update()
               }
+              if (playing) spend()
               if (playing && Date.now() - lastSent > PROGRESS_EVERY_MS) saveProgress()
             }),
             on('volumechange', () => {

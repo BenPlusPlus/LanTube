@@ -633,7 +633,7 @@ The custom player on the watch page (`app/actions/public/player.tsx`, a client e
 - **Shortcuts:** space/k play-pause, j/l ∓10s, ←/→ ∓5s, ↑/↓ volume (only with focus in the player), m mute, f fullscreen, t theater, i picture-in-picture, < > speed, 0–9 jump to tenths, Home/End.
 - **Touch:** a tap on the picture shows or hides the controls; it never pauses. Double-tap does nothing (double-click toggles fullscreen with a mouse).
 - **Spinner:** a 48px white ring after 300ms of buffering.
-- **Honest failures** (black-tinted overlay, 40px file icon, Paper title, Ash copy, monospace path chip): file not on the host ("LanTube looks for `Home Movies/…` in its media folder"), format this browser can't play (no transcoding yet), and lost connection with a "Try again" button. Never red.
+- **Honest failures** (black-tinted overlay, 40px file icon, Paper title, Ash copy, monospace path chip): file not on the host ("LanTube looks for `Home Movies/…` in its media folder"), format this browser can't play (no transcoding yet), and lost connection with a "Try again" button. Time up for a limited person uses the same frame with a timer icon (see Parental controls). Never red.
 - **Memory:** volume and mute persist per device; plays are counted once per visit; progress is saved on pause, end, every 15s, tab hide, and page leave, for the signed-in person only (it also feeds their History). Unsigned playback saves nothing.
 
 ### Watch page info
@@ -733,6 +733,26 @@ Upload (`/upload`, `.upload`) starts with where the video goes, not with a file 
 **Private videos:** a video posted as "Only me" exists only for its uploader: on Home, search, channel pages, playlists and "More like this" it is missing for everyone else, and its watch page, media and poster return not-found. Wherever the uploader sees it, it carries the Ash lock + "Private".
 
 **Honest states:** unsigned visitors get the empty-state frame with an upload icon, "Sign in to upload", and a secondary Sign in (user icon). Without JavaScript the form is one multipart post with no frame pick, and a too-large file returns plainly: "Without JavaScript, LanTube can take videos up to 512 MB in one go. Turn JavaScript on to send bigger ones."
+
+### Parental controls
+Parental controls (`/controls`, Parent-only, linked from the account menu as "Parental controls" with the timer icon) is **one roster**: a single semantic table, a row per Person, where a Parent sets each person's daily watch limit and gives extra time for today. Page head: the Page Title and the lede "How long each person can watch each day. Extra time lasts until 5 am." Non-Parents get the empty-state frame ("You need to be a Parent").
+
+**Rules it shows:** Parents and Admins are never limited; they are named in an Ash footnote under the table ("Parents and Admins aren’t limited: Mia and Ruth.") rather than given rows. The watch day runs 5 am to 5 am in the host's local time. Limits are presets (5, 10, 15, 20, 30, 45 min, 1, 1½, 2, 3 hr, or No limit). Extra time comes in +5, +10, +20, +30 and +60 min, **adds up** (+5 twice reads "+10 min"), lapses at 5 am, and can be cleared. Only real playback counts against the day, up to 2× speed.
+
+**Roster** (`table.controls`, a `tbody.controls-row` per person, `id="controls-{id}"` so every form returns to its row): Graphite Surface, 12px radius, tabular numerals, rows divided by Graphite Line, an Ash 0.875rem/600 header. Columns:
+- **Person:** 36px avatar and name (600, ellipsised), 200px.
+- **Today:** "**25 min left**" (600) with an Ash "5 min of 30 min" beside it, or "No limit" with "0 min watched"; at zero, "**Time’s up**". Under it the **meter** (`.controls-meter`): 4px, pill-ended, Raised track, max 260px, filled to the share used in House Blue (it is watch progress), turning Ash once time is up. Never red.
+- **Daily limit:** a 168px × 40px field select that saves on change (a Save button appears only without JavaScript).
+- **Extra today:** "**+10 min**" (600) with a quiet **Clear** text button (Ash, Paper on a Raised hover), or Ash "None" when the person is limited.
+- **Extend** (end column, only when a limit is set): a small secondary pill with an Ash chevron-down.
+
+**Extend menu** (`.extend-menu`, `popover`, `role="dialog"`): 248px, Graphite Raised, 12px radius, 6px padding, right-aligned under its trigger. An Ash title "More time for Ava today", then one form of 40px rows, each a submit button: "+5 min" (600) at the start and the result in Ash at the end ("45 min left"), so the Parent sees the outcome before choosing. Rows lift to Raised Hover.
+
+**Errors** sit in a full-width row under the person (`role="alert"`, the field-error style) and keep the page at 400. **Narrow (below 900px):** the table becomes a block per person: who and Extend on the first line, today and the full-width meter, then the limit select and the extra time at the end.
+
+**Time up in the player:** when a limited person has no time left, the stage shows the poster under the failure scrim with a 40px timer icon, Paper "That’s all the watching for today", Ash "More time starts at 5 am, or a parent can give you some now." (prefixed with "4:47 is saved, so you can pick up here." once the video has started) and a secondary "Check again" that reloads. Playing stops the moment time runs out (progress saved, fullscreen exited); an open player picks up a new limit, extra time, or "No limit" from its next progress report. The host refuses the media file and play counts while time is up, so the limit holds without JavaScript.
+
+**Icons added for parental controls** (Lucide outlines, same 1.75 stroke): timer, chevron-down.
 
 ## Do's and Don'ts
 

@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 
 import { brandName } from '../data/brand.ts'
 import type { Person } from '../data/household.ts'
+import { allowanceFor } from '../data/watch-limits.ts'
 import type { Channel, Video } from '../data/library.ts'
 import {
   channelStats,
@@ -223,6 +224,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               theater={theater}
               expectedFile={expectedFile}
               brand={brandName()}
+              timeLeftSec={person ? allowanceFor(person)?.remainingSec : undefined}
             />
             {playable ? (
               <noscript>

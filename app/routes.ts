@@ -26,4 +26,5 @@ export const routes = route({
   signout: post('/signout'),
   details: form('/details'),
   house: form('/house'),
+  controls: form('/controls'),
 })

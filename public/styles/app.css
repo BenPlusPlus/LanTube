@@ -5086,3 +5086,301 @@ input.watch-title:focus-visible {
     animation: none;
   }
 }
+
+/* ---------- Parental controls: one roster, a row per limited Person ---------- */
+
+.controls {
+  width: 100%;
+  max-width: 1132px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.controls th,
+.controls td {
+  padding: 14px 20px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.controls thead th {
+  padding-block: 12px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.controls-row > tr:first-child > * {
+  border-top: 1px solid var(--line);
+}
+
+.controls-who {
+  width: 200px;
+}
+
+.controls-who-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.controls-name {
+  overflow: hidden;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.controls-today {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.controls-left {
+  font-weight: 600;
+}
+
+.controls-used {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.controls-meter {
+  position: relative;
+  flex-basis: 100%;
+  max-width: 260px;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--raised);
+}
+
+.controls-meter::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--used);
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.controls-today.is-up .controls-meter::before {
+  background: var(--text-2);
+}
+
+.controls-limit-cell {
+  width: 200px;
+}
+
+.controls-limit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.field.controls-select {
+  width: 168px;
+  height: 40px;
+  padding-left: 16px;
+  background-position: right 14px center;
+}
+
+.controls-extra-cell {
+  width: 200px;
+}
+
+.controls-extra {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+}
+
+.controls-extra-amount {
+  margin-right: 4px;
+  font-weight: 600;
+}
+
+.controls-clear {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 150ms var(--ease), background-color 150ms var(--ease);
+}
+
+.controls-clear:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.controls-none {
+  color: var(--text-2);
+}
+
+.controls-act {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.controls .controls-error-row td {
+  padding-top: 0;
+}
+
+.controls-error-row .field-error {
+  margin: 0;
+}
+
+.controls-stray {
+  margin-bottom: 16px;
+}
+
+.controls-note {
+  max-width: 1132px;
+  margin-top: 14px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.controls-empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  max-width: 1132px;
+}
+
+.extend-btn .icon {
+  margin-right: -4px;
+  color: var(--text-2);
+}
+
+.extend-menu {
+  width: 248px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.extend-menu form {
+  display: grid;
+  margin: 0;
+}
+
+.extend-title {
+  padding: 8px 12px 6px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.extend-item {
+  justify-content: space-between;
+  height: 40px;
+}
+
+.extend-item:hover,
+.extend-item:focus-visible {
+  background: var(--raised-hover);
+}
+
+.extend-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.extend-amount {
+  font-weight: 600;
+}
+
+.extend-result {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+/* Below a comfortable table width, each Person becomes a block: who and Extend, today, then limit and extra. */
+@media (max-width: 900px) {
+  .controls,
+  .controls tbody,
+  .controls tr,
+  .controls th,
+  .controls td {
+    display: block;
+  }
+
+  .controls thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .controls-row > tr:first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px 16px;
+    padding: 16px;
+    border-top: 1px solid var(--line);
+  }
+
+  .controls-row:first-of-type > tr:first-child {
+    border-top: 0;
+  }
+
+  .controls .controls-row > tr:first-child > * {
+    width: auto;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .controls-who {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .controls-act {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .controls-today-cell {
+    grid-column: 1 / -1;
+  }
+
+  .controls-limit-cell {
+    grid-column: 1;
+  }
+
+  .controls-extra-cell {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .controls-meter {
+    max-width: none;
+  }
+
+  .controls .controls-error-row td {
+    padding: 0 16px 16px;
+  }
+}

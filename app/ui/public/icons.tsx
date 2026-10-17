@@ -44,6 +44,14 @@ const paths = {
       <path d="M12 7v5l4 2" />
     </>
   ),
+  timer: (
+    <>
+      <path d="M10 2h4" />
+      <path d="m12 14 3-3" />
+      <circle cx="12" cy="14" r="8" />
+    </>
+  ),
+  'chevron-down': <path d="m6 9 6 6 6-6" />,
   folder: (
     <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
   ),
