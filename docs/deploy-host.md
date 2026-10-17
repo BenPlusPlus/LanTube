@@ -2,6 +2,8 @@
 
 The Host is Linux with Docker Compose (Ubuntu in WSL2 is one option). Postgres stays on the LAN, outside Compose. The Media share is bind-mounted at `/mnt/lantube-media`. Secrets live in `/etc/lantube/production.env` on the Host (never in git).
 
+History labels, Watch clocks, and the parental watch day (5am–5am) use the Host timezone. Compose bind-mounts `/etc/localtime` and `/etc/timezone` into the container so Docker’s default UTC is not the house clock. Set `TZ` in `/etc/lantube/production.env` only to override that. Debian/Ubuntu Hosts ship `/etc/timezone`; Compose will not create that path if it is missing.
+
 House names, LAN IPs, SSH targets, and Catalogue DNS pins stay on the Host in `$HOME/.config/lantube/compose.override.yaml` (copy from `compose.override.example.yaml` in this repo) and a symlink `compose.override.yaml` in the project. Do not commit that file.
 
 ## Where you type commands
@@ -129,5 +131,6 @@ If the library is a subdirectory of the share, put that path in the mount unit `
 | Secrets | `/etc/lantube/production.env` (`640 root:docker`) |
 | House overlay | `$HOME/.config/lantube/compose.override.yaml` (symlink in the project) |
 | Media share | `/mnt/lantube-media` → container `/media` |
+| House timezone | Host `/etc/localtime` and `/etc/timezone` (optional `TZ` in production.env) |
 | HTTP | Host port 80 → container 44100 |
 | Catalogue | LAN Postgres (not a container); host pin in the overlay |
