@@ -1,6 +1,9 @@
 FROM node:24-bookworm-slim
 
-RUN corepack enable
+RUN corepack enable \
+  && apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -17,4 +20,4 @@ ENV NODE_ENV=production
 EXPOSE 44100
 
 USER node
-CMD ["node", "--import", "remix/node-tsx", "server.ts"]
+CMD ["node", "--import", "remix/node-tsx", "--import", "./app/apply-host-tz.ts", "server.ts"]

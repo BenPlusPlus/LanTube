@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=config/development.env --watch --import remix/node-tsx server.ts",
+    "dev": "node --env-file=config/development.env --watch --import remix/node-tsx --import ./app/apply-host-tz.ts server.ts",
     "hmr": "node --env-file=config/development.env hmr.ts",
-    "start": "node --env-file=config/production.env --import remix/node-tsx server.ts",
+    "start": "node --env-file=config/production.env --import remix/node-tsx --import ./app/apply-host-tz.ts server.ts",
     "test": "node --env-file=config/test.env node_modules/remix/dist/cli-entry.js test",
     "typecheck": "tsc --noEmit"
   },

@@ -25,6 +25,14 @@ services:
       - '80:44100'
     volumes:
       - /mnt/lantube-media:/media
+      # House wall clocks follow the Host timezone (not Docker's default UTC).
+      - /etc/localtime:/etc/localtime:ro
+      - type: bind
+        source: /etc/timezone
+        target: /etc/timezone
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test:
         [
