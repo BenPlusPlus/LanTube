@@ -1,10 +1,12 @@
 import * as assert from 'remix/assert'
 import { afterEach, beforeEach, describe, it } from 'remix/test'
 
-import { insertUploadedVideo } from '../data/catalogue.ts'
+import { insertUploadedVideo, listVisibleVideos } from '../data/catalogue.ts'
 import { loadCatalogueHistory, resetHistory } from '../data/history.ts'
 import { createPerson, getPerson, listPeople, resetHousehold, useEmptyHouse } from '../data/household.ts'
-import { addUploadedVideo, deleteVideo, resetChannels } from '../data/library.ts'
+import { addUploadedVideo, channelVideos, deleteVideo, resetChannels } from '../data/library.ts'
+import { addVideo, createPlaylist, resetPlaylists } from '../data/playlists.ts'
+import { splitHomeLibrary, VIDEO_FEED_PAGE } from '../data/video-feed.ts'
 import { router } from '../router.ts'
 import { routes } from '../routes.ts'
 
@@ -513,5 +515,118 @@ describe('catalogue watch history over HTTP', () => {
     assert.match(guessed.html, /Pond ice/)
     assert.doesNotMatch(guessed.html, /Whose History/)
     assert.doesNotMatch(guessed.html, /Videos Bess watches while signed in/)
+  })
+})
+
+describe('video feeds', () => {
+  const created: string[] = []
+
+  afterEach(async () => {
+    for (let id of created.splice(0)) deleteVideo(id)
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    resetPlaylists()
+  })
+
+  async function fillHouse(count: number) {
+    await useEmptyHouse()
+    let person = await createPerson('Sam', 'lantern')
+    assert.ok(!('error' in person))
+    let titles: string[] = []
+    for (let i = 0; i < count; i++) {
+      let slug = `feed-clip-${String(i).padStart(2, '0')}`
+      let title = `Feed clip ${String(i).padStart(2, '0')}`
+      let inserted = await insertUploadedVideo({
+        slug,
+        title,
+        channelSlug: person.slug,
+        ownerId: person.id,
+        durationSec: 12,
+        filePath: `uploads/${person.slug}/${slug}.mp4`,
+        posterPath: `/poster/${slug}`,
+        visibility: 'house',
+      })
+      assert.ok(inserted)
+      created.push(slug)
+      addUploadedVideo({
+        id: slug,
+        title,
+        channelId: person.slug,
+        durationSec: 12,
+        thumb: `/poster/${slug}`,
+        tags: [],
+        file: `uploads/${person.slug}/${slug}.mp4`,
+        postedBy: person.id,
+      })
+      titles.push(title)
+    }
+    return { person, titles }
+  }
+
+  it('keeps Earlier off the first Home paint and serves it from the fragment', async () => {
+    await fillHouse(22)
+    let { latest, earlier } = splitHomeLibrary(await listVisibleVideos())
+    let home = await get(routes.home.href())
+    assert.match(home.html, /Latest in the house/)
+    assert.match(home.html, new RegExp(latest[0]!.title))
+    assert.match(home.html, new RegExp(latest[7]!.title))
+    assert.doesNotMatch(home.html, new RegExp(earlier[0]!.title))
+    assert.match(home.html, /Show earlier videos/)
+    assert.match(home.html, new RegExp(`href="${routes.home.href()}\\?earlier=${VIDEO_FEED_PAGE}"`))
+
+    let batch = await get(`${routes.homeEarlier.href()}?from=0`)
+    assert.equal(batch.response.status, 200)
+    assert.match(batch.html, /class="feed-batch"/)
+    assert.match(batch.html, new RegExp(earlier[0]!.title))
+    assert.match(batch.html, new RegExp(earlier[VIDEO_FEED_PAGE - 1]!.title))
+    assert.doesNotMatch(batch.html, new RegExp(earlier[VIDEO_FEED_PAGE]!.title))
+    assert.doesNotMatch(batch.html, /Latest in the house/)
+    assert.match(batch.html, /data-next="\/home\/earlier\?from=10"/)
+
+    let more = await get(`${routes.home.href()}?earlier=${VIDEO_FEED_PAGE}`)
+    assert.match(more.html, new RegExp(earlier[0]!.title))
+    assert.doesNotMatch(more.html, new RegExp(earlier[VIDEO_FEED_PAGE]!.title))
+  })
+
+  it('paints about two rows on a channel and leaves the rest for the fragment', async () => {
+    let { person } = await fillHouse(15)
+    let list = channelVideos(person.slug)
+    let page = await get(routes.channel.href({ channelId: person.slug }))
+    assert.match(page.html, new RegExp(list[0]!.title))
+    assert.match(page.html, new RegExp(list[VIDEO_FEED_PAGE - 1]!.title))
+    assert.doesNotMatch(page.html, new RegExp(list[VIDEO_FEED_PAGE]!.title))
+    assert.match(page.html, /Show more videos/)
+
+    let batch = await get(`${routes.channelVideos.href({ channelId: person.slug })}?from=${VIDEO_FEED_PAGE}`)
+    assert.equal(batch.response.status, 200)
+    assert.match(batch.html, new RegExp(list[VIDEO_FEED_PAGE]!.title))
+    assert.doesNotMatch(batch.html, new RegExp(list[0]!.title))
+    assert.doesNotMatch(batch.html, /Show more videos/)
+  })
+
+  it('pages a long playlist the same way', async () => {
+    let { person, titles } = await fillHouse(15)
+    let createdList = await createPlaylist(person.id, {
+      name: 'Feed stack',
+      description: '',
+      visibility: 'public',
+    })
+    assert.ok(!('error' in createdList))
+    for (let i = 0; i < titles.length; i++) {
+      assert.equal(await addVideo(createdList, `feed-clip-${String(i).padStart(2, '0')}`), true)
+    }
+
+    let page = await get(routes.playlist.href({ playlistId: createdList.id }))
+    assert.match(page.html, new RegExp(titles[0]!))
+    assert.match(page.html, new RegExp(titles[VIDEO_FEED_PAGE - 1]!))
+    assert.doesNotMatch(page.html, new RegExp(titles[VIDEO_FEED_PAGE]!))
+    assert.match(page.html, /Show more videos/)
+
+    let batch = await get(`${routes.playlistVideos.href({ playlistId: createdList.id })}?from=${VIDEO_FEED_PAGE}`)
+    assert.equal(batch.response.status, 200)
+    assert.match(batch.html, new RegExp(titles[VIDEO_FEED_PAGE]!))
+    assert.match(batch.html, /pentry-index">11</)
+    assert.doesNotMatch(batch.html, new RegExp(titles[0]!))
   })
 })

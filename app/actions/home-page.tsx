@@ -2,11 +2,14 @@ import type { Handle } from 'remix/component'
 
 import type { Person } from '../data/household.ts'
 import type { Video } from '../data/library.ts'
-import { getChannels, isInProgress, newestFirst } from '../data/library.ts'
+import { getChannels } from '../data/library.ts'
 import { getTag, tagsInUse } from '../data/tags.ts'
+import { splitHomeLibrary } from '../data/video-feed.ts'
 import { routes } from '../routes.ts'
+import { VideoFeedMore } from './public/video-feed-more.tsx'
 import { AppShell } from '../ui/shell.tsx'
 import { ChannelCard, VideoCard } from '../ui/cards.tsx'
+import { FeedBatch, homeEarlierHrefs } from '../ui/feed-batch.tsx'
 import { Icon } from '../ui/public/icons.tsx'
 
 export interface HomePageProps {
@@ -15,6 +18,7 @@ export interface HomePageProps {
   results?: Video[]
   person?: Person | null
   videos: Video[]
+  earlierShown: number
 }
 
 function tagHref(tag?: string) {
@@ -155,7 +159,7 @@ function EmptyLibrary(handle: Handle<{ person: Person | null }>) {
 
 export function HomePage(handle: Handle<HomePageProps>) {
   return () => {
-    let { query, tag, results, person = null, videos } = handle.props
+    let { query, tag, results, person = null, videos, earlierShown } = handle.props
     let viewerId = person?.id
 
     if (videos.length === 0) {
@@ -166,14 +170,11 @@ export function HomePage(handle: Handle<HomePageProps>) {
       )
     }
 
-    let libraryVideos = videos
-    let resume = newestFirst(libraryVideos.filter((video) => isInProgress(video, viewerId)))
-    let shelved = new Set(resume.map((video) => video.id))
-    let rest = newestFirst(libraryVideos).filter((video) => !shelved.has(video.id))
-    // Only split off "Earlier" when it can fill at least a row.
-    let cut = rest.length - 8 >= 4 ? 8 : rest.length
-    let latest = rest.slice(0, cut)
-    let earlier = rest.slice(cut)
+    let { resume, latest, earlier, earlierTotal } = splitHomeLibrary(videos, viewerId)
+    let shown = Math.min(earlierShown, earlier.length)
+    let visibleEarlier = earlier.slice(0, shown)
+    let earlierHasMore = shown < earlier.length
+    let earlierHrefs = homeEarlierHrefs(shown)
 
     return (
       <AppShell current="home" query={query} title={query ? `“${query}”` : undefined} person={person}>
@@ -204,10 +205,44 @@ export function HomePage(handle: Handle<HomePageProps>) {
                 ))}
               </ul>
             </section>
-            {earlier.length > 0 ? <Shelf id="earlier" title="Earlier" videos={earlier} viewerId={viewerId} /> : null}
+            {earlier.length > 0 ? (
+              <section class="shelf" aria-labelledby="earlier">
+                <header class="shelf-head">
+                  <h2 class="shelf-title" id="earlier">
+                    Earlier
+                  </h2>
+                </header>
+                <div class="video-grid">
+                  {visibleEarlier.map((video) => (
+                    <VideoCard video={video} viewerId={viewerId} />
+                  ))}
+                  {earlierHasMore ? (
+                    <VideoFeedMore nextHref={earlierHrefs.nextHref} moreHref={earlierHrefs.moreHref} label="Show earlier videos" />
+                  ) : null}
+                </div>
+                {!earlierHasMore && earlierTotal > earlier.length ? (
+                  <p class="shelf-note">Older videos live on channels and in search.</p>
+                ) : null}
+              </section>
+            ) : null}
           </>
         )}
       </AppShell>
+    )
+  }
+}
+
+export function HomeEarlierBatch(
+  handle: Handle<{ videos: Video[]; nextHref?: string | null; moreHref?: string | null; viewerId?: string }>,
+) {
+  return () => {
+    let { videos, nextHref, moreHref, viewerId } = handle.props
+    return (
+      <FeedBatch nextHref={nextHref} moreHref={moreHref}>
+        {videos.map((video) => (
+          <VideoCard video={video} viewerId={viewerId} />
+        ))}
+      </FeedBatch>
     )
   }
 }

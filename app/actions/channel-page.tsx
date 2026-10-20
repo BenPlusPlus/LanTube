@@ -2,17 +2,20 @@ import type { Handle } from 'remix/component'
 
 import { brandName } from '../data/brand.ts'
 import { getPerson, type Person } from '../data/household.ts'
-import type { Channel, ChannelSort } from '../data/library.ts'
+import type { Channel, ChannelSort, Video } from '../data/library.ts'
 import { canPost, channelStats, channelVideos, channelsFor, formatPlays, getChannel } from '../data/library.ts'
 import { routes } from '../routes.ts'
 import { Avatar, VideoCard } from '../ui/cards.tsx'
+import { channelFeedHrefs, FeedBatch } from '../ui/feed-batch.tsx'
 import { Icon } from '../ui/public/icons.tsx'
 import { AppShell, type Section } from '../ui/shell.tsx'
+import { VideoFeedMore } from './public/video-feed-more.tsx'
 
 export interface ChannelPageProps {
   channel: Channel
   sort: ChannelSort
   person?: Person | null
+  shown: number
 }
 
 const sorts: { id: ChannelSort; label: string }[] = [
@@ -163,9 +166,12 @@ function Empty(handle: Handle<{ channel: Channel; person: Person | null }>) {
 
 export function ChannelPage(handle: Handle<ChannelPageProps>) {
   return () => {
-    let { channel, sort, person = null } = handle.props
+    let { channel, sort, person = null, shown } = handle.props
     let stats = channelStats(channel.id, person?.id)
     let list = channelVideos(channel.id, sort, person?.id)
+    let visible = list.slice(0, shown)
+    let hasMore = visible.length < list.length
+    let hrefs = channelFeedHrefs(channel.id, sort, visible.length)
     let canEdit = channel.kind === 'custom' && canPost(channel, person?.id)
     let isHome = channel.kind === 'person' && canPost(channel, person?.id)
     let current: Section = channel.kind === 'custom' ? 'channels' : `channel:${channel.id}`
@@ -230,14 +236,32 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
                 Videos
               </h2>
               <div class="video-grid">
-                {list.map((video, index) => (
+                {visible.map((video, index) => (
                   <VideoCard video={video} viewerId={person?.id} onChannel showRemaining eager={index < 4} />
                 ))}
+                {hasMore ? (
+                  <VideoFeedMore nextHref={hrefs.nextHref} moreHref={hrefs.moreHref} label="Show more videos" />
+                ) : null}
               </div>
             </section>
           </>
         )}
       </AppShell>
+    )
+  }
+}
+
+export function ChannelVideosBatch(
+  handle: Handle<{ videos: Video[]; nextHref?: string | null; moreHref?: string | null; viewerId?: string }>,
+) {
+  return () => {
+    let { videos, nextHref, moreHref, viewerId } = handle.props
+    return (
+      <FeedBatch nextHref={nextHref} moreHref={moreHref}>
+        {videos.map((video) => (
+          <VideoCard video={video} viewerId={viewerId} onChannel showRemaining />
+        ))}
+      </FeedBatch>
     )
   }
 }

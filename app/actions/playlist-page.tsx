@@ -6,24 +6,27 @@ import { daysSince, formatLength, isOwner, playlistDuration, playlistVideos, typ
 import { routes } from '../routes.ts'
 import { Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
 import { Icon, type IconName } from '../ui/public/icons.tsx'
+import { FeedBatch, playlistFeedHrefs } from '../ui/feed-batch.tsx'
 import { ownerOf, PlaylistCover, videoCount, VisibilityLabel, watchInList } from '../ui/playlists.tsx'
 import { AppShell } from '../ui/shell.tsx'
+import { VideoFeedMore } from './public/video-feed-more.tsx'
 
 export interface PlaylistPageProps {
   playlist: Playlist
   person?: Person | null
+  shown: number
 }
 
 function ItemButton(
-  handle: Handle<{ playlist: Playlist; video: Video; intent: 'up' | 'down' | 'remove'; icon: IconName; label: string; disabled?: boolean }>,
+  handle: Handle<{ playlist: Playlist; video: Video; intent: 'up' | 'down' | 'remove'; icon: IconName; label: string; disabled?: boolean; shown: number }>,
 ) {
   return () => {
-    let { playlist, video, intent, icon, label, disabled } = handle.props
+    let { playlist, video, intent, icon, label, disabled, shown } = handle.props
     return (
       <form method="post" action={routes.playlistItems.href({ playlistId: playlist.id })}>
         <input type="hidden" name="intent" value={intent} />
         <input type="hidden" name="videoId" value={video.id} />
-        <input type="hidden" name="returnTo" value={`${routes.playlist.href({ playlistId: playlist.id })}#entry-${video.id}`} />
+        <input type="hidden" name="returnTo" value={`${routes.playlist.href({ playlistId: playlist.id })}?n=${shown}#entry-${video.id}`} />
         <button class="icon-btn pentry-btn" type="submit" aria-label={`${label}: ${video.title}`} title={label} disabled={disabled}>
           <Icon name={icon} size={20} />
         </button>
@@ -32,9 +35,9 @@ function ItemButton(
   }
 }
 
-function Entry(handle: Handle<{ playlist: Playlist; video: Video; index: number; count: number; editable: boolean; viewerId?: string }>) {
+function Entry(handle: Handle<{ playlist: Playlist; video: Video; index: number; count: number; editable: boolean; viewerId?: string; shown: number }>) {
   return () => {
-    let { playlist, video, index, count, editable, viewerId } = handle.props
+    let { playlist, video, index, count, editable, viewerId, shown } = handle.props
     let channel = getChannel(video.channelId)
     let href = watchInList(video.id, playlist.id)
     let progress = progressPercent(video, viewerId)
@@ -63,9 +66,9 @@ function Entry(handle: Handle<{ playlist: Playlist; video: Video; index: number;
         </span>
         {editable ? (
           <span class="pentry-tools">
-            <ItemButton playlist={playlist} video={video} intent="up" icon="arrow-up" label="Move up" disabled={index === 0} />
-            <ItemButton playlist={playlist} video={video} intent="down" icon="arrow-down" label="Move down" disabled={index === count - 1} />
-            <ItemButton playlist={playlist} video={video} intent="remove" icon="close" label="Remove from playlist" />
+            <ItemButton playlist={playlist} video={video} intent="up" icon="arrow-up" label="Move up" disabled={index === 0} shown={shown} />
+            <ItemButton playlist={playlist} video={video} intent="down" icon="arrow-down" label="Move down" disabled={index === count - 1} shown={shown} />
+            <ItemButton playlist={playlist} video={video} intent="remove" icon="close" label="Remove from playlist" shown={shown} />
           </span>
         ) : null}
       </li>
@@ -75,9 +78,12 @@ function Entry(handle: Handle<{ playlist: Playlist; video: Video; index: number;
 
 export function PlaylistPage(handle: Handle<PlaylistPageProps>) {
   return () => {
-    let { playlist, person = null } = handle.props
+    let { playlist, person = null, shown } = handle.props
     let owner = ownerOf(playlist)
     let videos = playlistVideos(playlist, person?.id)
+    let visible = videos.slice(0, shown)
+    let hasMore = visible.length < videos.length
+    let hrefs = playlistFeedHrefs(playlist.id, visible.length)
     let mine = isOwner(playlist, person?.id)
     let length = playlistDuration(playlist, person?.id)
     let updated = formatAdded(daysSince(playlist.activity.at))
@@ -128,9 +134,17 @@ export function PlaylistPage(handle: Handle<PlaylistPageProps>) {
           <section class="plbody" aria-label="Videos in this playlist">
             {videos.length > 0 ? (
               <ol class="pentries">
-                {videos.map((video, index) => (
-                  <Entry playlist={playlist} video={video} index={index} count={videos.length} editable={mine} viewerId={person?.id} />
+                {visible.map((video, index) => (
+                  <Entry playlist={playlist} video={video} index={index} count={videos.length} editable={mine} viewerId={person?.id} shown={visible.length} />
                 ))}
+                {hasMore ? (
+                  <VideoFeedMore
+                    nextHref={hrefs.nextHref}
+                    moreHref={hrefs.moreHref}
+                    label="Show more videos"
+                    asListItem
+                  />
+                ) : null}
               </ol>
             ) : (
               <div class="chlist-empty">
@@ -149,6 +163,30 @@ export function PlaylistPage(handle: Handle<PlaylistPageProps>) {
           </section>
         </div>
       </AppShell>
+    )
+  }
+}
+
+export function PlaylistVideosBatch(
+  handle: Handle<{
+    playlist: Playlist
+    videos: Video[]
+    from: number
+    count: number
+    editable: boolean
+    viewerId?: string
+    nextHref?: string | null
+    moreHref?: string | null
+  }>,
+) {
+  return () => {
+    let { playlist, videos, from, count, editable, viewerId, nextHref, moreHref } = handle.props
+    return (
+      <FeedBatch nextHref={nextHref} moreHref={moreHref} list>
+        {videos.map((video, index) => (
+          <Entry playlist={playlist} video={video} index={from + index} count={count} editable={editable} viewerId={viewerId} shown={from + videos.length} />
+        ))}
+      </FeedBatch>
     )
   }
 }

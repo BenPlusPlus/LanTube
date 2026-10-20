@@ -509,7 +509,7 @@ Home shelves, in order:
 1. **Continue watching**: one row that scrolls sideways with scroll-snap; on narrow containers each card is 84% wide and bleeds to the screen edge so the next card peeks.
 2. **Latest in the house**: a wrapping grid.
 3. **Channels in this house**: a sideways-scrolling strip of channel cards (min 150px; 136px on narrow containers), with an "All channels" link.
-4. **Earlier**: rendered only when the overflow fills at least one row (four or more videos); otherwise those videos stay in Latest.
+4. **Earlier**: rendered only when the overflow fills at least one row (four or more videos); otherwise those videos stay in Latest. The first Home paint leaves this shelf empty except for “Show earlier videos”; scrolling to it (or following that link) loads about two rows at a time, up to 48 videos. Older videos stay on channels and in search.
 
 Search and topic results replace the shelves with one titled grid and a count.
 
@@ -521,7 +521,7 @@ Directory-style pages open with a **page head**: Page Title plus a page note on 
 
 The **channels directory** (`/channels`) is a page head over three titled sections in the shelf style (title + Ash note): **People** (everyone's home channel), **More channels** (custom channels, newest activity first), and **Folders** (only when some exist). Each section is a vertical list of peek rows (see Components) with 4px between rows; the list bleeds 16px into the gutter (12px below 540px) so row hover fills align their text with the page head. When no custom channel exists, More channels shows a dashed-outline (1px Field Line Hover, 12px radius) note with a secondary "New channel" instead of rows. Custom channels live here and on their own pages only; the sidebar's "In this house" stays people-only, and the Channels nav item is the current one on a custom channel's page.
 
-The **channel page** (`/channel/:id`) is a header grid (xl avatar | text | owner actions; 32px above, 28px below, 28px column gap) over the sort chips (Latest / Most played / Oldest, only with two or more videos) and a standard video grid. Below a 720px container the actions drop to their own full-width row; below 540px the lineage groups stack. No banners: there are no banner assets, and the header carries the identity.
+The **channel page** (`/channel/:id`) is a header grid (xl avatar | text | owner actions; 32px above, 28px below, 28px column gap) over the sort chips (Latest / Most played / Oldest, only with two or more videos) and a standard video grid that first paints about two rows and loads more as the viewer scrolls (or follows “Show more videos”). Below a 720px container the actions drop to their own full-width row; below 540px the lineage groups stack. No banners: there are no banner assets, and the header carries the identity. The playlist page lists entries the same way: about two rows first, then more on scroll.
 
 The **channel form** (`/channels/new`, `/channel/:id/edit`) is a single 640px column: Page Title + page lede, then label-over-field rows (Name, Description, Picture, Who can post), and an actions row 32px below the last field (primary submit, ghost Cancel, 12px apart).
 

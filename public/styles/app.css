@@ -718,6 +718,19 @@ legend {
   }
 }
 
+.feed-more {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 8px;
+}
+
+.feed-more-item {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  padding: 12px 8px 8px;
+}
+
 /* ---------- Video card ---------- */
 
 .vcard {
