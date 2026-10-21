@@ -1,7 +1,7 @@
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
-import { brandName, setBrandName } from '../../data/brand.ts'
+import { brandName, setBrandName, setUnsignedWatch, unsignedWatchAllowed } from '../../data/brand.ts'
 import { attachFolder, detachFolder, scanFolder } from '../../data/folders.ts'
 import {
   listPeople,
@@ -27,6 +27,7 @@ function page(
     errorFolderId?: string
     errorField?: HouseErrorField
     brand?: string
+    unsignedWatch?: boolean
     folderPath?: string
     folderName?: string
   } = {},
@@ -36,6 +37,7 @@ function page(
       person={person}
       people={listPeople()}
       brand={extras.brand ?? brandName()}
+      unsignedWatch={extras.unsignedWatch ?? unsignedWatchAllowed()}
       error={extras.error}
       errorPersonId={extras.errorPersonId}
       errorFolderId={extras.errorFolderId}
@@ -73,6 +75,11 @@ export default createController(routes.house, {
         let brand = readText(context.formData, 'brand')
         let saved = await setBrandName(brand)
         if (saved !== true) return fail(saved.error, 'brand', { brand })
+        return redirect(routes.house.index.href(), 303)
+      }
+
+      if (readText(context.formData, 'intent') === 'unsigned-watch') {
+        await setUnsignedWatch(readText(context.formData, 'unsignedWatch') === 'on')
         return redirect(routes.house.index.href(), 303)
       }
 

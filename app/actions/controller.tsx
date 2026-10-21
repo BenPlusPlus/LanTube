@@ -4,7 +4,7 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
-import { brandName } from '../data/brand.ts'
+import { brandName, unsignedWatchAllowed } from '../data/brand.ts'
 import { listVisibleVideos, saveIndexedVideo, saveUploadedVideo } from '../data/catalogue.ts'
 import { getPerson, listPeople, personFromSession, type Person } from '../data/household.ts'
 import { dropIndexedVideo } from '../data/folders.ts'
@@ -104,15 +104,16 @@ export default createController(routes, {
       )
     },
     watch(context) {
-      let video = watchable(context.params.videoId, personFromSession(context.session)?.id)
+      let person = personFromSession(context.session)
+      if (!person && !unsignedWatchAllowed()) return redirect(routes.signin.index.href(), 303)
+      let video = watchable(context.params.videoId, person?.id)
       if (!video) {
         return context.render(
-          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={personFromSession(context.session)} />,
+          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
           { status: 404 },
         )
       }
       let theater = /(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')
-      let person = personFromSession(context.session)
       let listId = new URL(context.request.url).searchParams.get('list')
       let list = listId ? getPlaylist(listId) : undefined
       if (list && (!canSee(list, person?.id) || !list.videoIds.includes(video.id))) list = undefined
@@ -247,6 +248,7 @@ export default createController(routes, {
     },
     async media(context) {
       let person = personFromSession(context.session)
+      if (!person && !unsignedWatchAllowed()) return new Response('Sign in to watch', { status: 401 })
       let video = watchable(context.params.videoId, person?.id)
       let media = video ? mediaFileFor(video) : null
       if (!media?.exists) return new Response('Not Found', { status: 404 })
@@ -257,6 +259,7 @@ export default createController(routes, {
     },
     async watchActivity(context) {
       let person = personFromSession(context.session)
+      if (!person && !unsignedWatchAllowed()) return new Response('Sign in to watch', { status: 401 })
       let video = watchable(context.params.videoId, person?.id)
       if (!video) return new Response('Not Found', { status: 404 })
       let form = context.formData

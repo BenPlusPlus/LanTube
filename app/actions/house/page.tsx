@@ -36,6 +36,7 @@ export interface HousePageProps {
   person: Person
   people: Person[]
   brand: string
+  unsignedWatch: boolean
   error?: string
   errorPersonId?: string
   errorFolderId?: string
@@ -46,7 +47,8 @@ export interface HousePageProps {
 
 export function HousePage(handle: Handle<HousePageProps>) {
   return () => {
-    let { person, people, brand, error, errorPersonId, errorFolderId, errorField, folderPath, folderName } = handle.props
+    let { person, people, brand, unsignedWatch, error, errorPersonId, errorFolderId, errorField, folderPath, folderName } =
+      handle.props
     let adminCount = people.filter((member) => member.isAdmin).length
     let brandInvalid = error && errorField === 'brand'
     let pathInvalid = error && errorField === 'path'
@@ -92,6 +94,38 @@ export function HousePage(handle: Handle<HousePageProps>) {
                 {error}
               </p>
             ) : null}
+            <button class="btn btn-secondary" type="submit">
+              Save
+            </button>
+          </form>
+        </section>
+
+        <section class="house-section" aria-labelledby="house-watch">
+          <header class="shelf-head">
+            <h2 class="shelf-title" id="house-watch">
+              Watching
+            </h2>
+          </header>
+          <form class="house-watch" method="post" action={routes.house.action.href()}>
+            <input type="hidden" name="intent" value="unsigned-watch" />
+            <label class="house-role" for="house-unsigned-watch">
+              <input
+                class="poster-input"
+                id="house-unsigned-watch"
+                type="checkbox"
+                name="unsignedWatch"
+                value="on"
+                checked={unsignedWatch ? true : undefined}
+                aria-describedby="house-unsigned-watch-hint"
+              />
+              <span class="check" aria-hidden="true">
+                <Icon name="check" size={14} />
+              </span>
+              Watch without signing in
+            </label>
+            <p class="field-hint" id="house-unsigned-watch-hint">
+              When this is off, people can still open Home and channels. Playing a video sends them to sign in.
+            </p>
             <button class="btn btn-secondary" type="submit">
               Save
             </button>

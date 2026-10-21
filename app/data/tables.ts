@@ -173,5 +173,6 @@ export const houseSettings = table({
   columns: {
     id: c.text().primaryKey(),
     brand_name: c.text().notNull(),
+    unsigned_watch: c.boolean().notNull().default(true),
   },
 })

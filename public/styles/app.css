@@ -3042,6 +3042,20 @@ label.poster:hover {
   justify-self: start;
 }
 
+.house-watch {
+  display: grid;
+  max-width: 28rem;
+  gap: 12px;
+}
+
+.house-watch .field-hint {
+  margin: 0;
+}
+
+.house-watch .btn {
+  justify-self: start;
+}
+
 .house-folder-attach {
   display: grid;
   max-width: 28rem;
