@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 
-import { brandName } from '../../data/brand.ts'
+import { brandName, unsignedWatchAllowed } from '../../data/brand.ts'
 import type { Person } from '../../data/household.ts'
 import { channelStats, type Channel } from '../../data/library.ts'
 import { routes } from '../../routes.ts'
@@ -36,7 +36,9 @@ export function SignInPage(handle: Handle<SignInPageProps>) {
           <p class="who-lede">
             {firstRun
               ? `You’re the first Person. You’ll run ${brand} for the house. Other people on this network can join later.`
-              : 'Pick yourself, then enter your password. Anyone on this network can still watch unsigned.'}
+              : unsignedWatchAllowed()
+                ? 'Pick yourself, then enter your password. Anyone on this network can still watch unsigned.'
+                : 'Pick yourself, then enter your password. Playing a video needs you to sign in.'}
           </p>
 
           <ul class="who-grid">

@@ -12,7 +12,7 @@ Remix 3. Self-hosted on a Host on the LAN. Catalogue in Postgres on the LAN. Vid
 
 ## Users
 
-People in one household on the home LAN — family or housemates — opening LanTube on a phone, TV, laptop, or tablet to watch and to publish. Anyone on the network can watch house-visible video unsigned. Each Person can join with a display name and password, gets a Home channel, and can upload. Some People are Admins (they operate the house). Some are Parents (they can see private library items and non-Parent History). One Person may be both. The Host is a home PC, NAS, or homelab box on that same network; it may be a different machine than the one that holds the Media share.
+People in one household on the home LAN — family or housemates — opening LanTube on a phone, TV, laptop, or tablet to watch and to publish. Anyone on the network can browse house-visible video unsigned. An Admin can require sign-in to play a video. Each Person can join with a display name and password, gets a Home channel, and can upload. Some People are Admins (they operate the house). Some are Parents (they can see private library items and non-Parent History). One Person may be both. The Host is a home PC, NAS, or homelab box on that same network; it may be a different machine than the one that holds the Media share.
 
 ## Product Purpose
 
@@ -28,7 +28,7 @@ Distribution is the household LAN. Channels, playlists, and history exist withou
 - Viewers open a browser on phones, tablets, TVs, and computers on the same Wi‑Fi (or local network).
 - Once the Host, Postgres, and the share are on the LAN, watching does not use the public internet.
 - Video enters two ways: an Admin attaches a Folder on the Media share and LanTube indexes it (scan at startup and when an Admin asks), and People upload new files in the app onto that share.
-- Publishing is per Person via a simple household identity. Watching house-visible video does not require being signed in.
+- Publishing is per Person via a simple household identity. Browsing Home and channels does not require being signed in. Playing a video does when an Admin turns off unsigned watch.
 - A production install starts empty. The mockup household is a fixture for tests and development, not a migration.
 
 ## Capabilities and Constraints

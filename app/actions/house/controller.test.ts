@@ -401,6 +401,94 @@ describe('house branding', () => {
   })
 })
 
+describe('house watching', () => {
+  afterEach(async () => {
+    forgetIndexed()
+    await wipeScanDir()
+    await useEmptyHouse()
+    resetHousehold()
+  })
+
+  it('lets an Admin require sign-in to play a video while Home and channels stay open', async () => {
+    await seedScanDir()
+    let { admin } = await occupied()
+    clearFolderChannels()
+
+    let attached = await postHouse(
+      [
+        ['intent', 'attach'],
+        ['path', scanDirName],
+        ['name', 'Cabin tapes'],
+      ],
+      admin,
+    )
+    assert.equal(attached.status, 303)
+    await postHouse(
+      [
+        ['intent', 'scan'],
+        ['folderId', 'cabin-tapes'],
+      ],
+      admin,
+    )
+
+    let page = await get(routes.house.index.href(), admin)
+    assert.equal(page.response.status, 200)
+    assert.match(page.html, /id="house-unsigned-watch"/)
+    assert.match(page.html, /id="house-unsigned-watch"[^>]*checked|checked[^>]*id="house-unsigned-watch"/)
+
+    let saved = await postHouse([['intent', 'unsigned-watch']], admin)
+    assert.equal(saved.status, 303)
+    assert.equal(saved.headers.get('Location'), routes.house.index.href())
+
+    let house = await get(routes.house.index.href(), admin)
+    assert.match(house.html, /id="house-unsigned-watch"/)
+    assert.doesNotMatch(house.html, /id="house-unsigned-watch"[^>]*checked|checked[^>]*id="house-unsigned-watch"/)
+
+    let home = await get(routes.home.href())
+    assert.equal(home.response.status, 200)
+    assert.match(home.html, /cabin-weekend/)
+
+    let channel = await get(routes.channel.href({ channelId: 'cabin-tapes' }))
+    assert.equal(channel.response.status, 200)
+    assert.match(channel.html, /cabin-weekend/)
+
+    let unsignedWatch = await get(routes.watch.href({ videoId: 'cabin-weekend' }))
+    assert.equal(unsignedWatch.response.status, 303)
+    assert.equal(unsignedWatch.response.headers.get('Location'), routes.signin.index.href())
+
+    let signin = await get(routes.signin.index.href())
+    assert.match(signin.html, /Playing a video needs you to sign in/)
+
+    let media = await router.fetch(
+      new Request(new URL(routes.media.href({ videoId: 'cabin-weekend' }), 'http://localhost'), { redirect: 'manual' }),
+    )
+    assert.equal(media.status, 401)
+
+    let play = new FormData()
+    play.set('event', 'play')
+    let activity = await router.fetch(
+      new Request(new URL(routes.watchActivity.href({ videoId: 'cabin-weekend' }), 'http://localhost'), {
+        method: 'POST',
+        body: play,
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(activity.status, 401)
+
+    let signedIn = await get(routes.watch.href({ videoId: 'cabin-weekend' }), admin)
+    assert.equal(signedIn.response.status, 200)
+    assert.match(signedIn.html, /cabin-weekend/)
+
+    let signedMedia = await router.fetch(
+      new Request(new URL(routes.media.href({ videoId: 'cabin-weekend' }), 'http://localhost'), {
+        headers: { Cookie: admin },
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(signedMedia.status, 200)
+  })
+})
+
 describe('house folders', () => {
   afterEach(async () => {
     forgetIndexed()

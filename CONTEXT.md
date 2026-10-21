@@ -95,8 +95,12 @@ House-visible or private. Set separately on each Video and each Playlist.
 _Avoid_: Public, unlisted, shared (as a visibility)
 
 **House-visible**:
-Anyone on the LAN can see it, signed in or not.
+Anyone on the LAN can see it, signed in or not. Playing it still follows Unsigned watch.
 _Avoid_: Public, shared with the house (as the visibility name)
+
+**Unsigned watch**:
+House setting an Admin turns on or off. On (the default): anyone on the LAN can play house-visible Videos without signing in. Off: Home and channels stay open; playing a Video sends them to sign in.
+_Avoid_: guest playback, anonymous viewing, public watch
 
 **Private**:
 To everyone else the item does not exist. A private Playlist is visible to its owner, its Audience, and any Parent. A private Video is visible to its Video owner, its Audience, any Parent, and — on a Custom channel — the Channel owner and that channel’s Managers.
