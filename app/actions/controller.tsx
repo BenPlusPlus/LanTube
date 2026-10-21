@@ -21,22 +21,26 @@ import {
   namedAudience,
   recordPlay,
   searchVideos,
+  channelVideos,
   type ChannelSort,
   type Video,
 } from '../data/library.ts'
+import { addVideo, canSee, getPlaylist, isOwner, moveVideo, playlistVideos, removeVideo } from '../data/playlists.ts'
+import { feedPage, parseCount, splitHomeLibrary, VIDEO_FEED_PAGE } from '../data/video-feed.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
-import { addVideo, canSee, getPlaylist, moveVideo, removeVideo } from '../data/playlists.ts'
+
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
 import { deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
 import { routes } from '../routes.ts'
-import { ChannelPage } from './channel-page.tsx'
+import { channelFeedHrefs, homeEarlierHrefs, playlistFeedHrefs } from '../ui/feed-batch.tsx'
+import { ChannelPage, ChannelVideosBatch } from './channel-page.tsx'
 import { ChannelsPage } from './channels-page.tsx'
 import { HistoryPage } from './history-page.tsx'
-import { HomePage } from './home-page.tsx'
+import { HomeEarlierBatch, HomePage } from './home-page.tsx'
 import { NotBuiltPage } from './not-built-page.tsx'
 import { playlistAccess } from './playlist-access.ts'
-import { PlaylistPage } from './playlist-page.tsx'
+import { PlaylistPage, PlaylistVideosBatch } from './playlist-page.tsx'
 import { PlaylistsPage } from './playlists-page.tsx'
 import { WatchPage } from './watch-page.tsx'
 
@@ -78,8 +82,24 @@ export default createController(routes, {
           query={query}
           tag={tag || undefined}
           videos={videos}
+          earlierShown={parseCount(params.get('earlier'), 0)}
           results={videos.length > 0 && filtering ? searchVideos(query, tag || undefined, person?.id, videos) : undefined}
           person={person}
+        />,
+      )
+    },
+    async homeEarlier(context) {
+      let person = personFromSession(context.session)
+      let { earlier } = splitHomeLibrary(await listVisibleVideos(person?.id), person?.id)
+      let from = parseCount(new URL(context.request.url).searchParams.get('from'), 0)
+      let { page, nextFrom, hasMore } = feedPage(earlier, from)
+      let hrefs = homeEarlierHrefs(nextFrom)
+      return context.render(
+        <HomeEarlierBatch
+          videos={page}
+          nextHref={hasMore ? hrefs.nextHref : null}
+          moreHref={hasMore ? hrefs.moreHref : null}
+          viewerId={person?.id}
         />,
       )
     },
@@ -273,9 +293,37 @@ export default createController(routes, {
           { status: 404 },
         )
       }
-      let requested = new URL(context.request.url).searchParams.get('sort')
+      let params = new URL(context.request.url).searchParams
+      let requested = params.get('sort')
       let sort: ChannelSort = requested === 'popular' || requested === 'oldest' ? requested : 'latest'
-      return context.render(<ChannelPage channel={channel} sort={sort} person={personFromSession(context.session)} />)
+      return context.render(
+        <ChannelPage
+          channel={channel}
+          sort={sort}
+          person={personFromSession(context.session)}
+          shown={parseCount(params.get('n'), VIDEO_FEED_PAGE)}
+        />,
+      )
+    },
+    channelVideos(context) {
+      let channel = getChannel(context.params.channelId)
+      if (!channel) return new Response('Not Found', { status: 404 })
+      let person = personFromSession(context.session)
+      let params = new URL(context.request.url).searchParams
+      let requested = params.get('sort')
+      let sort: ChannelSort = requested === 'popular' || requested === 'oldest' ? requested : 'latest'
+      let list = channelVideos(channel.id, sort, person?.id)
+      let from = parseCount(params.get('from'), 0)
+      let { page, nextFrom, hasMore } = feedPage(list, from)
+      let hrefs = channelFeedHrefs(channel.id, sort, nextFrom)
+      return context.render(
+        <ChannelVideosBatch
+          videos={page}
+          nextHref={hasMore ? hrefs.nextHref : null}
+          moreHref={hasMore ? hrefs.moreHref : null}
+          viewerId={person?.id}
+        />,
+      )
     },
     channels(context) {
       return context.render(<ChannelsPage person={personFromSession(context.session)} />)
@@ -292,7 +340,34 @@ export default createController(routes, {
           { status: 404 },
         )
       }
-      return context.render(<PlaylistPage playlist={playlist} person={person} />)
+      return context.render(
+        <PlaylistPage
+          playlist={playlist}
+          person={person}
+          shown={parseCount(new URL(context.request.url).searchParams.get('n'), VIDEO_FEED_PAGE)}
+        />,
+      )
+    },
+    playlistVideos(context) {
+      let person = personFromSession(context.session)
+      let playlist = getPlaylist(context.params.playlistId)
+      if (!playlist || !canSee(playlist, person?.id)) return new Response('Not Found', { status: 404 })
+      let videos = playlistVideos(playlist, person?.id)
+      let from = parseCount(new URL(context.request.url).searchParams.get('from'), 0)
+      let { page, nextFrom, hasMore } = feedPage(videos, from)
+      let hrefs = playlistFeedHrefs(playlist.id, nextFrom)
+      return context.render(
+        <PlaylistVideosBatch
+          playlist={playlist}
+          videos={page}
+          from={from}
+          count={videos.length}
+          editable={isOwner(playlist, person?.id)}
+          viewerId={person?.id}
+          nextHref={hasMore ? hrefs.nextHref : null}
+          moreHref={hasMore ? hrefs.moreHref : null}
+        />,
+      )
     },
     async playlistItems(context) {
       let form = context.formData
