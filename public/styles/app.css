@@ -4247,7 +4247,7 @@ input.watch-title:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-/* Each segment is one video; its length is the minutes watched, in the order watched. */
+/* Each segment is one video; its length is the minutes watched, newest first like the rows. */
 .sitting-bar {
   display: flex;
   gap: 3px;

@@ -59,6 +59,21 @@ describe('watch history', () => {
     assert.equal(row.finished, false)
   })
 
+  it('lists videos in a sitting newest first', async () => {
+    let tahoe = getVideo('tahoe-day-2')!
+    let bike = getVideo('no-training-wheels')!
+    let start = Date.now() + 60 * MIN
+    let watch = async (video: typeof tahoe, from: number, secs: number) => {
+      await recordWatchStart('priya', video, from)
+      for (let t = 10; t <= secs; t += 10) await recordWatchProgress('priya', video, t, undefined, from + t * 1000)
+    }
+    await watch(tahoe, start, 60)
+    await watch(bike, start + 2 * MIN, 60)
+
+    let [sitting] = sittingsFor('priya', '', start + 5 * MIN)
+    assert.deepEqual(sitting.rows.map((row) => row.video.id), ['no-training-wheels', 'tahoe-day-2'])
+  })
+
   it('splits sittings on a long pause and keeps each video in its latest sitting', async () => {
     let tahoe = getVideo('tahoe-day-2')!
     let bike = getVideo('no-training-wheels')!
