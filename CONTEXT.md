@@ -13,7 +13,7 @@ Someone in the household with a display name, a password, and a home channel. An
 _Avoid_: User, account, member, profile
 
 **Home channel**:
-The channel that belongs to a Person. It exists as soon as they join. If the Person is removed, it remains as a Frozen channel.
+The channel that belongs to a Person. It exists as soon as they join. If the Person is removed, it remains as a Frozen channel until an Admin deletes it.
 _Avoid_: Profile, user channel
 
 **Removed Person**:
@@ -21,7 +21,7 @@ A Person an Admin has removed. They cannot sign in and they disappear from picke
 _Avoid_: Deleted user, deactivated, banned, archived
 
 **Frozen channel**:
-A Home channel whose Person is removed. Its Videos stay; nobody posts to it; their titles and Tags stay as they are.
+A Home channel whose Person is removed. Its Videos stay; nobody posts to it; their titles and Tags stay as they are. An Admin may delete it from the channel page, which frees the slug and removes every Video on it, including private.
 _Avoid_: Archived, deleted, orphan
 
 **Custom channel**:
@@ -61,7 +61,7 @@ One Person’s record of Videos they watched, grouped into sittings. Unsigned wa
 _Avoid_: Analytics, views, log, watch log
 
 **Slug**:
-The stable public name of a Person, Channel, Video, Playlist, or Tag in a URL. A Person and their Home channel share a slug. A Tag’s slug comes from its name. Removing a Person does not free the slug.
+The stable public name of a Person, Channel, Video, Playlist, or Tag in a URL. A Person and their Home channel share a slug. A Tag’s slug comes from its name. Removing a Person does not free the slug; deleting the Frozen Home does.
 _Avoid_: Handle, username, key, id (the row identity is not the slug)
 
 **Host**:

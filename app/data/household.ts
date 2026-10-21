@@ -51,7 +51,7 @@ const mockup: Record[] = [
 let extras: Record[] = []
 let catalogueRecords: Record[] = []
 let includeMockup = process.env.NODE_ENV === 'test'
-/** Slugs of Removed People stay reserved so Frozen Home channels keep their URLs. */
+/** Slugs of Removed People stay reserved so Frozen Home channels keep their URLs, until an Admin deletes that Frozen Home. */
 let reservedSlugs = new Set<string>()
 
 function records(): Record[] {
@@ -240,6 +240,12 @@ export async function updatePersonRoles(
   row.person.isAdmin = roles.isAdmin
   row.person.isParent = roles.isParent
   return row.person
+}
+
+/** After a Frozen Home is deleted, the old slug may be used again. The Removed Person row keeps `reservedAs`. */
+export function releaseFrozenSlug(oldSlug: string, reservedAs: string) {
+  reservedSlugs.delete(oldSlug)
+  reservedSlugs.add(reservedAs)
 }
 
 /** Admin removes a Person. The last Admin cannot be removed. The slug stays reserved. */

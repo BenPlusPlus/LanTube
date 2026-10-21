@@ -1,9 +1,10 @@
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
-import { createPerson, getPerson, resetHousehold, updatePersonRoles, useEmptyHouse } from './household.ts'
+import { createPerson, getPerson, removePerson, resetHousehold, updatePersonRoles, useEmptyHouse } from './household.ts'
 import {
   addUploadedVideo,
+  canAdminDeleteChannel,
   canDeleteCustomChannel,
   canDeleteVideo,
   canDropFolderVideo,
@@ -261,7 +262,7 @@ describe('who may change a Folder Video', () => {
 })
 
 describe('who may delete a Custom channel', () => {
-  it('lets only the Channel owner delete it', () => {
+  it('lets only the Channel owner delete it from the edit form', () => {
     let channel = getChannel('twice')!
     assert.equal(canDeleteCustomChannel(channel, 'mia'), true)
     assert.equal(canDeleteCustomChannel(channel, 'priya'), false)
@@ -273,6 +274,48 @@ describe('who may delete a Custom channel', () => {
   it('does not offer delete on a Home channel', () => {
     let home = getChannel('mia')!
     assert.equal(canDeleteCustomChannel(home, 'mia'), false)
+    let mia = getPerson('mia')!
+    mia.isAdmin = true
+    try {
+      assert.equal(canAdminDeleteChannel(home, 'mia'), false)
+    } finally {
+      delete mia.isAdmin
+    }
+  })
+
+  it('lets an Admin delete a Custom channel they do not own', () => {
+    let channel = getChannel('twice')!
+    let tomas = getPerson('tomas')!
+    tomas.isAdmin = true
+    try {
+      assert.equal(canAdminDeleteChannel(channel, 'tomas'), true)
+      assert.equal(canDeleteCustomChannel(channel, 'tomas'), false)
+      assert.equal(canAdminDeleteChannel(channel, 'priya'), false)
+      assert.equal(canAdminDeleteChannel(channel, undefined), false)
+    } finally {
+      delete tomas.isAdmin
+    }
+  })
+
+  it('lets an Admin delete a Frozen Home channel and keeps a live Home channel', async () => {
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    try {
+      let sam = await createPerson('Sam', 'lantern')
+      let alex = await createPerson('Alex', 'lantern')
+      assert.ok(!('error' in sam) && !('error' in alex))
+      assert.equal(await removePerson(sam.id, alex.id), true)
+      let frozen = getChannel('alex')!
+      assert.equal(frozen.kind, 'person')
+      assert.equal(canAdminDeleteChannel(frozen, sam.id), true)
+      assert.equal(canAdminDeleteChannel(frozen, undefined), false)
+      assert.equal(canAdminDeleteChannel(getChannel('sam')!, sam.id), false)
+    } finally {
+      await useEmptyHouse()
+      resetHousehold()
+      resetChannels()
+    }
   })
 })
 

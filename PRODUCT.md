@@ -44,9 +44,9 @@ Confirmed:
 - A Custom channel has one Channel owner and optional Managers. Owner and Managers post, edit the channel, see private Videos on it, and change those Videos’ visibility and Audience. Only the Channel owner names Managers. The Person who posted a Video stays its Video owner after they stop being a Manager.
 - Admin operates the house: other Admins and Parents, removing People, passwords, Folders. Admin does not, by itself, see private Videos, Playlists, or anyone’s History. At least one Admin remains.
 - Parent sees every Video and Playlist, including private ones, and the History of People who are not Parents. Parent does not change visibility or delete library items from that role. A house may have zero Parents.
-- Removing a Person drops them from sign-in and pickers. Their Home channel stays frozen with its Videos. Custom channels they owned pass to the Admin who removed them. Their playlists and History go. They are dropped from Audiences and Manager lists. The last Admin cannot be removed.
+- Removing a Person drops them from sign-in and pickers. Their Home channel stays frozen with its Videos until an Admin deletes it. Custom channels they owned pass to the Admin who removed them. Their playlists and History go. They are dropped from Audiences and Manager lists. The last Admin cannot be removed.
 - Tags are household-wide labels People invent by typing a name on a Video. Names are unique ignoring case. Folder videos start untagged.
-- Deleting an uploaded Video is allowed for the Video owner, and on a Custom channel also the Channel owner and Managers. Only an Admin may drop an indexed Folder Video from the catalogue. Only the Channel owner may delete a Custom channel, which deletes the Videos on it.
+- Deleting an uploaded Video is allowed for the Video owner, and on a Custom channel also the Channel owner and Managers. Only an Admin may drop an indexed Folder Video from the catalogue. The Channel owner may delete a Custom channel from the edit form. An Admin may delete a Custom channel or a Frozen Home from the channel page; that delete removes the Videos on it, including private Videos on a Frozen Home, and a Frozen Home delete frees the slug.
 
 Undecided (do not invent):
 

@@ -10,6 +10,7 @@ import { getPerson, listPeople, personFromSession, type Person } from '../data/h
 import { dropIndexedVideo } from '../data/folders.ts'
 import { recordWatchProgress, recordWatchStart } from '../data/history.ts'
 import {
+  canAdminDeleteChannel,
   canDeleteVideo,
   canDropFolderVideo,
   canEditVideo,
@@ -30,7 +31,7 @@ import { feedPage, parseCount, splitHomeLibrary, VIDEO_FEED_PAGE } from '../data
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
-import { deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
+import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
 import { routes } from '../routes.ts'
 import { channelFeedHrefs, homeEarlierHrefs, playlistFeedHrefs } from '../ui/feed-batch.tsx'
@@ -307,6 +308,35 @@ export default createController(routes, {
           shown={parseCount(params.get('n'), VIDEO_FEED_PAGE)}
         />,
       )
+    },
+    async channelDelete(context) {
+      let person = personFromSession(context.session)
+      let channel = getChannel(context.params.channelId)
+      if (!channel) {
+        return context.render(
+          <NotBuiltPage current={null} title="Channel not found" detail="Nobody in the house has a channel by that name." person={person} />,
+          { status: 404 },
+        )
+      }
+      if (!person || !canAdminDeleteChannel(channel, person.id)) {
+        return new Response('Forbidden', { status: 403 })
+      }
+      if (context.formData.get('confirm') !== '1') {
+        return context.render(
+          <ChannelPage
+            channel={channel}
+            sort="latest"
+            person={person}
+            shown={VIDEO_FEED_PAGE}
+            error="Tick the box to confirm, then delete."
+            errorField="delete"
+          />,
+          { status: 400 },
+        )
+      }
+      if (channel.kind === 'custom') await deleteCustomChannel(channel)
+      else if (channel.kind === 'person') await deleteFrozenHomeChannel(channel)
+      return redirect(routes.channels.href(), 303)
     },
     channelVideos(context) {
       let channel = getChannel(context.params.channelId)
