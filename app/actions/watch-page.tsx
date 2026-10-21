@@ -9,6 +9,7 @@ import {
   formatAdded,
   formatPlays,
   getChannel,
+  posterChannel,
   isInProgress,
   progressOf,
   progressPercent,
@@ -195,7 +196,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
     let playable = media?.exists === true
     let expectedFile = media?.displayPath ?? video.file ?? `${video.id}.mp4`
     let here = list ? watchInList(video.id, list.id) : routes.watch.href({ videoId: video.id })
-    let videoOwner = video.postedBy ? getChannel(video.postedBy) : undefined
+    let videoOwner = video.postedBy ? posterChannel(video.postedBy) : undefined
     let videoOwnerIsViewer = Boolean(person && video.postedBy === person.id)
     let others = people.filter((other) => other.id !== video.postedBy)
     let edit = handle.props.edit ?? {

@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 
 import type { Person } from '../data/household.ts'
 import { formatClock, formatRange, sittingsFor, videosWatchedSince, type Sitting, type SittingRow } from '../data/history.ts'
-import { formatDuration, getChannel, progressPercent } from '../data/library.ts'
+import { formatDuration, getChannel, posterChannel, progressPercent } from '../data/library.ts'
 import { formatLength } from '../data/playlists.ts'
 import { routes } from '../routes.ts'
 import { Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
@@ -42,7 +42,7 @@ function Row(handle: Handle<{ row: SittingRow; subjectId: string; viewerId: stri
     let { row, subjectId, viewerId, eager } = handle.props
     let { video } = row
     let channel = getChannel(video.channelId)
-    let poster = channel?.kind === 'custom' && video.postedBy ? getChannel(video.postedBy) : undefined
+    let poster = channel?.kind === 'custom' && video.postedBy ? posterChannel(video.postedBy) : undefined
     let progress = progressPercent(video, subjectId)
 
     return (

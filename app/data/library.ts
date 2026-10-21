@@ -175,6 +175,8 @@ function seedCustomChannels(): Channel[] {
 
 let customChannels: Channel[] = process.env.NODE_ENV === 'test' ? seedCustomChannels() : []
 let frozenHomeChannels: Channel[] = []
+/** Removed People whose Frozen Home was deleted; used to name Videos they posted elsewhere. */
+let forgottenPosters: Channel[] = []
 
 export function getChannels(): Channel[] {
   return [...listPeople().map(personChannel), ...frozenHomeChannels, ...customChannels, ...folderChannels]
@@ -215,6 +217,11 @@ export function getChannel(id: string): Channel | undefined {
   return customChannels.find((channel) => channel.id === id) ?? folderChannels.find((channel) => channel.id === id)
 }
 
+/** Channel page identity, plus Removed People whose Frozen Home is gone. */
+export function posterChannel(id: string): Channel | undefined {
+  return getChannel(id) ?? forgottenPosters.find((channel) => channel.id === id || channel.ownerId === id)
+}
+
 /** Custom channels this person runs or may post to, in the order they were made. Accepts a Person id or slug. */
 export function channelsFor(personId: string): { runs: Channel[]; postsTo: Channel[] } {
   let id = getHouseholdPerson(personId)?.id ?? personId
@@ -227,6 +234,16 @@ export function channelsFor(personId: string): { runs: Channel[]; postsTo: Chann
 /** Only the Channel owner may delete a Custom channel. Home channels are not deleted this way. */
 export function canDeleteCustomChannel(channel: Channel, personId: string | undefined | null): boolean {
   return channel.kind === 'custom' && personId != null && channel.ownerId === personId
+}
+
+/** Frozen Home: the Person is gone; the channel remains until an Admin deletes it. */
+export function isFrozenHome(channel: Channel): boolean {
+  return channel.kind === 'person' && getHouseholdPerson(channel.id) == null
+}
+
+/** An Admin may delete a Custom channel, or a Frozen Home channel, from the channel page. */
+export function canAdminDeleteChannel(channel: Channel, personId: string | undefined | null): boolean {
+  return isAdmin(personId) && (channel.kind === 'custom' || isFrozenHome(channel))
 }
 
 export function canPost(channel: Channel, personId: string | undefined): boolean {
@@ -410,6 +427,23 @@ export async function loadCatalogueChannels() {
       present.add(row.slug)
     }
   }
+  let frozenOwners = new Set(
+    frozenHomeChannels.map((channel) => channel.ownerId).filter((id): id is string => id != null),
+  )
+  let personRows = await db.findMany(people)
+  for (let row of personRows) {
+    if (row.removed_at == null) continue
+    if (frozenOwners.has(row.id) || frozenHomeChannels.some((channel) => channel.id === row.slug)) continue
+    if (forgottenPosters.some((channel) => channel.id === row.id)) continue
+    forgottenPosters.push({
+      id: row.id,
+      name: row.name,
+      kind: 'person',
+      hue: row.hue,
+      photo: row.photo_path ?? undefined,
+      ownerId: row.id,
+    })
+  }
 }
 
 export function rememberFolder(channel: Channel) {
@@ -428,6 +462,7 @@ export function resetChannels() {
   customChannels = process.env.NODE_ENV === 'test' ? seedCustomChannels() : []
   folderChannels = process.env.NODE_ENV === 'test' ? seedFolderChannels() : []
   frozenHomeChannels = []
+  forgottenPosters = []
 }
 
 /** Home channel stays Frozen; Custom channels pass to the Admin who removed the Person. */
@@ -460,6 +495,21 @@ export function forgetRemovedPerson(person: Person, newOwnerId: string) {
 
 export function dropCustomChannel(id: string) {
   customChannels = customChannels.filter((channel) => channel.id !== id)
+}
+
+export function dropFrozenHomeChannel(slug: string) {
+  let frozen = frozenHomeChannels.find((channel) => channel.id === slug)
+  frozenHomeChannels = frozenHomeChannels.filter((channel) => channel.id !== slug)
+  if (!frozen?.ownerId) return
+  if (forgottenPosters.some((channel) => channel.id === frozen.ownerId)) return
+  forgottenPosters.push({
+    id: frozen.ownerId,
+    name: frozen.name,
+    kind: 'person',
+    hue: frozen.hue,
+    photo: frozen.photo,
+    ownerId: frozen.ownerId,
+  })
 }
 
 export const channelLimits = { name: NAME_MAX, description: DESCRIPTION_MAX } as const

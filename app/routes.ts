@@ -11,6 +11,7 @@ export const routes = route({
   media: get('/media/:videoId'),
   channel: get('/channel/:channelId'),
   channelVideos: get('/channel/:channelId/videos'),
+  channelDelete: post('/channel/:channelId/delete'),
   channelEdit: form('/channel/:channelId/edit'),
   channels: get('/channels'),
   channelNew: form('/channels/new'),

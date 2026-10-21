@@ -4,13 +4,15 @@ import * as path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import { deleteCatalogueCustomChannel, deleteCatalogueVideo, insertUploadedVideo, uniqueVideoSlug } from './catalogue.ts'
+import { deleteCatalogueCustomChannel, deleteCatalogueFrozenHome, deleteCatalogueVideo, insertUploadedVideo, uniqueVideoSlug } from './catalogue.ts'
+import { releaseFrozenSlug } from './household.ts'
 import {
   addUploadedVideo,
   canPost,
   channelsFor,
   deleteVideo,
   dropCustomChannel,
+  dropFrozenHomeChannel,
   getChannel,
   namedAudience,
   videos,
@@ -298,4 +300,19 @@ export async function deleteCustomChannel(channel: Channel) {
     dropFromPlaylists(video.id)
   }
   dropCustomChannel(channel.id)
+}
+
+/** Frozen Home: catalogue channel and Videos (including private), upload bytes, then free the slug. */
+export async function deleteFrozenHomeChannel(channel: Channel) {
+  if (channel.kind !== 'person') return
+  let onChannel = videos.filter((video) => video.channelId === channel.id)
+  let deleted = await deleteCatalogueFrozenHome(channel.id)
+  if (!deleted) return
+  if (channel.ownerId) releaseFrozenSlug(channel.id, channel.ownerId)
+  for (let video of onChannel) {
+    await unlinkLanTubeBytes(video)
+    deleteVideo(video.id)
+    dropFromPlaylists(video.id)
+  }
+  dropFrozenHomeChannel(channel.id)
 }

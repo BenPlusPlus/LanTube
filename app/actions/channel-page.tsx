@@ -3,7 +3,7 @@ import type { Handle } from 'remix/component'
 import { brandName } from '../data/brand.ts'
 import { getPerson, type Person } from '../data/household.ts'
 import type { Channel, ChannelSort, Video } from '../data/library.ts'
-import { canPost, channelStats, channelVideos, channelsFor, formatPlays, getChannel } from '../data/library.ts'
+import { canAdminDeleteChannel, canPost, channelStats, channelVideos, channelsFor, formatPlays, getChannel } from '../data/library.ts'
 import { routes } from '../routes.ts'
 import { Avatar, VideoCard } from '../ui/cards.tsx'
 import { channelFeedHrefs, FeedBatch } from '../ui/feed-batch.tsx'
@@ -16,6 +16,8 @@ export interface ChannelPageProps {
   sort: ChannelSort
   person?: Person | null
   shown: number
+  error?: string
+  errorField?: 'delete'
 }
 
 const sorts: { id: ChannelSort; label: string }[] = [
@@ -166,13 +168,14 @@ function Empty(handle: Handle<{ channel: Channel; person: Person | null }>) {
 
 export function ChannelPage(handle: Handle<ChannelPageProps>) {
   return () => {
-    let { channel, sort, person = null, shown } = handle.props
+    let { channel, sort, person = null, shown, error, errorField } = handle.props
     let stats = channelStats(channel.id, person?.id)
     let list = channelVideos(channel.id, sort, person?.id)
     let visible = list.slice(0, shown)
     let hasMore = visible.length < list.length
     let hrefs = channelFeedHrefs(channel.id, sort, visible.length)
     let canEdit = channel.kind === 'custom' && canPost(channel, person?.id)
+    let canAdminDelete = canAdminDeleteChannel(channel, person?.id)
     let isHome = channel.kind === 'person' && canPost(channel, person?.id)
     let current: Section = channel.kind === 'custom' ? 'channels' : `channel:${channel.id}`
 
@@ -246,6 +249,42 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
             </section>
           </>
         )}
+        {canAdminDelete ? (
+          <form class="pldelete" method="post" action={routes.channelDelete.href({ channelId: channel.id })} aria-labelledby="chdelete-title">
+            <h2 class="pldelete-title" id="chdelete-title">
+              Delete this channel
+            </h2>
+            <p class="field-hint">
+              {channel.kind === 'person'
+                ? 'The Frozen channel and every video on it go, including private. This address can be used again. Uploads leave the Media share.'
+                : 'The channel and every video on it go. Uploads leave the Media share.'}
+            </p>
+            <label class="chform-remove">
+              <input
+                type="checkbox"
+                name="confirm"
+                value="1"
+                aria-invalid={errorField === 'delete' ? 'true' : undefined}
+                aria-describedby={errorField === 'delete' ? 'channel-delete-error' : undefined}
+              />
+              <span class="check" aria-hidden="true">
+                <Icon name="check" size={14} />
+              </span>
+              Yes, delete {channel.name}
+            </label>
+            {errorField === 'delete' && error ? (
+              <p class="field-error" id="channel-delete-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div>
+              <button class="btn btn-secondary" type="submit">
+                <Icon name="trash" size={18} />
+                Delete channel
+              </button>
+            </div>
+          </form>
+        ) : null}
       </AppShell>
     )
   }

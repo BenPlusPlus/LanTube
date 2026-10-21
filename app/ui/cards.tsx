@@ -7,6 +7,7 @@ import {
   formatPlays,
   formatRemaining,
   getChannel,
+  posterChannel,
   isInProgress,
   isNew,
   channelStats,
@@ -63,7 +64,7 @@ export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; show
     let channel = getChannel(video.channelId)!
     let watchHref = routes.watch.href({ videoId: video.id })
     let channelHref = routes.channel.href({ channelId: channel.id })
-    let poster = onChannel && channel.kind === 'custom' && video.postedBy ? getChannel(video.postedBy) : undefined
+    let poster = onChannel && channel.kind === 'custom' && video.postedBy ? posterChannel(video.postedBy) : undefined
     let progress = progressPercent(video, viewerId)
     let inProgress = isInProgress(video, viewerId)
     let fresh = isNew(video, viewerId)

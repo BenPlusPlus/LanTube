@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 
 import { brandName } from '../data/brand.ts'
 import { getPerson, listPeople, type Person } from '../data/household.ts'
-import { channelsFor, channelVideos, formatAdded, formatPlays, getChannel, thumbUrl, type Channel } from '../data/library.ts'
+import { channelsFor, channelVideos, formatAdded, formatPlays, getChannel, posterChannel, thumbUrl, type Channel } from '../data/library.ts'
 import { videoExtensions } from '../data/media.ts'
 import { playlistsOwnedBy } from '../data/playlists.ts'
 import { destinationsFor, uploadLimits, type UploadField } from '../data/uploads.ts'
@@ -59,7 +59,7 @@ function destinationOf(channel: Channel, person: Person, runs: Set<string>): Upl
         thumb: thumbUrl(video),
         durationSec: video.durationSec,
         meta: `${formatPlays(video.plays)} · ${formatAdded(video.addedDaysAgo)}`,
-        byline: channel.kind === 'custom' && video.postedBy ? getChannel(video.postedBy)?.name : undefined,
+        byline: channel.kind === 'custom' && video.postedBy ? posterChannel(video.postedBy)?.name : undefined,
       })),
   }
 }

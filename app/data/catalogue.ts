@@ -4,7 +4,7 @@ import { db } from '../db.ts'
 import { slugify } from './household.ts'
 import { canWatch, getVideo, videos as memoryVideos, type Video } from './library.ts'
 import { loadCatalogueTags } from './tags.ts'
-import { channels, videoAudience, videoTags, videos, tags as tagRows } from './tables.ts'
+import { channels, people, videoAudience, videoTags, videos, tags as tagRows } from './tables.ts'
 
 type VideoRow = {
   id: string
@@ -294,6 +294,23 @@ export async function deleteCatalogueCustomChannel(slug: string) {
   await db.transaction(async (tx) => {
     for (let video of rows) await tx.delete(videos, video.id)
     await tx.delete(channels, row.id)
+  })
+  return true
+}
+
+/** Frozen Home only: drop the person-kind channel and its Videos; keep the Removed Person row under a UUID slug. */
+export async function deleteCatalogueFrozenHome(slug: string) {
+  let row = await db.findOne(channels, { where: { slug } })
+  if (!row || row.kind !== 'person') return false
+  let owner = row.owner_id ? await db.find(people, row.owner_id) : null
+  if (owner && owner.removed_at == null) return false
+  let rows = await db.findMany(videos, { where: { channel_id: row.id } })
+  await db.transaction(async (tx) => {
+    for (let video of rows) await tx.delete(videos, video.id)
+    await tx.delete(channels, row.id)
+    if (owner && owner.removed_at != null) {
+      await tx.update(people, owner.id, { slug: owner.id })
+    }
   })
   return true
 }
