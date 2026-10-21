@@ -231,8 +231,10 @@ describe('history page', () => {
     assert.match(html, /Resume from 6:38/)
     assert.match(html, /Finished/)
     let sourdough = html.indexOf('Sourdough attempt #4')
+    let christmas = html.indexOf('Christmas morning 2009')
     let hilltop = html.indexOf('Hilltop camp')
     assert.ok(sourdough > 0 && hilltop > sourdough, 'Expected the newest sitting first')
+    assert.ok(christmas > 0 && christmas < sourdough, 'Expected newest video first within a sitting')
     assert.doesNotMatch(html, /Rosie turns one/)
   })
 

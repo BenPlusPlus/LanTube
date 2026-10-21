@@ -37,7 +37,7 @@ export interface Sitting {
   startedAt: number
   endedAt: number
   watchedSec: number
-  /** Chronological, so the first row is the first segment of the bar. */
+  /** Newest first, so the first row is the first segment of the bar. */
   rows: SittingRow[]
 }
 
@@ -229,7 +229,7 @@ export function sittingsFor(personId: string, query = '', now = Date.now()): Sit
       })
     }
     if (rows.length === 0) return
-    rows.sort((a, b) => a.at - b.at)
+    rows.sort((a, b) => b.at - a.at)
 
     let startedAt = Math.min(...rows.map((row) => row.from))
     sittings.push({
