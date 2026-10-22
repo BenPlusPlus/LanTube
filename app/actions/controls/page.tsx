@@ -1,8 +1,8 @@
 import type { Handle } from 'remix/component'
 
-import { formatAssignedAt } from '../../data/assignments.ts'
 import { brandName } from '../../data/brand.ts'
 import type { Person } from '../../data/household.ts'
+import { formatAdded } from '../../data/library.ts'
 import { routes } from '../../routes.ts'
 import { Avatar } from '../../ui/cards.tsx'
 import { Icon } from '../../ui/public/icons.tsx'
@@ -204,7 +204,7 @@ export function ControlsPage(handle: Handle<ControlsPageProps>) {
                                 {entry.title}
                               </a>
                               <span class="controls-assignment-meta">
-                                {entry.assignedBy} · {formatAssignedAt(entry.assignedAt)}
+                                {entry.assignedBy} · {formatAdded((Date.now() - entry.assignedAt) / 86_400_000)}
                               </span>
                               <form method="post" action={action}>
                                 <input type="hidden" name="intent" value="unassign" />

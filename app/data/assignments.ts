@@ -1,6 +1,6 @@
 import { db } from '../db.ts'
 import { getPerson, listPeople, type Person } from './household.ts'
-import { canWatch, formatAdded, getVideo, type Video } from './library.ts'
+import { canWatch, getVideo, type Video } from './library.ts'
 import { assignments as assignmentRows, people, videos } from './tables.ts'
 import { isLimitable } from './watch-limits.ts'
 
@@ -15,29 +15,10 @@ type Result = true | { error: string }
 
 let rows: Assignment[] = []
 
-const writes = new Map<string, Promise<unknown>>()
-
-function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
-  let prior = writes.get(key) ?? Promise.resolve()
-  let next = prior.then(work, work)
-  writes.set(key, next.then(() => undefined, () => undefined))
-  return next
-}
-
 async function isCataloguedPerson(personId: string) {
   let person = getPerson(personId)
   if (!person || person.id === person.slug) return false
   return Boolean(await db.findOne(people, { where: { id: personId } }))
-}
-
-function atMs(value: unknown) {
-  if (value instanceof Date) return value.getTime()
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    let ms = Date.parse(value)
-    if (Number.isFinite(ms)) return ms
-  }
-  return Date.now()
 }
 
 function keyOf(personId: string, videoId: string) {
@@ -96,36 +77,28 @@ async function persistDelete(personId: string, videoId: string) {
 }
 
 export async function assign(actorId: string, personId: string, videoId: string, now = Date.now()): Promise<Result> {
-  return serialize(keyOf(personId, videoId), async () => {
-    let checked = check(actorId, personId, videoId)
-    if ('error' in checked) return checked
-    if (isAssigned(checked.target.id, videoId)) return true
-    let row: Assignment = {
-      personId: checked.target.id,
-      videoId,
-      assignedBy: actorId,
-      assignedAt: now,
-    }
-    await persistCreate(row)
-    rows.push(row)
-    return true
-  })
+  let checked = check(actorId, personId, videoId)
+  if ('error' in checked) return checked
+  if (isAssigned(checked.target.id, videoId)) return true
+  let row: Assignment = {
+    personId: checked.target.id,
+    videoId,
+    assignedBy: actorId,
+    assignedAt: now,
+  }
+  await persistCreate(row)
+  rows.push(row)
+  return true
 }
 
 export async function unassign(actorId: string, personId: string, videoId: string): Promise<Result> {
-  return serialize(keyOf(personId, videoId), async () => {
-    if (!getPerson(actorId)?.isParent) return { error: 'You need to be a Parent.' }
-    let target = getPerson(personId)
-    if (!target) return { error: 'That person isn’t in the house.' }
-    if (!isAssigned(target.id, videoId)) return true
-    await persistDelete(target.id, videoId)
-    rows = rows.filter((row) => !(row.personId === target.id && row.videoId === videoId))
-    return true
-  })
-}
-
-export function formatAssignedAt(at: number, now = Date.now()): string {
-  return formatAdded((now - at) / 86_400_000)
+  if (!getPerson(actorId)?.isParent) return { error: 'You need to be a Parent.' }
+  let target = getPerson(personId)
+  if (!target) return { error: 'That person isn’t in the house.' }
+  if (!isAssigned(target.id, videoId)) return true
+  await persistDelete(target.id, videoId)
+  rows = rows.filter((row) => !(row.personId === target.id && row.videoId === videoId))
+  return true
 }
 
 export async function loadCatalogueAssignments() {
@@ -137,11 +110,12 @@ export async function loadCatalogueAssignments() {
     if (!videoId || !getVideo(videoId) || !getPerson(row.person_id)) continue
     let key = keyOf(row.person_id, videoId)
     if (present.has(key)) continue
+    let assignedAt = row.assigned_at instanceof Date ? row.assigned_at.getTime() : Date.parse(String(row.assigned_at))
     rows.push({
       personId: row.person_id,
       videoId,
       assignedBy: row.assigned_by,
-      assignedAt: atMs(row.assigned_at),
+      assignedAt: Number.isFinite(assignedAt) ? assignedAt : Date.now(),
     })
     present.add(key)
   }

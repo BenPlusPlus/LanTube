@@ -78,7 +78,6 @@ export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; show
     let assignMenu = viewer?.isParent && houseHasLimitablePeople()
     let assignPeople = assignMenu ? assignablePeople(video) : []
     let menuId = `assign-${video.id}`
-    let btnId = `assign-btn-${video.id}`
     let anchor = `--assign-${video.id}`
 
     return (
@@ -108,7 +107,6 @@ export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; show
                   <button
                     class="icon-btn vcard-assign-btn"
                     type="button"
-                    id={btnId}
                     popovertarget={menuId}
                     aria-haspopup="dialog"
                     aria-label={`Assign ${video.title}`}

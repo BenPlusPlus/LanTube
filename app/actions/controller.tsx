@@ -47,20 +47,8 @@ import { PlaylistsPage } from './playlists-page.tsx'
 import { WatchPage } from './watch-page.tsx'
 
 /** Only same-site paths; anything else falls back. */
-function safeReturn(value: FormDataEntryValue | string | null): string | undefined {
+function safeReturn(value: FormDataEntryValue | null): string | undefined {
   return typeof value === 'string' && /^\/(?![/\\])/.test(value) ? value : undefined
-}
-
-function refererPath(request: Request) {
-  let raw = request.headers.get('Referer')
-  if (!raw) return null
-  try {
-    let url = new URL(raw)
-    if (url.origin !== new URL(request.url).origin) return null
-    return `${url.pathname}${url.search}`
-  } catch {
-    return null
-  }
 }
 
 /** The video, if it exists and this viewer may see it. Someone else's private video doesn't exist for you. */
@@ -279,7 +267,16 @@ export default createController(routes, {
       }
       let result = intent === 'assign' ? await assign(person.id, personId, video.id) : await unassign(person.id, personId, video.id)
       if (result !== true) return new Response(result.error, { status: 400 })
-      return redirect(safeReturn(form.get('returnTo')) ?? safeReturn(refererPath(context.request)) ?? routes.home.href(), 303)
+      let next = routes.home.href()
+      let referer = context.request.headers.get('Referer')
+      if (referer) {
+        try {
+          let url = new URL(referer)
+          let path = `${url.pathname}${url.search}`
+          if (url.origin === new URL(context.request.url).origin && /^\/(?![/\\])/.test(path)) next = path
+        } catch {}
+      }
+      return redirect(next, 303)
     },
     async media(context) {
       let person = personFromSession(context.session)
