@@ -8,6 +8,11 @@ import { db } from '../db.ts'
 import { hueFor, isAdmin, isParent, listPeople, getPerson as getHouseholdPerson, slugify, type Person } from './household.ts'
 import { channelManagers, channels, people } from './tables.ts'
 
+let onVideoDeleted: ((id: string) => void) | undefined
+export function bindDeletedVideo(fn: (id: string) => void) {
+  onVideoDeleted = fn
+}
+
 /** `person`: everyone's home channel. `custom`: a named channel someone runs. `folder`: an indexed share. */
 export type ChannelKind = 'person' | 'custom' | 'folder'
 
@@ -129,6 +134,7 @@ export function deleteVideo(id: string) {
   let index = videos.findIndex((video) => video.id === id)
   if (index !== -1) videos.splice(index, 1)
   for (let own of progressByPerson.values()) own.delete(id)
+  onVideoDeleted?.(id)
 }
 
 function personChannel(person: Person): Channel {

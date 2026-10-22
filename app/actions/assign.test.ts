@@ -3,6 +3,7 @@ import { afterEach, describe, it } from 'remix/test'
 
 import { assign, isAssigned, resetAssignments } from '../data/assignments.ts'
 import { insertUploadedVideo } from '../data/catalogue.ts'
+import { recordWatchProgress, recordWatchStart, resetHistory } from '../data/history.ts'
 import { createPerson, getPerson, resetHousehold, useEmptyHouse } from '../data/household.ts'
 import { addUploadedVideo, canWatch, deleteVideo, getVideo, resetChannels } from '../data/library.ts'
 import { router } from '../router.ts'
@@ -244,5 +245,130 @@ describe('remove an Assignment from Controls', () => {
     assert.equal(removed.status, 303)
     assert.equal(isAssigned('leo', 'rosie-one'), false)
     assert.doesNotMatch((await get(routes.controls.index.href(), ruth)).html, /Rosie turns one/)
+  })
+})
+
+describe('drop an Assignment when the duty ends', () => {
+  afterEach(() => {
+    dropRoles()
+    resetAssignments()
+    resetHistory()
+    let secret = getVideo('secret-clip')
+    if (secret) deleteVideo(secret.id)
+  })
+
+  it('clears Watch these first and Controls after Leo watches to the end', async () => {
+    withRoles()
+    let video = getVideo('rosie-one')!
+    assert.equal(await assign('ruth', 'leo', video.id), true)
+    let start = Date.now()
+    await recordWatchStart('leo', video, start)
+    await recordWatchProgress('leo', video, 740, undefined, start + 740_000)
+
+    assert.equal(isAssigned('leo', video.id), false)
+    assert.doesNotMatch((await get(routes.home.href(), await signIn('leo'))).html, /Watch these first/)
+    assert.doesNotMatch((await get(routes.controls.index.href(), await signIn('ruth'))).html, /Rosie turns one/)
+  })
+
+  it('does not finish the Assignment from a skim progress report', async () => {
+    withRoles()
+    let leo = await signIn('leo')
+    assert.equal(await assign('ruth', 'leo', 'rosie-one'), true)
+    let skim = await post(
+      routes.watchActivity.href({ videoId: 'rosie-one' }),
+      { event: 'progress', t: '740', d: '748' },
+      leo,
+    )
+    assert.equal(skim.status, 204)
+    assert.equal(isAssigned('leo', 'rosie-one'), true)
+    assert.match((await get(routes.controls.index.href(), await signIn('ruth'))).html, /Rosie turns one/)
+  })
+
+  it('drops the Assignment when Mia grants Leo Parent', async () => {
+    withRoles()
+    assert.equal(await assign('ruth', 'leo', 'rosie-one'), true)
+    let granted = await post(routes.house.action.href(), { personId: 'leo', parent: 'on' }, await signIn('mia'))
+    assert.equal(granted.status, 303)
+    assert.equal(isAssigned('leo', 'rosie-one'), false)
+    assert.doesNotMatch((await get(routes.controls.index.href(), await signIn('ruth'))).html, /Rosie turns one/)
+  })
+
+  it('drops the Assignment when the Video is deleted', async () => {
+    withRoles()
+    addUploadedVideo({
+      id: 'secret-clip',
+      title: 'Secret clip',
+      channelId: 'mia',
+      durationSec: 12,
+      thumb: '',
+      tags: [],
+      postedBy: 'mia',
+    })
+    assert.equal(await assign('ruth', 'leo', 'secret-clip'), true)
+    let deleted = await post(
+      routes.watchDelete.href({ videoId: 'secret-clip' }),
+      { confirm: '1' },
+      await signIn('mia'),
+    )
+    assert.equal(deleted.status, 303)
+    assert.equal(isAssigned('leo', 'secret-clip'), false)
+    assert.doesNotMatch((await get(routes.controls.index.href(), await signIn('ruth'))).html, /Secret clip/)
+  })
+})
+
+describe('drop an Assignment when a catalogue Video becomes private', () => {
+  afterEach(async () => {
+    dropRoles()
+    resetAssignments()
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    withRoles()
+  })
+
+  it('drops Leo when he is not on Audience and has no other sight', async () => {
+    withRoles()
+    let owner = await createPerson('Sam', 'house', undefined, undefined, true)
+    assert.ok(!('error' in owner))
+    let slug = 'kit-duty'
+    let inserted = await insertUploadedVideo({
+      slug,
+      title: 'Lake walk',
+      channelSlug: owner.slug,
+      ownerId: owner.id,
+      durationSec: 20,
+      filePath: `uploads/${owner.slug}/${slug}.mp4`,
+      posterPath: null,
+      visibility: 'house',
+    })
+    assert.ok(inserted)
+    addUploadedVideo({
+      id: slug,
+      title: 'Lake walk',
+      channelId: owner.slug,
+      durationSec: 20,
+      thumb: '',
+      tags: [],
+      file: `uploads/${owner.slug}/${slug}.mp4`,
+      postedBy: owner.id,
+    })
+    assert.equal(await assign('ruth', 'leo', slug), true)
+    assert.equal(await assign('ruth', 'priya', slug), true)
+
+    let body = new FormData()
+    body.set('title', 'Lake walk')
+    body.set('visibility', 'private')
+    let saved = await router.fetch(
+      new Request(new URL(routes.watchSave.href({ videoId: slug }), 'http://localhost'), {
+        method: 'POST',
+        body,
+        headers: { Cookie: await signIn(owner.id) },
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(saved.status, 303)
+    assert.equal(canWatch(getVideo(slug)!, 'leo'), false)
+    assert.equal(isAssigned('leo', slug), false)
+    assert.equal(isAssigned('priya', slug), false)
   })
 })
