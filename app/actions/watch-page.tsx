@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 
+import { mustFinishAssignedFirst } from '../data/assignments.ts'
 import { brandName } from '../data/brand.ts'
 import type { Person } from '../data/household.ts'
 import { allowanceFor } from '../data/watch-limits.ts'
@@ -194,6 +195,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
     let related = relatedVideos(video, 12, person?.id)
     let isFolder = channel.kind === 'folder'
     let playable = media?.exists === true
+    let assignedFirst = mustFinishAssignedFirst(person, video.id)
     let expectedFile = media?.displayPath ?? video.file ?? `${video.id}.mp4`
     let here = list ? watchInList(video.id, list.id) : routes.watch.href({ videoId: video.id })
     let videoOwner = video.postedBy ? posterChannel(video.postedBy) : undefined
@@ -217,7 +219,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               key={video.id}
               videoId={video.id}
               title={video.title}
-              src={playable ? routes.media.href({ videoId: video.id }) : null}
+              src={playable && !assignedFirst ? routes.media.href({ videoId: video.id }) : null}
               poster={thumbUrl(video) ?? undefined}
               durationSec={video.durationSec}
               resumeAt={isInProgress(video, person?.id) ? progressOf(video, person?.id) : undefined}
@@ -226,8 +228,9 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               expectedFile={expectedFile}
               brand={brandName()}
               timeLeftSec={person ? allowanceFor(person)?.remainingSec : undefined}
+              mustFinishAssigned={assignedFirst}
             />
-            {playable ? (
+            {playable && !assignedFirst ? (
               <noscript>
                 <p class="watch-noscript">
                   The {brandName()} player needs JavaScript.{' '}

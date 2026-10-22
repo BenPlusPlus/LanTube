@@ -9,6 +9,7 @@ import {
   houseHasLimitablePeople,
   isAssigned,
   loadCatalogueAssignments,
+  mustFinishAssignedFirst,
   resetAssignments,
   unassign,
 } from './assignments.ts'
@@ -109,6 +110,23 @@ describe('assignments', () => {
     getPerson('leo')!.isParent = true
     getPerson('priya')!.isAdmin = true
     assert.equal(houseHasLimitablePeople(), false)
+  })
+
+  it('blocks a limitable Person from any Video that is not assigned while Assignments remain', async () => {
+    withRoles()
+    let leo = getPerson('leo')
+    let priya = getPerson('priya')
+    let ruth = getPerson('ruth')
+
+    assert.equal(mustFinishAssignedFirst(leo, 'tahoe-day-2'), false)
+    assert.equal(mustFinishAssignedFirst(null, 'tahoe-day-2'), false)
+
+    assert.equal(await assign('ruth', 'leo', 'rosie-one'), true)
+    assert.equal(mustFinishAssignedFirst(leo, 'rosie-one'), false)
+    assert.equal(mustFinishAssignedFirst(leo, 'tahoe-day-2'), true)
+    assert.equal(mustFinishAssignedFirst(priya, 'tahoe-day-2'), false)
+    assert.equal(mustFinishAssignedFirst(ruth, 'tahoe-day-2'), false)
+    assert.equal(mustFinishAssignedFirst(undefined, 'tahoe-day-2'), false)
   })
 })
 

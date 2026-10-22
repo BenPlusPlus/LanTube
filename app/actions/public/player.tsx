@@ -1,6 +1,7 @@
 import { clientEntry, on, ref } from 'remix/component'
 import type { Handle } from 'remix/component'
 
+import { routes } from '../../routes.ts'
 import { Icon, type IconName } from '../../ui/public/icons.tsx'
 
 export interface PlayerProps {
@@ -20,9 +21,11 @@ export interface PlayerProps {
   brand: string
   /** Seconds this viewer may still watch today; omitted when they have no limit. */
   timeLeftSec?: number
+  /** Signed-in limitable Person still has Assignments, and this Video is not one of them. */
+  mustFinishAssigned?: boolean
 }
 
-type Failure = 'unsupported' | 'network' | 'missing' | 'time-up'
+type Failure = 'unsupported' | 'network' | 'missing' | 'time-up' | 'assigned'
 
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 const HIDE_AFTER_MS = 2600
@@ -68,7 +71,13 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   let playing = false
   let ended = false
   let waiting = false
-  let failure: Failure | null = !handle.props.src ? 'missing' : handle.props.timeLeftSec === 0 ? 'time-up' : null
+  let failure: Failure | null = handle.props.mustFinishAssigned
+    ? 'assigned'
+    : handle.props.timeLeftSec === 0
+      ? 'time-up'
+      : !handle.props.src
+        ? 'missing'
+        : null
   let timeLeft: number | null = handle.props.timeLeftSec ?? null
   let lastPos: number | null = null
   let current = handle.props.resumeAt ?? 0
@@ -421,6 +430,21 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     if (!startedOnce) classes.push('is-fresh')
     if (fullscreen) classes.push('is-fullscreen')
     if (failure) classes.push('has-failure')
+
+    if (failure === 'assigned') {
+      return (
+        <div class="player has-failure is-assigned-first" aria-label={`Video player: ${title}`} role="region">
+          {poster ? <img class="player-poster" src={poster} alt="" /> : null}
+          <div class="player-message" role="alert">
+            <Icon name="list-check" size={40} />
+            <p class="player-message-title">Finish your assigned videos first.</p>
+            <a class="btn btn-secondary" href={routes.home.href()}>
+              Home
+            </a>
+          </div>
+        </div>
+      )
+    }
 
     if (failure === 'time-up') {
       return (
