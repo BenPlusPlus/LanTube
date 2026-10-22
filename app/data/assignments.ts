@@ -43,7 +43,6 @@ export function assignmentsFor(personId: string): Assignment[] {
     .sort((a, b) => b.assignedAt - a.assignedAt)
 }
 
-/** True when this signed-in limitable Person still has Assignments and this Video is not one of them. */
 export function mustFinishAssignedFirst(person: Person | null | undefined, videoId: string): boolean {
   if (!person || !isLimitable(person)) return false
   if (assignmentsFor(person.id).length === 0) return false
