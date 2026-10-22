@@ -4,7 +4,6 @@
 import { randomUUID } from 'node:crypto'
 
 import { db } from '../db.ts'
-import { dropAssignment } from './assignments.ts'
 import { getPerson } from './household.ts'
 import { getChannel, getVideo, isInProgress, progressOf, recordProgress, resetProgress, type Video } from './library.ts'
 import { people, videos, watchProgress, watchSessions } from './tables.ts'
@@ -168,6 +167,7 @@ export async function recordWatchProgress(
       progressOf(video, personId) !== undefined &&
       !isInProgress(video, personId)
     ) {
+      let { dropAssignment } = await import('./assignments.ts')
       await dropAssignment(personId, video.id)
     }
   })

@@ -1,6 +1,6 @@
 import { db } from '../db.ts'
 import { getPerson, listPeople, type Person } from './household.ts'
-import { bindDeletedVideo, canWatch, getVideo, type Video } from './library.ts'
+import { canWatch, getVideo, type Video } from './library.ts'
 import { assignments as assignmentRows, people, videos } from './tables.ts'
 import { isLimitable } from './watch-limits.ts'
 
@@ -111,18 +111,14 @@ export async function unassign(actorId: string, personId: string, videoId: strin
   return true
 }
 
-function dutyPossible(row: Assignment) {
-  let person = getPerson(row.personId)
-  let video = getVideo(row.videoId)
-  return Boolean(person && video && isLimitable(person) && canWatch(video, person.id))
-}
-
 export async function dropImpossibleAssignments() {
-  let gone = rows.filter((row) => !dutyPossible(row))
-  for (let row of gone) await persistDelete(row.personId, row.videoId)
-  if (gone.length === 0) return
-  let drop = new Set(gone.map((row) => keyOf(row.personId, row.videoId)))
-  rows = rows.filter((row) => !drop.has(keyOf(row.personId, row.videoId)))
+  for (let row of rows.filter((row) => {
+    let person = getPerson(row.personId)
+    let video = getVideo(row.videoId)
+    return !(person && video && isLimitable(person) && canWatch(video, person.id))
+  })) {
+    await dropAssignment(row.personId, row.videoId)
+  }
 }
 
 export async function loadCatalogueAssignments() {
@@ -156,5 +152,3 @@ export function forgetRemovedPerson(personId: string) {
 export function forgetDeletedVideo(videoId: string) {
   rows = rows.filter((row) => row.videoId !== videoId)
 }
-
-bindDeletedVideo(forgetDeletedVideo)

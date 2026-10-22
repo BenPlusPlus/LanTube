@@ -7,6 +7,7 @@ import {
   assignablePeople,
   assignmentsFor,
   dropImpossibleAssignments,
+  forgetDeletedVideo,
   houseHasLimitablePeople,
   isAssigned,
   loadCatalogueAssignments,
@@ -24,7 +25,16 @@ import {
   useEmptyHouse,
   type Person,
 } from './household.ts'
-import { addUploadedVideo, canWatch, deleteVideo, getVideo, isInProgress, resetChannels } from './library.ts'
+import {
+  addUploadedVideo,
+  canWatch,
+  deleteVideo,
+  getChannel,
+  getVideo,
+  isInProgress,
+  resetChannels,
+  updateChannel,
+} from './library.ts'
 
 function withRoles() {
   getPerson('ruth')!.isParent = true
@@ -193,6 +203,7 @@ describe('assignments', () => {
     assert.equal(await assign('ruth', 'leo', 'secret-clip'), true)
     assert.equal(await assign('ruth', 'priya', 'tahoe-day-2'), true)
     deleteVideo('secret-clip')
+    forgetDeletedVideo('secret-clip')
     assert.equal(isAssigned('leo', 'secret-clip'), false)
     assert.equal(isAssigned('priya', 'tahoe-day-2'), true)
   })
@@ -233,6 +244,33 @@ describe('assignments', () => {
     assert.equal(canWatch(secret, 'leo'), false)
     assert.equal(isAssigned('leo', 'secret-clip'), false)
     assert.equal(isAssigned('priya', 'tahoe-day-2'), true)
+  })
+
+  it('drops an Assignment when a Manager loses sight of a private Video on that channel', async () => {
+    withRoles()
+    let secret = addUploadedVideo({
+      id: 'secret-clip',
+      title: 'Secret clip',
+      channelId: 'twice',
+      durationSec: 12,
+      thumb: '',
+      tags: [],
+      postedBy: 'mia',
+      private: true,
+    })
+    assert.equal(canWatch(secret, 'priya'), true)
+    assert.equal(await assign('ruth', 'priya', 'secret-clip'), true)
+    assert.equal(await assign('ruth', 'leo', 'tahoe-day-2'), true)
+
+    let channel = getChannel('twice')!
+    await updateChannel(channel, { name: channel.name, description: channel.description ?? '', managerIds: [] })
+    try {
+      assert.equal(canWatch(secret, 'priya'), false)
+      assert.equal(isAssigned('priya', 'secret-clip'), false)
+      assert.equal(isAssigned('leo', 'tahoe-day-2'), true)
+    } finally {
+      resetChannels()
+    }
   })
 })
 
