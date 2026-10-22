@@ -6,6 +6,7 @@ import { insertUploadedVideo } from '../data/catalogue.ts'
 import { recordWatchProgress, recordWatchStart, resetHistory } from '../data/history.ts'
 import { createPerson, getPerson, resetHousehold, useEmptyHouse } from '../data/household.ts'
 import { addUploadedVideo, canWatch, deleteVideo, getVideo, resetChannels } from '../data/library.ts'
+import { addVideo, getPlaylist, resetPlaylists } from '../data/playlists.ts'
 import { router } from '../router.ts'
 import { routes } from '../routes.ts'
 
@@ -224,6 +225,135 @@ describe('assign from the card kebab', () => {
     let { html } = await get(routes.channel.href({ channelId: 'leo' }), await signIn('ruth'))
     assert.doesNotMatch(html, /id="assign-/)
     assert.doesNotMatch(html, /Assign to/)
+  })
+})
+
+describe('assign from playlist entries and Watch related', () => {
+  afterEach(() => {
+    dropRoles()
+    resetAssignments()
+    resetPlaylists()
+    let secret = getVideo('secret-clip')
+    if (secret) deleteVideo(secret.id)
+  })
+
+  it('shows Assign to on playlist entries and Watch related for a Parent, and omits it for everyone else', async () => {
+    withRoles()
+    let ruth = await signIn('ruth')
+    let playlistPath = routes.playlist.href({ playlistId: 'trips-we-rewatch' })
+    let playlist = await get(playlistPath, ruth)
+    assert.match(playlist.html, /id="assign-hilltop-camp"/)
+    assert.match(menu(playlist.html, 'hilltop-camp'), /Assign to/)
+    assert.match(menu(playlist.html, 'hilltop-camp'), />Leo</)
+    assert.match(menu(playlist.html, 'hilltop-camp'), />Priya</)
+    assert.doesNotMatch(menu(playlist.html, 'hilltop-camp'), /Tomás|Tomas/)
+
+    let watch = await get(routes.watch.href({ videoId: 'tahoe-day-2' }), ruth)
+    assert.doesNotMatch(watch.html, /id="assign-tahoe-day-2"/)
+    assert.match(watch.html, /id="assign-hilltop-camp"/)
+    assert.match(menu(watch.html, 'hilltop-camp'), /Assign to/)
+    assert.match(menu(watch.html, 'hilltop-camp'), />Leo</)
+    assert.doesNotMatch(menu(watch.html, 'hilltop-camp'), /Tomás|Tomas/)
+
+    assert.doesNotMatch((await get(playlistPath)).html, /id="assign-/)
+    assert.doesNotMatch((await get(playlistPath, await signIn('leo'))).html, /id="assign-/)
+    assert.doesNotMatch((await get(routes.watch.href({ videoId: 'tahoe-day-2' }), await signIn('tomas'))).html, /id="assign-/)
+  })
+
+  it('assigns and unassigns from a playlist entry kebab, and lists the Assignment on Controls', async () => {
+    withRoles()
+    let ruth = await signIn('ruth')
+    let videoId = 'hilltop-camp'
+    let title = getVideo(videoId)!.title
+    let playlistPath = routes.playlist.href({ playlistId: 'trips-we-rewatch' })
+    let saved = await post(
+      assignAction(videoId),
+      { intent: 'assign', personId: 'leo' },
+      ruth,
+      `http://localhost${playlistPath}`,
+    )
+    assert.equal(saved.status, 303)
+    assert.equal(saved.headers.get('Location'), playlistPath)
+    assert.equal(isAssigned('leo', videoId), true)
+
+    let { html } = await get(routes.controls.index.href(), ruth)
+    assert.match(html, new RegExp(`id="controls-leo"[\\s\\S]*?${title}[\\s\\S]*?Ruth · Just now`))
+
+    let again = await get(playlistPath, ruth)
+    assert.match(menu(again.html, videoId), /name="intent" value="unassign"[\s\S]*?personId" value="leo"/)
+
+    let cleared = await post(assignAction(videoId), { intent: 'unassign', personId: 'leo' }, ruth, `http://localhost${playlistPath}`)
+    assert.equal(cleared.status, 303)
+    assert.equal(isAssigned('leo', videoId), false)
+    assert.doesNotMatch((await get(routes.controls.index.href(), ruth)).html, new RegExp(title))
+  })
+
+  it('assigns and unassigns from a Watch related-row kebab, and lists the Assignment on Controls', async () => {
+    withRoles()
+    let ruth = await signIn('ruth')
+    let videoId = 'hilltop-camp'
+    let title = getVideo(videoId)!.title
+    let watchPath = routes.watch.href({ videoId: 'tahoe-day-2' })
+    let saved = await post(
+      assignAction(videoId),
+      { intent: 'assign', personId: 'leo' },
+      ruth,
+      `http://localhost${watchPath}`,
+    )
+    assert.equal(saved.status, 303)
+    assert.equal(saved.headers.get('Location'), watchPath)
+    assert.equal(isAssigned('leo', videoId), true)
+
+    let { html } = await get(routes.controls.index.href(), ruth)
+    assert.match(html, new RegExp(`id="controls-leo"[\\s\\S]*?${title}[\\s\\S]*?Ruth · Just now`))
+
+    let again = await get(watchPath, ruth)
+    assert.match(menu(again.html, videoId), /name="intent" value="unassign"[\s\S]*?personId" value="leo"/)
+
+    let cleared = await post(assignAction(videoId), { intent: 'unassign', personId: 'leo' }, ruth, `http://localhost${watchPath}`)
+    assert.equal(cleared.status, 303)
+    assert.equal(isAssigned('leo', videoId), false)
+    assert.doesNotMatch((await get(routes.controls.index.href(), ruth)).html, new RegExp(title))
+  })
+
+  it('shows empty Audience copy on a playlist entry and a related row nobody listed can watch', async () => {
+    withRoles()
+    addUploadedVideo({
+      id: 'secret-clip',
+      title: 'Secret clip',
+      channelId: 'mia',
+      durationSec: 12,
+      thumb: '',
+      tags: ['trips'],
+      postedBy: 'mia',
+      private: true,
+    })
+    assert.equal(await addVideo(getPlaylist('trips-we-rewatch')!, 'secret-clip'), true)
+    let ruth = await signIn('ruth')
+    let empty = menu((await get(routes.playlist.href({ playlistId: 'trips-we-rewatch' }), ruth)).html, 'secret-clip')
+    assert.match(empty, /No one here can watch this yet\. Name them on Audience first\./)
+    assert.doesNotMatch(empty, />Leo</)
+
+    let related = menu((await get(routes.watch.href({ videoId: 'tahoe-day-2' }), ruth)).html, 'secret-clip')
+    assert.match(related, /No one here can watch this yet\. Name them on Audience first\./)
+    assert.doesNotMatch(related, />Leo</)
+  })
+
+  it('omits the kebab on channel-directory peeks, History rows, Upload preview, the playing Watch page, and playlist sidebar items', async () => {
+    withRoles()
+    let ruth = await signIn('ruth')
+    assert.doesNotMatch((await get(routes.channels.href(), ruth)).html, /id="assign-/)
+    assert.doesNotMatch((await get(routes.history.href(), ruth)).html, /id="assign-/)
+    assert.doesNotMatch((await get(routes.upload.index.href(), ruth)).html, /id="assign-/)
+
+    let watch = await get(routes.watch.href({ videoId: 'tahoe-day-2' }), ruth)
+    assert.doesNotMatch(watch.html, /id="assign-tahoe-day-2"/)
+
+    let listed = await get(`${routes.watch.href({ videoId: 'fetch-arnside' })}?list=trips-we-rewatch`, ruth)
+    let wlistStart = listed.html.indexOf('class="wlist"')
+    let relatedStart = listed.html.indexOf('class="watch-related"', wlistStart)
+    assert.ok(wlistStart > 0 && relatedStart > wlistStart, 'Expected the playlist sidebar before related')
+    assert.doesNotMatch(listed.html.slice(wlistStart, relatedStart), /id="assign-/)
   })
 })
 

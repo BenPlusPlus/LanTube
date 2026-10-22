@@ -23,7 +23,7 @@ import { playlistsOwnedBy, playlistVideos, type Playlist } from '../data/playlis
 import { tagsInUse } from '../data/tags.ts'
 import { uploadLimits } from '../data/uploads.ts'
 import { routes } from '../routes.ts'
-import { Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
+import { AssignMenu, Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
 import { Icon } from '../ui/public/icons.tsx'
 import { ownerOf, watchInList } from '../ui/playlists.tsx'
 import { AppShell } from '../ui/shell.tsx'
@@ -82,9 +82,12 @@ function RelatedCard(handle: Handle<{ video: Video; viewerId?: string }>) {
           ) : null}
         </a>
         <div class="rcard-text">
-          <h3 class="rcard-title">
-            <a href={href}>{video.title}</a>
-          </h3>
+          <div class="rcard-heading">
+            <h3 class="rcard-title">
+              <a href={href}>{video.title}</a>
+            </h3>
+            <AssignMenu video={video} viewerId={viewerId} />
+          </div>
           <p class="rcard-meta">
             <a href={routes.channel.href({ channelId: channel.id })}>{channel.name}</a>
           </p>
