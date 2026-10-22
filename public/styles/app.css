@@ -820,10 +820,19 @@ legend {
   min-width: 0;
 }
 
+.vcard-heading {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
 .vcard-title {
   display: -webkit-box;
   overflow: hidden;
-  margin-bottom: 4px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font-size: var(--fs-base);
   font-weight: 600;
   line-height: 1.375;
@@ -860,6 +869,76 @@ legend {
 .vcard-avatar {
   position: relative;
   z-index: 2;
+}
+
+.vcard-assign {
+  position: relative;
+  z-index: 2;
+  flex: none;
+}
+
+.vcard-assign-btn {
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px 0 0;
+  color: var(--text-2);
+}
+
+.vcard-assign-btn:hover,
+.vcard-assign-btn:focus-visible {
+  color: var(--text);
+}
+
+.vcard-assign-menu {
+  inset: unset;
+  top: auto;
+  right: 12px;
+  bottom: 12px;
+  width: 248px;
+  max-height: min(20rem, calc(100dvh - 24px));
+  margin: 0;
+  overflow: auto;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--text);
+}
+
+@supports (anchor-name: --x) {
+  .vcard-assign-menu {
+    top: anchor(bottom);
+    right: anchor(right);
+    bottom: auto;
+    margin: 4px 0 0;
+    position-try-fallbacks: flip-block, flip-inline;
+  }
+}
+
+.vcard-assign-menu form {
+  margin: 0;
+}
+
+.vcard-assign-title {
+  padding: 8px 12px 6px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.vcard-assign-empty {
+  padding: 4px 12px 10px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.vcard-assign-item:hover,
+.vcard-assign-item:focus-visible {
+  background: var(--raised-hover);
+}
+
+.vcard-assign-item:focus-visible {
+  outline-offset: -2px;
 }
 
 .vcard-byline a:hover {
@@ -5516,6 +5595,35 @@ input.watch-title:focus-visible {
   justify-items: start;
   gap: 12px;
   max-width: 1132px;
+}
+
+.controls-assignments {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 12px;
+  list-style: none;
+}
+
+.controls-assignments li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.controls-assignment-title {
+  font-weight: 600;
+}
+
+.controls-assignment-meta {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.controls-assignments form {
+  margin-left: auto;
 }
 
 .extend-btn .icon {

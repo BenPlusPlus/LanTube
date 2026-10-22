@@ -8,6 +8,7 @@ import { resetHouseSettings, restoreDefaultBrand } from './brand.ts'
 import { hashPassword, verifyPasswordHash } from './password.ts'
 import { resetCatalogueTags } from './tags.ts'
 import {
+  assignments,
   channelManagers,
   channels,
   people,
@@ -281,6 +282,8 @@ export async function removePerson(actorId: string, targetId: string): Promise<t
       await tx.deleteMany(watchLimits, { where: { person_id: row.person.id } })
       await tx.deleteMany(watchExtensions, { where: { person_id: row.person.id } })
       await tx.updateMany(watchExtensions, { granted_by: null }, { where: { granted_by: row.person.id } })
+      await tx.deleteMany(assignments, { where: { person_id: row.person.id } })
+      await tx.updateMany(assignments, { assigned_by: null }, { where: { assigned_by: row.person.id } })
       await tx.deleteMany(videoAudience, { where: { person_id: row.person.id } })
       await tx.deleteMany(channelManagers, { where: { person_id: row.person.id } })
       await tx.updateMany(channels, { owner_id: actor.person.id }, { where: { owner_id: row.person.id, kind: 'custom' } })
@@ -302,10 +305,12 @@ export async function removePerson(actorId: string, targetId: string): Promise<t
   let { forgetRemovedPerson: forgetFromPlaylists } = await import('./playlists.ts')
   let { forgetRemovedPerson: forgetFromHistory } = await import('./history.ts')
   let { forgetRemovedPerson: forgetFromWatchLimits } = await import('./watch-limits.ts')
+  let { forgetRemovedPerson: forgetFromAssignments } = await import('./assignments.ts')
   forgetFromLibrary(row.person, actor.person.id)
   forgetFromPlaylists(row.person.id)
   forgetFromHistory(row.person.id)
   forgetFromWatchLimits(row.person.id)
+  forgetFromAssignments(row.person.id)
   return true
 }
 
@@ -414,6 +419,7 @@ export async function useEmptyHouse() {
   catalogueRecords = []
   includeMockup = false
   await restoreDefaultBrand()
+  await db.deleteMany(assignments, { where: notNull(assignments.person_id) })
   await db.deleteMany(watchSessions, { where: notNull(watchSessions.id) })
   await db.deleteMany(watchProgress, { where: notNull(watchProgress.person_id) })
   await db.deleteMany(watchExtensions, { where: notNull(watchExtensions.id) })

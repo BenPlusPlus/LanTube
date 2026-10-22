@@ -1,5 +1,11 @@
 import type { Handle } from 'remix/component'
 
+import {
+  assignablePeople,
+  houseHasLimitablePeople,
+  isAssigned,
+} from '../data/assignments.ts'
+import { getPerson } from '../data/household.ts'
 import type { Channel, Video } from '../data/library.ts'
 import {
   formatAdded,
@@ -68,6 +74,11 @@ export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; show
     let progress = progressPercent(video, viewerId)
     let inProgress = isInProgress(video, viewerId)
     let fresh = isNew(video, viewerId)
+    let viewer = viewerId ? getPerson(viewerId) : undefined
+    let assignMenu = viewer?.isParent && houseHasLimitablePeople()
+    let assignPeople = assignMenu ? assignablePeople(video) : []
+    let menuId = `assign-${video.id}`
+    let anchor = `--assign-${video.id}`
 
     return (
       <article class={onChannel ? 'vcard vcard-on-channel' : 'vcard'}>
@@ -87,9 +98,60 @@ export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; show
             </a>
           )}
           <div class="vcard-text">
-            <h3 class="vcard-title">
-              <a href={watchHref}>{video.title}</a>
-            </h3>
+            <div class="vcard-heading">
+              <h3 class="vcard-title">
+                <a href={watchHref}>{video.title}</a>
+              </h3>
+              {assignMenu ? (
+                <div class="vcard-assign">
+                  <button
+                    class="icon-btn vcard-assign-btn"
+                    type="button"
+                    popovertarget={menuId}
+                    aria-haspopup="dialog"
+                    aria-label={`Assign ${video.title}`}
+                    style={`anchor-name:${anchor}`}
+                  >
+                    <Icon name="ellipsis-vertical" size={18} />
+                  </button>
+                  <div
+                    class="vcard-assign-menu"
+                    id={menuId}
+                    popover="auto"
+                    role="dialog"
+                    aria-labelledby={`${menuId}-title`}
+                    style={`position-anchor:${anchor}`}
+                  >
+                    <p class="vcard-assign-title" id={`${menuId}-title`}>
+                      Assign to
+                    </p>
+                    {assignPeople.length === 0 ? (
+                      <p class="vcard-assign-empty">No one here can watch this yet. Name them on Audience first.</p>
+                    ) : (
+                      assignPeople.map((member) => {
+                        let assigned = isAssigned(member.id, video.id)
+                        return (
+                          <form method="post" action={routes.watchAssign.href({ videoId: video.id })}>
+                            <input type="hidden" name="intent" value={assigned ? 'unassign' : 'assign'} />
+                            <input type="hidden" name="personId" value={member.id} />
+                            <button
+                              class="account-menu-item vcard-assign-item"
+                              type="submit"
+                              aria-pressed={assigned ? 'true' : 'false'}
+                            >
+                              <span class={`check${assigned ? ' is-on' : ''}`} aria-hidden="true">
+                                <Icon name="check" size={14} />
+                              </span>
+                              {member.name}
+                            </button>
+                          </form>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
             {onChannel ? (
               poster ? (
                 <p class="vcard-byline">

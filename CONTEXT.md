@@ -56,6 +56,10 @@ _Avoid_: Uploader, poster
 An ordered stack of Videos a Person keeps. Each Playlist has its own visibility, independent of the Videos in it.
 _Avoid_: Collection, album, list, queue
 
+**Assignment**:
+A Parent-required watch of one Video by one Person who is neither Parent nor Admin. It is a duty, not a permission: it does not grant sight of the Video.
+_Avoid_: Queue, homework, task, assigned video (the Video is unchanged; the Assignment is the duty)
+
 **History**:
 One Person’s record of Videos they watched, grouped into sittings. Unsigned watching is not History.
 _Avoid_: Analytics, views, log, watch log
@@ -77,7 +81,7 @@ The LAN filesystem that holds the bytes — video files, posters, and photos.
 _Avoid_: Bucket, CDN, S3, volume (except as a mount)
 
 **Catalogue**:
-The household records of People, roles, channels, Videos, Playlists, Tags, Audience, and History. Distinct from the bytes on the Media share.
+The household records of People, roles, channels, Videos, Playlists, Assignments, Tags, Audience, and History. Distinct from the bytes on the Media share.
 _Avoid_: Database, library (the Videos you watch), index
 
 **Admin**:

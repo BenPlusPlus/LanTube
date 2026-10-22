@@ -176,3 +176,14 @@ export const houseSettings = table({
     unsigned_watch: c.boolean().notNull().default(true),
   },
 })
+
+export const assignments = table({
+  name: 'assignments',
+  primaryKey: ['person_id', 'video_id'],
+  columns: {
+    person_id: c.uuid().notNull(),
+    video_id: c.uuid().notNull(),
+    assigned_by: c.uuid().nullable(),
+    assigned_at: c.timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+})
