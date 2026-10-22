@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 
-import { mustFinishAssignedFirst } from '../data/assignments.ts'
+import { highWaterOf, isAssigned, mustFinishAssignedFirst } from '../data/assignments.ts'
 import { brandName } from '../data/brand.ts'
 import type { Person } from '../data/household.ts'
 import { allowanceFor } from '../data/watch-limits.ts'
@@ -196,6 +196,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
     let isFolder = channel.kind === 'folder'
     let playable = media?.exists === true
     let assignedFirst = mustFinishAssignedFirst(person, video.id)
+    let assigned = Boolean(person && isAssigned(person.id, video.id))
     let expectedFile = media?.displayPath ?? video.file ?? `${video.id}.mp4`
     let here = list ? watchInList(video.id, list.id) : routes.watch.href({ videoId: video.id })
     let videoOwner = video.postedBy ? posterChannel(video.postedBy) : undefined
@@ -223,6 +224,8 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               poster={thumbUrl(video) ?? undefined}
               durationSec={video.durationSec}
               resumeAt={isInProgress(video, person?.id) ? progressOf(video, person?.id) : undefined}
+              furthestAt={assigned && person ? highWaterOf(person.id, video.id) : undefined}
+              maxRate={assigned ? 1.5 : undefined}
               activityHref={routes.watchActivity.href({ videoId: video.id })}
               theater={theater}
               expectedFile={expectedFile}
