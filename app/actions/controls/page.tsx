@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 
+import { formatAssignedAt } from '../../data/assignments.ts'
 import { brandName } from '../../data/brand.ts'
 import type { Person } from '../../data/household.ts'
 import { routes } from '../../routes.ts'
@@ -33,12 +34,20 @@ export function ControlsForbidden(handle: Handle<{ person: Person }>) {
   }
 }
 
+export interface ControlsAssignment {
+  videoId: string
+  title: string
+  assignedBy: string
+  assignedAt: number
+}
+
 export interface ControlsRow {
   person: Person
   /** Minutes, or null for no limit. */
   limitMin: number | null
   extraMin: number
   usedSec: number
+  assignments: ControlsAssignment[]
 }
 
 export interface ControlsPageProps {
@@ -185,6 +194,36 @@ export function ControlsPage(handle: Handle<ControlsPageProps>) {
                       )}
                     </td>
                   </tr>
+                  {row.assignments.length > 0 ? (
+                    <tr class="controls-assignments-row">
+                      <td colspan={5}>
+                        <ul class="controls-assignments">
+                          {row.assignments.map((entry) => (
+                            <li>
+                              <a class="controls-assignment-title" href={routes.watch.href({ videoId: entry.videoId })}>
+                                {entry.title}
+                              </a>
+                              <span class="controls-assignment-meta">
+                                {entry.assignedBy} · {formatAssignedAt(entry.assignedAt)}
+                              </span>
+                              <form method="post" action={action}>
+                                <input type="hidden" name="intent" value="unassign" />
+                                <input type="hidden" name="personId" value={member.id} />
+                                <input type="hidden" name="videoId" value={entry.videoId} />
+                                <button
+                                  class="controls-clear"
+                                  type="submit"
+                                  aria-label={`Remove ${entry.title} from ${member.name}`}
+                                >
+                                  Remove
+                                </button>
+                              </form>
+                            </li>
+                          ))}
+                        </ul>
+                      </td>
+                    </tr>
+                  ) : null}
                   {invalid ? (
                     <tr class="controls-error-row">
                       <td colspan={5}>

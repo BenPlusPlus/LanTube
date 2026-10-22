@@ -32,6 +32,7 @@ import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
 import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
+import { assign, unassign } from '../data/assignments.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
 import { routes } from '../routes.ts'
 import { channelFeedHrefs, homeEarlierHrefs, playlistFeedHrefs } from '../ui/feed-batch.tsx'
@@ -46,8 +47,20 @@ import { PlaylistsPage } from './playlists-page.tsx'
 import { WatchPage } from './watch-page.tsx'
 
 /** Only same-site paths; anything else falls back. */
-function safeReturn(value: FormDataEntryValue | null): string | undefined {
+function safeReturn(value: FormDataEntryValue | string | null): string | undefined {
   return typeof value === 'string' && /^\/(?![/\\])/.test(value) ? value : undefined
+}
+
+function refererPath(request: Request) {
+  let raw = request.headers.get('Referer')
+  if (!raw) return null
+  try {
+    let url = new URL(raw)
+    if (url.origin !== new URL(request.url).origin) return null
+    return `${url.pathname}${url.search}`
+  } catch {
+    return null
+  }
 }
 
 /** The video, if it exists and this viewer may see it. Someone else's private video doesn't exist for you. */
@@ -246,6 +259,27 @@ export default createController(routes, {
       if (folder) await dropIndexedVideo(video.id)
       else await deleteUploadedVideo(video)
       return redirect(routes.channel.href({ channelId }), 303)
+    },
+    async watchAssign(context) {
+      let person = personFromSession(context.session)
+      if (!person) return redirect(routes.signin.index.href(), 303)
+      if (!person.isParent) return new Response('Forbidden', { status: 403 })
+      let video = watchable(context.params.videoId, person.id)
+      if (!video) {
+        return context.render(
+          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
+          { status: 404 },
+        )
+      }
+      let form = context.formData
+      let personId = form.get('personId')
+      let intent = form.get('intent')
+      if (typeof personId !== 'string' || (intent !== 'assign' && intent !== 'unassign')) {
+        return new Response('Bad Request', { status: 400 })
+      }
+      let result = intent === 'assign' ? await assign(person.id, personId, video.id) : await unassign(person.id, personId, video.id)
+      if (result !== true) return new Response(result.error, { status: 400 })
+      return redirect(safeReturn(form.get('returnTo')) ?? safeReturn(refererPath(context.request)) ?? routes.home.href(), 303)
     },
     async media(context) {
       let person = personFromSession(context.session)

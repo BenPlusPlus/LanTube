@@ -1,7 +1,9 @@
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
-import { listPeople, personFromSession, type Person } from '../../data/household.ts'
+import { assignmentsFor, unassign } from '../../data/assignments.ts'
+import { getPerson, listPeople, personFromSession, type Person } from '../../data/household.ts'
+import { getVideo } from '../../data/library.ts'
 import {
   clearExtraToday,
   EXTEND_STEPS,
@@ -32,6 +34,18 @@ function page(person: Person, extras: { error?: string; errorPersonId?: string }
         limitMin: limitFor(member.id),
         extraMin: extraToday(member.id, now),
         usedSec: Math.round(usedTodaySec(member.id, now)),
+        assignments: assignmentsFor(member.id).flatMap((row) => {
+          let video = getVideo(row.videoId)
+          if (!video) return []
+          return [
+            {
+              videoId: video.id,
+              title: video.title,
+              assignedBy: row.assignedBy ? (getPerson(row.assignedBy)?.name ?? 'A Parent') : 'A Parent',
+              assignedAt: row.assignedAt,
+            },
+          ]
+        }),
       }))}
       unlimited={people.filter((member) => !isLimitable(member))}
       presets={[...LIMIT_PRESETS]}
@@ -60,6 +74,7 @@ export default createController(routes.controls, {
       let intent = readText(form, 'intent')
       let minutes = readText(form, 'minutes')
 
+      let videoId = readText(form, 'videoId')
       let result =
         intent === 'limit'
           ? await setDailyLimit(person.id, personId, minutes === 'none' ? null : Number(minutes))
@@ -67,7 +82,9 @@ export default createController(routes.controls, {
             ? await extendToday(person.id, personId, Number(minutes))
             : intent === 'clear'
               ? await clearExtraToday(person.id, personId)
-              : { error: 'That change isn’t one this page makes.' }
+              : intent === 'unassign'
+                ? await unassign(person.id, personId, videoId)
+                : { error: 'That change isn’t one this page makes.' }
 
       if (result !== true) {
         return context.render(page(person, { error: result.error, errorPersonId: personId }), { status: 400 })

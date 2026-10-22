@@ -8,6 +8,7 @@ export const routes = route({
   watchActivity: post('/watch/:videoId/activity'),
   watchSave: post('/watch/:videoId/save'),
   watchDelete: post('/watch/:videoId/delete'),
+  watchAssign: post('/watch/:videoId/assign'),
   media: get('/media/:videoId'),
   channel: get('/channel/:channelId'),
   channelVideos: get('/channel/:channelId/videos'),

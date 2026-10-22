@@ -3,6 +3,7 @@ import { createRequestListener } from 'remix/node-fetch-server'
 
 import { listenHost } from './app/config.ts'
 import { db } from './app/db.ts'
+import { getPerson } from './app/data/household.ts'
 import { prepareHost } from './app/host.ts'
 import { router } from './app/router.ts'
 
@@ -19,6 +20,15 @@ try {
   console.error(error)
   await db.close().catch(() => {})
   process.exit(1)
+}
+
+if (process.env.NODE_ENV === 'test') {
+  let ruth = getPerson('ruth')
+  if (ruth) ruth.isParent = true
+  let mia = getPerson('mia')
+  if (mia) mia.isAdmin = true
+  let tomas = getPerson('tomas')
+  if (tomas) tomas.isAdmin = true
 }
 
 const server = http.createServer(createRequestListener(router.fetch, { trustProxy: isHmr }))
