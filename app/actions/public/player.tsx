@@ -197,8 +197,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
 
   function tick() {
     if (!video) return
-    notePlayhead(video.currentTime)
-    current = video.currentTime
+    holdPlayhead(!video.seeking)
     handle.update()
     frame = playing ? requestAnimationFrame(tick) : 0
   }
@@ -223,12 +222,12 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
 
   function notePlayhead(time: number) {
     if (handle.props.furthestAt === undefined) return
-    if (time > furthest && time - furthest <= 1) furthest = time
+    if (time > furthest) furthest = time
   }
 
-  function holdPlayhead() {
-    if (!video || handle.props.furthestAt === undefined) return
-    notePlayhead(video.currentTime)
+  function holdPlayhead(fromPlay: boolean) {
+    if (!video) return
+    if (fromPlay && !video.seeking) notePlayhead(video.currentTime)
     let capped = capPlayhead(video.currentTime)
     if (capped !== video.currentTime) video.currentTime = capped
     current = video.currentTime
@@ -311,7 +310,10 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   function timeAt(clientX: number): { x: number; time: number } {
     let box = seekEl!.getBoundingClientRect()
     let x = Math.min(Math.max(clientX - box.left, 0), box.width)
-    return { x, time: (x / box.width) * (Number.isFinite(duration) ? duration : 0) }
+    let span = Number.isFinite(duration) ? duration : 0
+    let time = capPlayhead((x / box.width) * span)
+    if (span > 0) x = (time / span) * box.width
+    return { x, time }
   }
 
   function openSpeed() {
@@ -551,7 +553,6 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               if (resumeAt > 0 && resumeAt < duration - 15) video!.currentTime = resumeAt
               else resumeAt = 0
               current = video!.currentTime
-              notePlayhead(current)
               handle.update()
             }),
             on('durationchange', () => {
@@ -602,17 +603,17 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               handle.update()
             }),
             on('seeking', () => {
-              holdPlayhead()
+              holdPlayhead(false)
             }),
             on('seeked', () => {
               clearTimeout(waitTimer)
               waiting = false
-              holdPlayhead()
+              holdPlayhead(false)
               lastPos = video!.currentTime
               handle.update()
             }),
             on('timeupdate', () => {
-              holdPlayhead()
+              holdPlayhead(!video!.seeking)
               if (!playing) handle.update()
               if (playing) spend()
               if (playing && Date.now() - lastSent > PROGRESS_EVERY_MS) saveProgress()
