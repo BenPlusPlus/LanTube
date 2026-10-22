@@ -109,6 +109,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   let flashTimer: ReturnType<typeof setTimeout> | undefined
   let lastSent = 0
   let frame = 0
+  let skipLock = false
 
   let canControl = () => failure === null && video !== undefined
 
@@ -220,17 +221,15 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     return Math.min(Math.max(time, 0), max)
   }
 
-  function notePlayhead(time: number) {
-    if (handle.props.furthestAt === undefined) return
-    if (time > furthest) furthest = time
-  }
-
   function holdPlayhead(fromPlay: boolean) {
     if (!video) return
-    if (fromPlay && !video.seeking) notePlayhead(video.currentTime)
+    if (handle.props.furthestAt === undefined) skipLock = false
+    else if (!fromPlay) skipLock = true
+    else if (!skipLock && video.currentTime > furthest) furthest = video.currentTime
     let capped = capPlayhead(video.currentTime)
     if (capped !== video.currentTime) video.currentTime = capped
     current = video.currentTime
+    if (skipLock && current <= furthest) skipLock = false
   }
 
   function seekTo(time: number) {
