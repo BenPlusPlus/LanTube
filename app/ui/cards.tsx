@@ -75,6 +75,7 @@ export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; show
     let inProgress = isInProgress(video, viewerId)
     let fresh = isNew(video, viewerId)
     let viewer = viewerId ? getPerson(viewerId) : undefined
+    let assigned = Boolean(viewerId && isAssigned(viewerId, video.id))
     let assignMenu = viewer?.isParent && houseHasLimitablePeople()
     let assignPeople = assignMenu ? assignablePeople(video) : []
     let menuId = `assign-${video.id}`
@@ -167,7 +168,11 @@ export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; show
               {onChannel ? `${formatPlays(video.plays)} · ` : null}
               {showRemaining && inProgress ? formatRemaining(video, viewerId) : formatAdded(video.addedDaysAgo)}
               {fresh ? <span class="badge-new">New</span> : null}
-              {!inProgress && progress !== null ? <span class="vcard-watched">Watched</span> : null}
+              {assigned ? (
+                <span class="vcard-watched">Assigned</span>
+              ) : !inProgress && progress !== null ? (
+                <span class="vcard-watched">Watched</span>
+              ) : null}
               {video.private ? (
                 <span class="pvis vcard-private">
                   <Icon name="lock" size={14} />

@@ -1,3 +1,4 @@
+import { assignmentsFor } from './assignments.ts'
 import { isInProgress, newestFirst, type Video } from './library.ts'
 
 /** About two rows at five columns; one to two rows just out of sight on smaller grids. */
@@ -24,12 +25,22 @@ export function feedPage<T>(items: readonly T[], from: number, size = VIDEO_FEED
 }
 
 export function splitHomeLibrary(videos: Video[], viewerId?: string) {
-  let resume = newestFirst(videos.filter((video) => isInProgress(video, viewerId)))
-  let shelved = new Set(resume.map((video) => video.id))
+  let byId = new Map(videos.map((video) => [video.id, video]))
+  let assigned = viewerId
+    ? assignmentsFor(viewerId).flatMap((row) => {
+        let video = byId.get(row.videoId)
+        return video ? [video] : []
+      })
+    : []
+  let assignedIds = new Set(assigned.map((video) => video.id))
+  let resume =
+    assigned.length > 0 ? [] : newestFirst(videos.filter((video) => isInProgress(video, viewerId)))
+  let shelved = new Set([...assignedIds, ...resume.map((video) => video.id)])
   let rest = newestFirst(videos).filter((video) => !shelved.has(video.id))
   let cut = rest.length - HOME_LATEST_ROW >= 4 ? HOME_LATEST_ROW : rest.length
   let overflow = rest.slice(cut)
   return {
+    assigned,
     resume,
     latest: rest.slice(0, cut),
     earlier: overflow.slice(0, HOME_EARLIER_LIMIT),

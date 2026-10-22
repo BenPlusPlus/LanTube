@@ -170,7 +170,7 @@ export function HomePage(handle: Handle<HomePageProps>) {
       )
     }
 
-    let { resume, latest, earlier, earlierTotal } = splitHomeLibrary(videos, viewerId)
+    let { assigned, resume, latest, earlier, earlierTotal } = splitHomeLibrary(videos, viewerId)
     let shown = Math.min(earlierShown, earlier.length)
     let visibleEarlier = earlier.slice(0, shown)
     let earlierHasMore = shown < earlier.length
@@ -184,10 +184,20 @@ export function HomePage(handle: Handle<HomePageProps>) {
         ) : (
           <>
             <h1 class="visually-hidden">Home</h1>
-            {resume.length > 0 ? (
+            {assigned.length > 0 ? (
+              <Shelf
+                id="assigned"
+                title="Watch these first"
+                note="Other videos play after you finish these."
+                videos={assigned}
+                viewerId={viewerId}
+                showRemaining
+                eager
+              />
+            ) : resume.length > 0 ? (
               <Shelf id="continue" title="Continue watching" videos={resume} viewerId={viewerId} showRemaining eager single />
             ) : null}
-            <Shelf id="latest" title="Latest in the house" videos={latest} viewerId={viewerId} eager={resume.length === 0} />
+            <Shelf id="latest" title="Latest in the house" videos={latest} viewerId={viewerId} eager={assigned.length === 0 && resume.length === 0} />
             <section class="shelf" aria-labelledby="people">
               <header class="shelf-head">
                 <h2 class="shelf-title" id="people">
