@@ -240,6 +240,8 @@ export async function updatePersonRoles(
 
   row.person.isAdmin = roles.isAdmin
   row.person.isParent = roles.isParent
+  let { dropImpossibleAssignments } = await import('./assignments.ts')
+  await dropImpossibleAssignments()
   return row.person
 }
 

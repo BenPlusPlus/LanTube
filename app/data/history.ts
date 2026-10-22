@@ -162,6 +162,14 @@ export async function recordWatchProgress(
       session.watchedSec = next.watchedSec
     }
     recordProgress(video, personId, positionSec, fileDurationSec)
+    if (
+      watchedSec >= MIN_WATCHED_SEC &&
+      progressOf(video, personId) !== undefined &&
+      !isInProgress(video, personId)
+    ) {
+      let { dropAssignment } = await import('./assignments.ts')
+      await dropAssignment(personId, video.id)
+    }
   })
 }
 

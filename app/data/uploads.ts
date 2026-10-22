@@ -21,6 +21,7 @@ import {
 } from './library.ts'
 import { findOrCreateTags, parseTagNames } from './tags.ts'
 import { mediaDir, mediaFileFor, videoExtensions } from './media.ts'
+import { forgetDeletedVideo } from './assignments.ts'
 import { addVideo, dropFromPlaylists, getPlaylist } from './playlists.ts'
 
 /** Uploads land in the media folder, so they stream like everything else on the host. */
@@ -287,6 +288,7 @@ export async function deleteUploadedVideo(video: Video) {
   await unlinkLanTubeBytes(video)
   deleteVideo(video.id)
   dropFromPlaylists(video.id)
+  forgetDeletedVideo(video.id)
 }
 
 /** Catalogue channel and its Videos, then upload bytes, then in-memory library. */
@@ -298,6 +300,7 @@ export async function deleteCustomChannel(channel: Channel) {
     await unlinkLanTubeBytes(video)
     deleteVideo(video.id)
     dropFromPlaylists(video.id)
+    forgetDeletedVideo(video.id)
   }
   dropCustomChannel(channel.id)
 }
@@ -313,6 +316,7 @@ export async function deleteFrozenHomeChannel(channel: Channel) {
     await unlinkLanTubeBytes(video)
     deleteVideo(video.id)
     dropFromPlaylists(video.id)
+    forgetDeletedVideo(video.id)
   }
   dropFrozenHomeChannel(channel.id)
 }

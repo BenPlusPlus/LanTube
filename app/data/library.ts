@@ -377,6 +377,8 @@ export async function updateChannel(channel: Channel, input: ChannelInput & { re
   channel.description = next.description
   channel.managerIds = next.managerIds
   channel.photo = next.photo
+  let { dropImpossibleAssignments } = await import('./assignments.ts')
+  await dropImpossibleAssignments()
   return channel
 }
 

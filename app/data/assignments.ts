@@ -97,14 +97,28 @@ export async function assign(actorId: string, personId: string, videoId: string,
   return true
 }
 
+export async function dropAssignment(personId: string, videoId: string) {
+  if (!isAssigned(personId, videoId)) return
+  await persistDelete(personId, videoId)
+  rows = rows.filter((row) => !(row.personId === personId && row.videoId === videoId))
+}
+
 export async function unassign(actorId: string, personId: string, videoId: string): Promise<Result> {
   if (!getPerson(actorId)?.isParent) return { error: 'You need to be a Parent.' }
   let target = getPerson(personId)
   if (!target) return { error: 'That person isn’t in the house.' }
-  if (!isAssigned(target.id, videoId)) return true
-  await persistDelete(target.id, videoId)
-  rows = rows.filter((row) => !(row.personId === target.id && row.videoId === videoId))
+  await dropAssignment(target.id, videoId)
   return true
+}
+
+export async function dropImpossibleAssignments() {
+  for (let row of rows.filter((row) => {
+    let person = getPerson(row.personId)
+    let video = getVideo(row.videoId)
+    return !(person && video && isLimitable(person) && canWatch(video, person.id))
+  })) {
+    await dropAssignment(row.personId, row.videoId)
+  }
 }
 
 export async function loadCatalogueAssignments() {
@@ -133,4 +147,8 @@ export function resetAssignments() {
 
 export function forgetRemovedPerson(personId: string) {
   rows = rows.filter((row) => row.personId !== personId)
+}
+
+export function forgetDeletedVideo(videoId: string) {
+  rows = rows.filter((row) => row.videoId !== videoId)
 }

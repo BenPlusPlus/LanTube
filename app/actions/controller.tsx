@@ -32,7 +32,7 @@ import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
 import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
-import { assign, mustFinishAssignedFirst, unassign } from '../data/assignments.ts'
+import { assign, dropImpossibleAssignments, mustFinishAssignedFirst, unassign } from '../data/assignments.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
 import { routes } from '../routes.ts'
 import { channelFeedHrefs, homeEarlierHrefs, playlistFeedHrefs } from '../ui/feed-batch.tsx'
@@ -211,6 +211,7 @@ export default createController(routes, {
           video.private = undefined
           video.audience = undefined
         }
+        await dropImpossibleAssignments()
       }
       return redirect(routes.watch.href({ videoId: video.id }), 303)
     },

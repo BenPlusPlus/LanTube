@@ -23,6 +23,7 @@ import {
   type Channel,
 } from './library.ts'
 import { mediaDir, videoExtensions } from './media.ts'
+import { forgetDeletedVideo } from './assignments.ts'
 import { dropFromPlaylists } from './playlists.ts'
 
 export type FolderField = 'path' | 'name' | 'detach'
@@ -185,6 +186,7 @@ export async function dropIndexedVideo(id: string) {
   await deleteCatalogueVideo(video.id)
   deleteVideo(video.id)
   dropFromPlaylists(video.id)
+  forgetDeletedVideo(video.id)
   return true
 }
 
@@ -202,6 +204,7 @@ export async function detachFolder(id: string) {
   for (let video of onChannel) {
     deleteVideo(video.id)
     dropFromPlaylists(video.id)
+    forgetDeletedVideo(video.id)
   }
   dropFolderChannel(channel.id)
   return true
