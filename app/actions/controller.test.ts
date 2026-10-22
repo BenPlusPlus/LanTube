@@ -1,10 +1,12 @@
 import * as assert from 'remix/assert'
 import { afterEach, beforeEach, describe, it } from 'remix/test'
 
+import { assign, resetAssignments, unassign } from '../data/assignments.ts'
 import { insertUploadedVideo, listVisibleVideos } from '../data/catalogue.ts'
 import { loadCatalogueHistory, resetHistory } from '../data/history.ts'
-import { createPerson, getPerson, listPeople, resetHousehold, useEmptyHouse } from '../data/household.ts'
-import { addUploadedVideo, channelVideos, deleteVideo, resetChannels } from '../data/library.ts'
+import { createPerson, getPerson, listPeople, resetHousehold, useEmptyHouse, type Person } from '../data/household.ts'
+import { addUploadedVideo, channelVideos, deleteVideo, getVideo, recordProgress, resetChannels } from '../data/library.ts'
+import { findOrCreateTags } from '../data/tags.ts'
 import { addVideo, createPlaylist, resetPlaylists } from '../data/playlists.ts'
 import { splitHomeLibrary, VIDEO_FEED_PAGE } from '../data/video-feed.ts'
 import { router } from '../router.ts'
@@ -56,6 +58,131 @@ describe('home page', () => {
     assert.match(html, /No videos in the house yet/)
     assert.doesNotMatch(html, /Nothing in the house matches/)
     assert.doesNotMatch(html, /Upload a video/)
+  })
+})
+
+describe('watch these first', () => {
+  const created: string[] = []
+  let owner: Person | undefined
+
+  function withRoles() {
+    getPerson('ruth')!.isParent = true
+    getPerson('mia')!.isAdmin = true
+    getPerson('tomas')!.isAdmin = true
+  }
+
+  afterEach(async () => {
+    resetAssignments()
+    for (let id of created.splice(0)) deleteVideo(id)
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    owner = undefined
+  })
+
+  async function addClip(slug: string, title: string, extras: { durationSec?: number; tags?: string[]; tagIds?: string[] } = {}) {
+    assert.ok(owner)
+    let durationSec = extras.durationSec ?? 600
+    let inserted = await insertUploadedVideo({
+      slug,
+      title,
+      channelSlug: owner.slug,
+      ownerId: owner.id,
+      durationSec,
+      filePath: `uploads/${owner.slug}/${slug}.mp4`,
+      posterPath: null,
+      visibility: 'house',
+      tagIds: extras.tagIds,
+    })
+    assert.ok(inserted)
+    created.push(slug)
+    addUploadedVideo({
+      id: slug,
+      title,
+      channelId: owner.slug,
+      durationSec,
+      thumb: '',
+      tags: extras.tags ?? [],
+      file: `uploads/${owner.slug}/${slug}.mp4`,
+      postedBy: owner.id,
+    })
+    return getVideo(slug)!
+  }
+
+  async function houseWithLeoAssignments() {
+    withRoles()
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+    withRoles()
+    let person = await createPerson('Sam', 'house')
+    assert.ok(!('error' in person))
+    owner = person
+    let tags = await findOrCreateTags(['Kids'])
+    let bike = await addClip('first-duty', 'Garden path', { tags: ['kids'], tagIds: tags.map((tag) => tag.id) })
+    let lake = await addClip('second-duty', 'Lake walk')
+    let other = await addClip('other-clip', 'Kitchen window')
+    recordProgress(lake, 'leo', 60)
+    recordProgress(other, 'leo', 90)
+    await assign('ruth', 'leo', bike.id, 1_000)
+    await assign('ruth', 'leo', lake.id, 2_000)
+    return { bike, lake, other }
+  }
+
+  it('opens Home with Watch these first for Leo, newest Assignment first, and hides Continue watching', async () => {
+    await houseWithLeoAssignments()
+    let { html } = await get(routes.home.href(), await signIn('leo'))
+    let assignedAt = html.indexOf('Watch these first')
+    let latestAt = html.indexOf('Latest in the house')
+    assert.ok(assignedAt > 0 && assignedAt < latestAt, 'Expected Watch these first above Latest')
+    let assigned = html.slice(assignedAt, latestAt)
+    assert.match(assigned, /Other videos play after you finish these\./)
+    let lake = assigned.indexOf('/watch/second-duty')
+    let bike = assigned.indexOf('/watch/first-duty')
+    assert.ok(lake > 0 && bike > lake, 'Expected newest Assignment first')
+    assert.match(assigned, /9 min left/)
+    assert.doesNotMatch(html, /Continue watching/)
+    let rest = html.slice(latestAt)
+    assert.doesNotMatch(rest, /href="\/watch\/second-duty"/)
+    assert.doesNotMatch(rest, /href="\/watch\/first-duty"/)
+  })
+
+  it('brings Continue watching back once Assignments are gone', async () => {
+    await houseWithLeoAssignments()
+    await unassign('ruth', 'leo', 'second-duty')
+    await unassign('ruth', 'leo', 'first-duty')
+    let { html } = await get(routes.home.href(), await signIn('leo'))
+    assert.doesNotMatch(html, /Watch these first/)
+    assert.match(html, /Continue watching/)
+    assert.match(html, /Kitchen window/)
+  })
+
+  it('keeps search and tag results flat, and marks assigned cards Assigned on search and channel', async () => {
+    await houseWithLeoAssignments()
+    let leo = await signIn('leo')
+
+    let search = await get(`${routes.home.href()}?q=Garden`, leo)
+    assert.doesNotMatch(search.html, /Watch these first/)
+    assert.match(search.html, /Results for/)
+    assert.match(search.html, /class="vcard-watched">Assigned/)
+
+    let tagged = await get(`${routes.home.href()}?tag=kids`, leo)
+    assert.doesNotMatch(tagged.html, /Watch these first/)
+    assert.match(tagged.html, /id="results-title"/)
+    assert.match(tagged.html, /class="vcard-watched">Assigned/)
+
+    let channel = await get(routes.channel.href({ channelId: owner!.slug }), leo)
+    assert.doesNotMatch(channel.html, /Watch these first/)
+    assert.match(channel.html, /class="vcard-watched">Assigned/)
+  })
+
+  it('does not show Watch these first on Ruth’s Home or unsigned Home', async () => {
+    await houseWithLeoAssignments()
+    let ruth = await get(routes.home.href(), await signIn('ruth'))
+    assert.doesNotMatch(ruth.html, /Watch these first/)
+    let unsigned = await get(routes.home.href())
+    assert.doesNotMatch(unsigned.html, /Watch these first/)
+    assert.match(unsigned.html, /Latest in the house/)
   })
 })
 

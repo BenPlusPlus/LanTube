@@ -1,7 +1,9 @@
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
-import { recordProgress, resetProgress, type Video } from './library.ts'
+import { assign, resetAssignments } from './assignments.ts'
+import { getPerson } from './household.ts'
+import { getVideo, recordProgress, resetProgress, videos, type Video } from './library.ts'
 import {
   feedPage,
   HOME_EARLIER_LIMIT,
@@ -28,7 +30,10 @@ function house(count: number) {
   return Array.from({ length: count }, (_, i) => clip(`v${i}`, i))
 }
 
-afterEach(() => resetProgress())
+afterEach(() => {
+  resetProgress()
+  resetAssignments()
+})
 
 describe('parseCount', () => {
   it('uses the fallback for missing or invalid values', () => {
@@ -105,5 +110,34 @@ describe('splitHomeLibrary', () => {
     )
     assert.equal(shelves.latest.length, HOME_LATEST_ROW)
     assert.equal(shelves.earlier.length, 4)
+  })
+
+  it('lists Assignments newest first, omits them from Latest and Earlier, and hides Continue watching', async () => {
+    getPerson('ruth')!.isParent = true
+    let bike = getVideo('no-training-wheels')!
+    let tahoe = getVideo('tahoe-day-2')!
+    let boss = getVideo('boss-attempt-14')!
+    recordProgress(boss, 'leo', 240)
+    await assign('ruth', 'leo', bike.id, 1_000)
+    await assign('ruth', 'leo', tahoe.id, 2_000)
+
+    let shelves = splitHomeLibrary([...videos], 'leo')
+    assert.deepEqual(
+      shelves.assigned.map((video) => video.id),
+      ['tahoe-day-2', 'no-training-wheels'],
+    )
+    assert.equal(shelves.resume.length, 0)
+    assert.equal(
+      [...shelves.latest, ...shelves.earlier].some((video) => video.id === 'tahoe-day-2' || video.id === 'no-training-wheels'),
+      false,
+    )
+
+    resetAssignments()
+    let after = splitHomeLibrary([...videos], 'leo')
+    assert.equal(after.assigned.length, 0)
+    assert.deepEqual(
+      after.resume.map((video) => video.id),
+      ['boss-attempt-14'],
+    )
   })
 })
