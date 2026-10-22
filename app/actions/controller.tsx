@@ -32,7 +32,7 @@ import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
 import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
-import { assign, unassign } from '../data/assignments.ts'
+import { assign, mustFinishAssignedFirst, unassign } from '../data/assignments.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
 import { routes } from '../routes.ts'
 import { channelFeedHrefs, homeEarlierHrefs, playlistFeedHrefs } from '../ui/feed-batch.tsx'
@@ -283,7 +283,10 @@ export default createController(routes, {
       if (!person && !unsignedWatchAllowed()) return new Response('Sign in to watch', { status: 401 })
       let video = watchable(context.params.videoId, person?.id)
       let media = video ? mediaFileFor(video) : null
-      if (!media?.exists) return new Response('Not Found', { status: 404 })
+      if (!video || !media?.exists) return new Response('Not Found', { status: 404 })
+      if (mustFinishAssignedFirst(person, video.id)) {
+        return new Response('Finish your assigned videos first.', { status: 403 })
+      }
       if (isTimeUp(person)) return new Response('Time’s up for today', { status: 403 })
       return createFileResponse(openLazyFile(media.path, { type: media.type }), context.request, {
         cacheControl: 'private, max-age=3600',
@@ -302,6 +305,9 @@ export default createController(routes, {
         return left ? Response.json({ remainingSec: left.remainingSec }) : new Response(null, { status: 204 })
       }
       if (event === 'play') {
+        if (mustFinishAssignedFirst(person, video.id)) {
+          return new Response('Finish your assigned videos first.', { status: 403 })
+        }
         if (isTimeUp(person)) return allowance()
         recordPlay(video)
         if (person) await recordWatchStart(person.id, video)
@@ -313,6 +319,9 @@ export default createController(routes, {
         let valid = (n: number) => Number.isFinite(n) && n >= 0 && n <= 86_400
         if (!valid(position) || (duration !== undefined && !(valid(duration) && duration > 0))) {
           return new Response('Bad Request', { status: 400 })
+        }
+        if (mustFinishAssignedFirst(person, video.id)) {
+          return new Response('Finish your assigned videos first.', { status: 403 })
         }
         if (person) await recordWatchProgress(person.id, video, position, duration)
         else if (duration !== undefined) video.durationSec = Math.round(duration)

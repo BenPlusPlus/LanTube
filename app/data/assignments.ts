@@ -43,6 +43,12 @@ export function assignmentsFor(personId: string): Assignment[] {
     .sort((a, b) => b.assignedAt - a.assignedAt)
 }
 
+export function mustFinishAssignedFirst(person: Person | null | undefined, videoId: string): boolean {
+  if (!person || !isLimitable(person)) return false
+  if (assignmentsFor(person.id).length === 0) return false
+  return !isAssigned(person.id, videoId)
+}
+
 function check(actorId: string, targetId: string, videoId: string): { target: Person } | { error: string } {
   if (!getPerson(actorId)?.isParent) return { error: 'You need to be a Parent.' }
   let target = getPerson(targetId)
