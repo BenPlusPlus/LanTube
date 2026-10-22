@@ -185,5 +185,6 @@ export const assignments = table({
     video_id: c.uuid().notNull(),
     assigned_by: c.uuid().nullable(),
     assigned_at: c.timestamp({ withTimezone: true }).notNull().defaultNow(),
+    high_water_sec: c.integer().notNull().default(0),
   },
 })

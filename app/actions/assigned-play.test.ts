@@ -1,7 +1,7 @@
 import * as assert from 'remix/assert'
 import { afterEach, describe, it } from 'remix/test'
 
-import { assign, isAssigned, resetAssignments, unassign } from '../data/assignments.ts'
+import { assign, highWaterOf, isAssigned, resetAssignments, unassign } from '../data/assignments.ts'
 import { restoreDefaultBrand, setUnsignedWatch } from '../data/brand.ts'
 import { recordWatchProgress, recordWatchStart, resetHistory } from '../data/history.ts'
 import { getPerson } from '../data/household.ts'
@@ -81,6 +81,67 @@ describe('assigned play gate on Watch', () => {
     assert.doesNotMatch(html, /Finish your assigned videos first/)
     assert.match(html, new RegExp(`src="${routes.media.href({ videoId: 'tahoe-day-2' })}"`))
   })
+
+  it('caps assigned Watch at 1.5× and starts a never-started Video at 0', async () => {
+    withRoles()
+    assert.equal(await assign('ruth', 'leo', 'tahoe-day-2'), true)
+    assert.equal(highWaterOf('leo', 'tahoe-day-2'), 0)
+    let leo = await signIn('leo')
+    let { html } = await get(routes.watch.href({ videoId: 'tahoe-day-2' }), leo)
+
+    assert.match(html, /"maxRate":1\.5\b/)
+    assert.match(html, /"furthestAt":0\b/)
+    assert.doesNotMatch(html, /"resumeAt"/)
+    assert.match(html, />1\.5×</)
+    assert.doesNotMatch(html, />1\.75×</)
+    assert.doesNotMatch(html, />2×</)
+  })
+
+  it('keeps resume and opens high-water when assigning an in-progress Video', async () => {
+    withRoles()
+    let video = getVideo('tahoe-day-2')!
+    let start = Date.now()
+    await recordWatchStart('leo', video, start)
+    await recordWatchProgress('leo', video, 200, undefined, start + 200_000)
+    assert.equal(await assign('ruth', 'leo', video.id), true)
+    assert.equal(highWaterOf('leo', video.id), 200)
+
+    let leo = await signIn('leo')
+    let { html } = await get(routes.watch.href({ videoId: video.id }), leo)
+    assert.match(html, /"resumeAt":200\b/)
+    assert.match(html, /"furthestAt":200\b/)
+    assert.match(html, /"maxRate":1\.5\b/)
+  })
+
+  it('starts at 0 when assigning a Video this Person already finished', async () => {
+    withRoles()
+    let video = getVideo('tahoe-day-2')!
+    let start = Date.now()
+    await recordWatchStart('leo', video, start)
+    await recordWatchProgress('leo', video, 1470, undefined, start + 1470_000)
+    assert.equal(await assign('ruth', 'leo', video.id), true)
+    assert.equal(highWaterOf('leo', video.id), 0)
+
+    let leo = await signIn('leo')
+    let { html } = await get(routes.watch.href({ videoId: video.id }), leo)
+    assert.doesNotMatch(html, /"resumeAt"/)
+    assert.match(html, /"furthestAt":0\b/)
+    assert.match(html, /"maxRate":1\.5\b/)
+  })
+
+  it('restores the full speed ladder after the Assignment is gone', async () => {
+    withRoles()
+    assert.equal(await assign('ruth', 'leo', 'tahoe-day-2'), true)
+    assert.equal(await unassign('ruth', 'leo', 'tahoe-day-2'), true)
+    let leo = await signIn('leo')
+    let { html } = await get(routes.watch.href({ videoId: 'tahoe-day-2' }), leo)
+
+    assert.doesNotMatch(html, /"maxRate"/)
+    assert.doesNotMatch(html, /"furthestAt"/)
+    assert.match(html, />1\.5×</)
+    assert.match(html, />1\.75×</)
+    assert.match(html, />2×</)
+  })
 })
 
 describe('assigned play gate on /media and play', () => {
@@ -121,6 +182,22 @@ describe('assigned play gate on /media and play', () => {
     assert.equal(await assign('ruth', 'leo', 'tahoe-day-2'), true)
     let leo = await signIn('leo')
     assert.equal((await get(routes.media.href({ videoId: 'tahoe-day-2' }), leo)).response.status, 200)
+  })
+
+  it('still serves the original assigned file with Range', async () => {
+    withRoles()
+    assert.equal(await assign('ruth', 'leo', 'tahoe-day-2'), true)
+    let leo = await signIn('leo')
+    let response = await router.fetch(
+      new Request(new URL(routes.media.href({ videoId: 'tahoe-day-2' }), 'http://localhost'), {
+        headers: { Cookie: leo, Range: 'bytes=0-9' },
+        cache: 'no-store',
+      }),
+    )
+
+    assert.equal(response.status, 206)
+    assert.equal(response.headers.get('Content-Range'), 'bytes 0-9/256')
+    assert.equal((await response.arrayBuffer()).byteLength, 10)
   })
 })
 

@@ -1,6 +1,6 @@
 import { db } from '../db.ts'
 import { getPerson, listPeople, type Person } from './household.ts'
-import { canWatch, getVideo, type Video } from './library.ts'
+import { canWatch, getVideo, isInProgress, progressOf, type Video } from './library.ts'
 import { assignments as assignmentRows, people, videos } from './tables.ts'
 import { isLimitable } from './watch-limits.ts'
 
@@ -9,6 +9,7 @@ export interface Assignment {
   videoId: string
   assignedBy: string | null
   assignedAt: number
+  highWaterSec: number
 }
 
 type Result = true | { error: string }
@@ -35,6 +36,10 @@ export function assignablePeople(video: Video): Person[] {
 
 export function isAssigned(personId: string, videoId: string): boolean {
   return rows.some((row) => row.personId === personId && row.videoId === videoId)
+}
+
+export function highWaterOf(personId: string, videoId: string): number | undefined {
+  return rows.find((row) => row.personId === personId && row.videoId === videoId)?.highWaterSec
 }
 
 export function assignmentsFor(personId: string): Assignment[] {
@@ -72,7 +77,15 @@ async function persistCreate(row: Assignment) {
     video_id: video.id,
     assigned_by: assignedBy,
     assigned_at: new Date(row.assignedAt),
+    high_water_sec: row.highWaterSec,
   })
+}
+
+async function persistHighWater(personId: string, videoId: string, highWaterSec: number) {
+  if (!(await isCataloguedPerson(personId))) return
+  let video = await db.findOne(videos, { where: { slug: videoId } })
+  if (!video) return
+  await db.updateMany(assignmentRows, { high_water_sec: highWaterSec }, { where: { person_id: personId, video_id: video.id } })
 }
 
 async function persistDelete(personId: string, videoId: string) {
@@ -86,15 +99,29 @@ export async function assign(actorId: string, personId: string, videoId: string,
   let checked = check(actorId, personId, videoId)
   if ('error' in checked) return checked
   if (isAssigned(checked.target.id, videoId)) return true
+  let video = getVideo(videoId)
+  let opening = video && isInProgress(video, checked.target.id) ? (progressOf(video, checked.target.id) ?? 0) : 0
   let row: Assignment = {
     personId: checked.target.id,
     videoId,
     assignedBy: actorId,
     assignedAt: now,
+    highWaterSec: opening,
   }
   await persistCreate(row)
   rows.push(row)
   return true
+}
+
+export async function advanceHighWater(personId: string, videoId: string, positionSec: number) {
+  let row = rows.find((entry) => entry.personId === personId && entry.videoId === videoId)
+  if (!row) return
+  let video = getVideo(videoId)
+  let duration = video?.durationSec ?? positionSec
+  let next = Math.round(Math.min(Math.max(positionSec, 0), duration))
+  if (next <= row.highWaterSec) return
+  await persistHighWater(personId, videoId, next)
+  row.highWaterSec = next
 }
 
 export async function dropAssignment(personId: string, videoId: string) {
@@ -136,6 +163,7 @@ export async function loadCatalogueAssignments() {
       videoId,
       assignedBy: row.assigned_by,
       assignedAt: Number.isFinite(assignedAt) ? assignedAt : Date.now(),
+      highWaterSec: row.high_water_sec,
     })
     present.add(key)
   }

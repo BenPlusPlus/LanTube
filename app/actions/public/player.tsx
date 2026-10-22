@@ -14,6 +14,8 @@ export interface PlayerProps {
   durationSec: number
   /** Where this house left off, in seconds. */
   resumeAt?: number
+  furthestAt?: number
+  maxRate?: number
   activityHref: string
   theater: boolean
   /** The file the house site expected, relative to the media folder. */
@@ -90,6 +92,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   let pip = false
   let theater = handle.props.theater
   let resumeAt = handle.props.resumeAt ?? 0
+  let furthest = handle.props.furthestAt ?? 0
   let controlsShown = true
   let pointerOverBar = false
   let speedOpen = false
@@ -106,8 +109,14 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   let flashTimer: ReturnType<typeof setTimeout> | undefined
   let lastSent = 0
   let frame = 0
+  let skipLock = false
 
   let canControl = () => failure === null && video !== undefined
+
+  function rateList() {
+    let cap = handle.props.maxRate
+    return cap === undefined ? RATES : RATES.filter((value) => value <= cap)
+  }
 
   function report(data: Record<string, string>, beacon = false) {
     let body = new FormData()
@@ -189,7 +198,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
 
   function tick() {
     if (!video) return
-    current = video.currentTime
+    holdPlayhead(!video.seeking)
     handle.update()
     frame = playing ? requestAnimationFrame(tick) : 0
   }
@@ -206,10 +215,26 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     poke()
   }
 
+  function capPlayhead(time: number) {
+    let max = Number.isFinite(video?.duration) ? video!.duration : duration
+    if (handle.props.furthestAt !== undefined) max = Math.min(max, furthest)
+    return Math.min(Math.max(time, 0), max)
+  }
+
+  function holdPlayhead(fromPlay: boolean) {
+    if (!video) return
+    if (handle.props.furthestAt === undefined) skipLock = false
+    else if (!fromPlay) skipLock = true
+    else if (!skipLock && video.currentTime > furthest) furthest = video.currentTime
+    let capped = capPlayhead(video.currentTime)
+    if (capped !== video.currentTime) video.currentTime = capped
+    current = video.currentTime
+    if (skipLock && current <= furthest) skipLock = false
+  }
+
   function seekTo(time: number) {
     if (!canControl()) return
-    let max = Number.isFinite(video!.duration) ? video!.duration : duration
-    video!.currentTime = Math.min(Math.max(time, 0), max)
+    video!.currentTime = capPlayhead(time)
     current = video!.currentTime
     ended = false
     resumeAt = 0
@@ -240,6 +265,8 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
 
   function setRate(next: number) {
     if (!video) return
+    let cap = handle.props.maxRate
+    if (cap !== undefined && next > cap) next = cap
     video.playbackRate = next
     speedOpen = false
     showFlash('speed', rateLabel(next))
@@ -247,8 +274,9 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   }
 
   function stepRate(direction: 1 | -1) {
-    let index = RATES.indexOf(rate)
-    let next = RATES[Math.min(Math.max((index === -1 ? 2 : index) + direction, 0), RATES.length - 1)]
+    let rates = rateList()
+    let index = rates.indexOf(rate)
+    let next = rates[Math.min(Math.max((index === -1 ? 2 : index) + direction, 0), rates.length - 1)]
     setRate(next)
   }
 
@@ -281,7 +309,10 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   function timeAt(clientX: number): { x: number; time: number } {
     let box = seekEl!.getBoundingClientRect()
     let x = Math.min(Math.max(clientX - box.left, 0), box.width)
-    return { x, time: (x / box.width) * (Number.isFinite(duration) ? duration : 0) }
+    let span = Number.isFinite(duration) ? duration : 0
+    let time = capPlayhead((x / box.width) * span)
+    if (span > 0) x = (time / span) * box.width
+    return { x, time }
   }
 
   function openSpeed() {
@@ -570,17 +601,19 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               waiting = false
               handle.update()
             }),
+            on('seeking', () => {
+              holdPlayhead(false)
+            }),
             on('seeked', () => {
               clearTimeout(waitTimer)
               waiting = false
+              holdPlayhead(false)
               lastPos = video!.currentTime
               handle.update()
             }),
             on('timeupdate', () => {
-              if (!playing) {
-                current = video!.currentTime
-                handle.update()
-              }
+              holdPlayhead(!video!.seeking)
+              if (!playing) handle.update()
               if (playing) spend()
               if (playing && Date.now() - lastSent > PROGRESS_EVERY_MS) saveProgress()
             }),
@@ -593,6 +626,11 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               handle.update()
             }),
             on('ratechange', () => {
+              let cap = handle.props.maxRate
+              if (cap !== undefined && video!.playbackRate > cap) {
+                video!.playbackRate = cap
+                return
+              }
               rate = video!.playbackRate
               handle.update()
             }),
@@ -853,51 +891,50 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
                 >
                   {rateLabel(rate)}
                 </button>
-                {speedOpen ? (
-                  <ul
-                    class="pmenu"
-                    id="player-speed-menu"
-                    role="menu"
-                    aria-label="Playback speed"
-                    mix={[
-                      ref((node) => (speedMenu = node)),
-                      on('keydown', (event) => {
-                        let items = [...speedMenu!.querySelectorAll<HTMLElement>('[role="menuitemradio"]')]
-                        let index = items.indexOf(document.activeElement as HTMLElement)
-                        if (event.key === 'Escape') {
-                          closeSpeed()
-                        } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                          let next = (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
-                          items[next]?.focus()
-                        } else if (event.key === 'Tab') {
-                          closeSpeed(false)
-                          return
-                        } else return
-                        event.preventDefault()
-                        event.stopPropagation()
-                      }),
-                    ]}
-                  >
-                    {RATES.map((value) => (
-                      <li role="none">
-                        <button
-                          class="pmenu-item"
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={value === rate ? 'true' : 'false'}
-                          tabindex={-1}
-                          mix={on('click', () => {
-                            setRate(value)
-                            speedBtn?.focus()
-                          })}
-                        >
-                          <span class="pmenu-check">{value === rate ? <Icon name="check" size={18} /> : null}</span>
-                          {value === 1 ? 'Normal' : rateLabel(value)}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
+                <ul
+                  class="pmenu"
+                  id="player-speed-menu"
+                  role="menu"
+                  aria-label="Playback speed"
+                  hidden={speedOpen ? undefined : true}
+                  mix={[
+                    ref((node) => (speedMenu = node)),
+                    on('keydown', (event) => {
+                      let items = [...speedMenu!.querySelectorAll<HTMLElement>('[role="menuitemradio"]')]
+                      let index = items.indexOf(document.activeElement as HTMLElement)
+                      if (event.key === 'Escape') {
+                        closeSpeed()
+                      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                        let next = (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+                        items[next]?.focus()
+                      } else if (event.key === 'Tab') {
+                        closeSpeed(false)
+                        return
+                      } else return
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }),
+                  ]}
+                >
+                  {rateList().map((value) => (
+                    <li role="none">
+                      <button
+                        class="pmenu-item"
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={value === rate ? 'true' : 'false'}
+                        tabindex={-1}
+                        mix={on('click', () => {
+                          setRate(value)
+                          speedBtn?.focus()
+                        })}
+                      >
+                        <span class="pmenu-check">{value === rate ? <Icon name="check" size={18} /> : null}</span>
+                        {value === 1 ? 'Normal' : rateLabel(value)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               {pipSupported ? (

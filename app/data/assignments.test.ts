@@ -3,11 +3,13 @@ import { afterEach, describe, it } from 'remix/test'
 
 import { insertUploadedVideo } from './catalogue.ts'
 import {
+  advanceHighWater,
   assign,
   assignablePeople,
   assignmentsFor,
   dropImpossibleAssignments,
   forgetDeletedVideo,
+  highWaterOf,
   houseHasLimitablePeople,
   isAssigned,
   loadCatalogueAssignments,
@@ -66,6 +68,8 @@ describe('assignments', () => {
     assert.equal(await assign('ruth', 'leo', 'tahoe-day-2'), true)
     assert.equal(isAssigned('leo', 'tahoe-day-2'), true)
     assert.equal(isAssigned('priya', 'tahoe-day-2'), false)
+    assert.equal(highWaterOf('leo', 'tahoe-day-2'), 0)
+    assert.equal(highWaterOf('priya', 'tahoe-day-2'), undefined)
 
     assert.equal(await assign('ruth', 'priya', 'tahoe-day-2'), true)
     assert.equal(isAssigned('leo', 'tahoe-day-2'), true)
@@ -73,6 +77,7 @@ describe('assignments', () => {
 
     assert.equal(await unassign('ruth', 'leo', 'tahoe-day-2'), true)
     assert.equal(isAssigned('leo', 'tahoe-day-2'), false)
+    assert.equal(highWaterOf('leo', 'tahoe-day-2'), undefined)
     assert.equal(isAssigned('priya', 'tahoe-day-2'), true)
   })
 
@@ -153,6 +158,7 @@ describe('assignments', () => {
     await recordWatchProgress('leo', video, 1462, undefined, start + 1462_000)
 
     assert.equal(isAssigned('leo', video.id), false)
+    assert.equal(highWaterOf('leo', video.id), undefined)
     assert.equal(assignmentsFor('leo').length, 0)
     assert.equal(mustFinishAssignedFirst(getPerson('leo'), 'rosie-one'), false)
   })
@@ -182,6 +188,7 @@ describe('assignments', () => {
     assert.equal(await assign('ruth', 'leo', video.id), true)
     assert.equal(isAssigned('leo', video.id), true)
     assert.equal(isInProgress(video, 'leo'), false)
+    assert.equal(highWaterOf('leo', video.id), 0)
     assert.equal(mustFinishAssignedFirst(leo, 'rosie-one'), true)
 
     await recordWatchStart('leo', video, start + 4_000_000)
@@ -246,6 +253,39 @@ describe('assignments', () => {
     assert.equal(isAssigned('priya', 'tahoe-day-2'), true)
   })
 
+  it('opens high-water at the resume point when assigning an in-progress Video', async () => {
+    withRoles()
+    let video = getVideo('tahoe-day-2')!
+    let start = Date.now()
+    await recordWatchStart('leo', video, start)
+    await recordWatchProgress('leo', video, 200, undefined, start + 200_000)
+    assert.equal(isInProgress(video, 'leo'), true)
+
+    assert.equal(await assign('ruth', 'leo', video.id), true)
+    assert.equal(highWaterOf('leo', video.id), 200)
+  })
+
+  it('keeps the furthest playhead and does not move it backward', async () => {
+    withRoles()
+    assert.equal(await assign('ruth', 'leo', 'tahoe-day-2'), true)
+    await advanceHighWater('leo', 'tahoe-day-2', 40)
+    assert.equal(highWaterOf('leo', 'tahoe-day-2'), 40)
+    await advanceHighWater('leo', 'tahoe-day-2', 30)
+    assert.equal(highWaterOf('leo', 'tahoe-day-2'), 40)
+    await advanceHighWater('leo', 'tahoe-day-2', 88)
+    assert.equal(highWaterOf('leo', 'tahoe-day-2'), 88)
+  })
+
+  it('raises high-water when this Person watches farther', async () => {
+    withRoles()
+    let video = getVideo('tahoe-day-2')!
+    assert.equal(await assign('ruth', 'leo', video.id), true)
+    let start = Date.now()
+    await recordWatchStart('leo', video, start)
+    await recordWatchProgress('leo', video, 55, undefined, start + 55_000)
+    assert.equal(highWaterOf('leo', video.id), 55)
+  })
+
   it('drops an Assignment when a Manager loses sight of a private Video on that channel', async () => {
     withRoles()
     let secret = addUploadedVideo({
@@ -283,7 +323,7 @@ describe('assignments in the catalogue', () => {
     resetChannels()
   })
 
-  async function household() {
+  async function household(durationSec = 20) {
     await useEmptyHouse()
     let parent = (await createPerson('Sam', 'house', undefined, undefined, true)) as Person
     let child = (await createPerson('Kit', 'house')) as Person
@@ -294,17 +334,18 @@ describe('assignments in the catalogue', () => {
       title: 'Lake walk',
       channelSlug: parent.slug,
       ownerId: parent.id,
-      durationSec: 20,
+      durationSec,
       filePath: `uploads/${parent.slug}/${slug}.mp4`,
       posterPath: null,
       visibility: 'house',
     })
     assert.ok(inserted)
+    if (getVideo(slug)) deleteVideo(slug)
     addUploadedVideo({
       id: slug,
       title: 'Lake walk',
       channelId: parent.slug,
-      durationSec: 20,
+      durationSec,
       thumb: '',
       tags: [],
       file: `uploads/${parent.slug}/${slug}.mp4`,
@@ -324,6 +365,23 @@ describe('assignments in the catalogue', () => {
     let [row] = assignmentsFor(child.id)
     assert.equal(row?.assignedBy, parent.id)
     assert.ok((row?.assignedAt ?? 0) > 0)
+    assert.equal(highWaterOf(child.id, slug), 0)
+  })
+
+  it('restores high-water from the catalogue after a host restart', async () => {
+    let { parent, child, slug } = await household(120)
+    let video = getVideo(slug)!
+    let start = Date.now()
+    await recordWatchStart(child.id, video, start)
+    await recordWatchProgress(child.id, video, 40, undefined, start + 40_000)
+    assert.equal(await assign(parent.id, child.id, slug), true)
+    assert.equal(highWaterOf(child.id, slug), 40)
+
+    await advanceHighWater(child.id, slug, 55)
+    resetAssignments()
+    await loadCatalogueAssignments()
+    assert.equal(isAssigned(child.id, slug), true)
+    assert.equal(highWaterOf(child.id, slug), 55)
   })
 
   it('clears catalogue Assignment rows when the house is emptied', async () => {
