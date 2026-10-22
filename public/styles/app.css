@@ -2934,71 +2934,181 @@ label.poster:hover {
   justify-self: start;
 }
 
-.house-section {
-  margin-bottom: 32px;
-}
+/* ---------- House: settings sections, then one roster each for People and Folders ---------- */
 
-.house-people {
+.house {
   display: grid;
-  gap: 4px;
+  gap: 40px;
+  max-width: 1132px;
+  margin-top: 16px;
+  padding-bottom: 48px;
 }
 
-.house-person {
+.house-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 16px;
-  padding: 12px 16px;
-  border-radius: var(--radius);
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 16px;
 }
 
-.house-person-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+.house-head .shelf-note {
+  max-width: 64ch;
+  text-wrap: pretty;
 }
 
-.house-person-name {
-  font-size: 1rem;
-  font-weight: 600;
+.house-brand,
+.house-watch {
+  max-width: 36rem;
 }
 
-.house-person-you {
-  color: var(--text-2);
-  font-size: var(--fs-md);
-}
-
-.house-person-roles,
-.house-person-password,
-.house-person-remove {
+.house-inline {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
 
-.house-person-roles {
-  flex: 1 1 220px;
+.house-inline .field {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
 }
 
-.house-person-password {
-  flex: 1 1 240px;
+.house-brand .field-hint,
+.house-brand .field-error {
+  margin: 10px 0 0 18px;
 }
 
-.house-person-remove {
-  flex: 1 1 100%;
+.house-watch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
-.house-person-remove .field-hint {
-  flex: 1 1 100%;
+.house-switch {
+  position: relative;
+  display: flex;
+  flex: 1 1 260px;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.house-switch .check {
+  margin-top: 1px;
+}
+
+.house-switch-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.house-switch-label {
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.house-switch .field-hint {
   margin: 0;
 }
 
+/* A roster: one Graphite Surface, 1px Rule between rows, columns that line up row to row. */
+.house-roster {
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.house-roster > li + li {
+  border-top: 1px solid var(--line);
+}
+
+.house-person {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto minmax(260px, 340px) 112px;
+  grid-template-areas: 'who roles password remove';
+  align-items: center;
+  gap: 8px 24px;
+  padding: 12px 20px;
+}
+
+.house-person-who {
+  display: flex;
+  grid-area: who;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.house-person-text {
+  display: grid;
+  min-width: 0;
+}
+
+.house-person-name {
+  overflow: hidden;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.house-person-you {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.house-person-roles {
+  display: flex;
+  grid-area: roles;
+  align-items: center;
+  gap: 20px;
+}
+
+.house-person-password {
+  display: flex;
+  grid-area: password;
+  align-items: center;
+  gap: 8px;
+}
+
 .house-person-password .field {
-  flex: 1 1 160px;
+  flex: 1 1 auto;
   width: auto;
-  min-width: 160px;
+  min-width: 0;
+  height: 36px;
   margin-bottom: 0;
+  padding: 0 16px;
+}
+
+.house-person-remove {
+  grid-area: remove;
+  justify-self: end;
+}
+
+.house-person-self {
+  justify-self: start;
+  padding: 6px 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--text-2) 40%, transparent);
+  text-underline-offset: 3px;
+  transition: color 120ms var(--ease);
+}
+
+.house-person-self:hover {
+  color: var(--text);
+  text-decoration-color: currentColor;
+}
+
+.house-person-note {
+  grid-column: 1 / -1;
+  margin: 0 0 4px 48px;
 }
 
 .house-role {
@@ -3006,7 +3116,8 @@ label.poster:hover {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.9375rem;
+  min-height: 36px;
+  font-size: var(--fs-base);
   font-weight: 600;
   cursor: pointer;
 }
@@ -3016,108 +3127,224 @@ label.poster:hover {
   opacity: 0.55;
 }
 
-.house-last-admin {
-  flex: 1 1 100%;
-  margin: 0;
+.house-person-roles .btn {
+  margin-left: -4px;
 }
 
-.house-brand {
-  display: grid;
-  max-width: 28rem;
+/* Remove and Detach: a ghost summary that opens a Raised panel under it, no script needed. */
+.house-confirm {
+  position: relative;
 }
 
-.house-brand .field {
-  margin-bottom: 8px;
-}
-
-.house-brand .field-hint {
-  margin: 0 0 16px;
-}
-
-.house-brand .field-error {
-  margin: -8px 0 16px;
-}
-
-.house-brand .btn {
-  justify-self: start;
-}
-
-.house-watch {
-  display: grid;
-  max-width: 28rem;
-  gap: 12px;
-}
-
-.house-watch .field-hint {
-  margin: 0;
-}
-
-.house-watch .btn {
-  justify-self: start;
-}
-
-.house-folder-attach {
-  display: grid;
-  max-width: 28rem;
-  margin-bottom: 16px;
-}
-
-.house-folder-attach .field {
-  margin-bottom: 8px;
-}
-
-.house-folder-attach .field-hint {
-  margin: 0 0 16px;
-}
-
-.house-folder-attach .field-error {
-  margin: -8px 0 16px;
-}
-
-.house-folder-attach .btn {
-  justify-self: start;
-}
-
-.house-folders {
-  display: grid;
+.house-confirm-summary {
   gap: 4px;
+  padding: 0 10px 0 14px;
+  color: var(--text-2);
+  list-style: none;
+  user-select: none;
+}
+
+.house-confirm-summary::-webkit-details-marker {
+  display: none;
+}
+
+.house-confirm-summary .icon {
+  transition: transform 150ms var(--ease);
+}
+
+.house-confirm-summary:hover,
+.house-confirm[open] > .house-confirm-summary {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.house-confirm[open] > .house-confirm-summary .icon {
+  transform: rotate(180deg);
+}
+
+.house-confirm-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(340px, calc(100cqw - 32px));
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--raised);
+  animation: house-confirm-open 160ms var(--ease);
+}
+
+.house-confirm-panel form {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.house-confirm-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.house-confirm-panel .field-hint,
+.house-confirm-panel .field-error {
+  margin: 0;
+}
+
+.house-confirm-panel .chform-remove {
+  min-height: 40px;
+  line-height: 1.35;
+}
+
+.house-confirm-panel .chform-remove .check {
+  border-color: color-mix(in srgb, var(--text-2) 55%, var(--raised));
+}
+
+.house-confirm-panel .btn-secondary {
+  margin-top: 4px;
+  background: var(--raised-hover);
+}
+
+.house-confirm-panel .btn-secondary:hover {
+  background: #383b41;
+}
+
+@keyframes house-confirm-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.house-stray {
+  margin: 0 0 12px;
 }
 
 .house-folder {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto 112px;
   align-items: center;
-  gap: 12px 16px;
-  padding: 12px 16px;
-  border-radius: var(--radius);
+  gap: 8px 16px;
+  padding: 12px 20px;
+}
+
+.house-folder-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--raised);
+  color: var(--text-2);
 }
 
 .house-folder-text {
   display: grid;
-  gap: 2px;
+  justify-items: start;
+  gap: 4px;
   min-width: 0;
-  flex: 1 1 160px;
 }
 
 .house-folder-name {
-  font-size: 1rem;
+  font-size: var(--fs-base);
   font-weight: 600;
 }
 
-.house-folder-path {
-  justify-self: start;
+.house-folder-detach {
+  justify-self: end;
 }
 
-.house-folder-scan,
-.house-folder-detach {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
+.house-attach {
+  display: grid;
+  justify-items: start;
+  margin-top: 24px;
 }
 
-.house-folder-detach {
-  flex: 1 1 280px;
+.house-attach-title {
+  margin-bottom: 12px;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.house-attach-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 0 16px;
+  width: 100%;
+  max-width: 48rem;
+}
+
+.house-attach-field {
+  min-width: 0;
+}
+
+.house-attach .field {
+  margin-bottom: 0;
+}
+
+.house-attach #house-folder-path {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: var(--fs-md);
+}
+
+.house-attach .field-hint,
+.house-attach .field-error {
+  margin: 10px 0 20px 18px;
+}
+
+/* Roster columns stack once the content column can't hold them side by side. */
+@container content (max-width: 879px) {
+  .house-person {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'who remove'
+      'roles roles'
+      'password password';
+    gap: 12px 16px;
+    padding: 16px;
+  }
+
+  .house-person-password .field {
+    height: 40px;
+  }
+
+  .house-person-note {
+    margin-left: 0;
+  }
+
+  .house-folder {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    padding: 16px;
+  }
+
+  .house-folder-scan {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .house-folder-detach {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+@container content (max-width: 539px) {
+  .house {
+    gap: 32px;
+  }
+
+  .house-attach-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .house-watch {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .house-confirm-panel {
+    animation: none;
+  }
 }
 
 @media (max-width: 900px) {
