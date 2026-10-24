@@ -28,10 +28,11 @@ import {
 } from '../data/library.ts'
 import { addVideo, canSee, getPlaylist, isOwner, moveVideo, playlistVideos, removeVideo } from '../data/playlists.ts'
 import { feedPage, parseCount, splitHomeLibrary, VIDEO_FEED_PAGE } from '../data/video-feed.ts'
+import { captionsFileFor } from '../data/captions.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
-import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
+import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, replaceVideoCaptions, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
 import { dropImpossibleAssignments, mustFinishAssignedFirst } from '../data/assignments.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
 import { routes } from '../routes.ts'
@@ -215,6 +216,37 @@ export default createController(routes, {
       }
       return redirect(routes.watch.href({ videoId: video.id }), 303)
     },
+    async watchCaptions(context) {
+      let person = personFromSession(context.session)
+      let video = watchable(context.params.videoId, person?.id)
+      if (!video) {
+        return context.render(
+          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
+          { status: 404 },
+        )
+      }
+      let fields = watchFields(video, person?.id)
+      if (!person || !fields.canEditTitle) return new Response('Forbidden', { status: 403 })
+      let fail = (error: string) =>
+        context.render(
+          <WatchPage
+            video={video}
+            media={mediaFileFor(video)}
+            theater={/(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')}
+            person={person}
+            people={listPeople()}
+            {...fields}
+            error={error}
+            errorField="captions"
+          />,
+          { status: 400 },
+        )
+      let uploaded = context.formData.get('captions')
+      if (!(uploaded instanceof Blob) || uploaded.size === 0) return fail('Choose a .vtt subtitles file.')
+      let result = await replaceVideoCaptions(video, uploaded)
+      if ('error' in result) return fail(result.error)
+      return redirect(routes.watch.href({ videoId: video.id }), 303)
+    },
     async watchDelete(context) {
       let person = personFromSession(context.session)
       let video = watchable(context.params.videoId, person?.id)
@@ -260,6 +292,20 @@ export default createController(routes, {
       }
       if (isTimeUp(person)) return new Response('Time’s up for today', { status: 403 })
       return createFileResponse(openLazyFile(media.path, { type: media.type }), context.request, {
+        cacheControl: 'private, max-age=3600',
+      })
+    },
+    async captions(context) {
+      let person = personFromSession(context.session)
+      if (!person && !unsignedWatchAllowed()) return new Response('Sign in to watch', { status: 401 })
+      let video = watchable(context.params.videoId, person?.id)
+      let file = video ? captionsFileFor(video) : null
+      if (!video || !file) return new Response('Not Found', { status: 404 })
+      if (mustFinishAssignedFirst(person, video.id)) {
+        return new Response('Finish your assigned videos first.', { status: 403 })
+      }
+      if (isTimeUp(person)) return new Response('Time’s up for today', { status: 403 })
+      return createFileResponse(openLazyFile(file, { type: 'text/vtt' }), context.request, {
         cacheControl: 'private, max-age=3600',
       })
     },

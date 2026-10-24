@@ -9,6 +9,12 @@
         "value": "inter",
         "createdAt": "2026-10-13T01:22:11.129Z",
         "reason": "Agent: app.css pins Inter as the house typeface"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "cascadia mono",
+        "createdAt": "2026-10-24T00:52:08.894Z",
+        "reason": "DESIGN.md: system monospace stack for filesystem paths and code"
       }
     ]
   }

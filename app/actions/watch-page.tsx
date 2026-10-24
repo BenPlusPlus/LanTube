@@ -54,7 +54,7 @@ export interface WatchPageProps {
   canDrop?: boolean
   edit?: WatchEditValues
   error?: string
-  errorField?: 'title' | 'tags' | 'delete' | 'drop'
+  errorField?: 'title' | 'tags' | 'delete' | 'drop' | 'captions'
 }
 
 const longDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' })
@@ -214,6 +214,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
     let audienceIds = edit.audienceIds
     let titleError = error && errorField === 'title' ? error : undefined
     let tagError = error && errorField === 'tags' ? error : undefined
+    let captionsError = error && errorField === 'captions' ? error : undefined
 
     return (
       <AppShell current={null} title={canEditTitle ? edit.title || video.title : video.title} person={person} layout="watch">
@@ -235,6 +236,8 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
               brand={brandName()}
               timeLeftSec={person ? allowanceFor(person)?.remainingSec : undefined}
               mustFinishAssigned={assignedFirst}
+              captionsSrc={video.captions ? routes.captions.href({ videoId: video.id }) : undefined}
+              chapters={video.chapters && video.chapters.length >= 2 ? video.chapters : undefined}
             />
             {playable && !assignedFirst ? (
               <noscript>
@@ -351,6 +354,43 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                 </ul>
               ) : null}
               {isFolder && channel.path ? <p class="watch-source">Indexed from {channel.path}</p> : null}
+              {canEditTitle && person ? (
+                <form
+                  class="watch-captions"
+                  method="post"
+                  action={routes.watchCaptions.href({ videoId: video.id })}
+                  enctype="multipart/form-data"
+                >
+                  <label class="field-label" for="watch-captions-file">
+                    Subtitles <span class="field-optional">(optional)</span>
+                  </label>
+                  <p class="field-hint" id="watch-captions-hint">
+                    {video.captions
+                      ? 'A .vtt is attached. Choose another file to replace it.'
+                      : 'One WebVTT file. Shown as captions on this video.'}
+                  </p>
+                  <input
+                    id="watch-captions-file"
+                    class="field"
+                    type="file"
+                    name="captions"
+                    accept=".vtt,text/vtt"
+                    required
+                    aria-invalid={captionsError ? 'true' : undefined}
+                    aria-describedby={captionsError ? 'watch-captions-error' : 'watch-captions-hint'}
+                  />
+                  {captionsError ? (
+                    <p class="field-error" id="watch-captions-error" role="alert">
+                      {captionsError}
+                    </p>
+                  ) : null}
+                  <div class="watch-captions-actions">
+                    <button class="btn btn-secondary" type="submit">
+                      {video.captions ? 'Replace subtitles' : 'Attach subtitles'}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
             </div>
             {canSave && person ? (
               <form id="watch-save" class="watch-access" method="post" action={routes.watchSave.href({ videoId: video.id })}>

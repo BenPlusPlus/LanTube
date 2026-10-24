@@ -42,7 +42,7 @@ export interface UploadFormValues {
   durationSec: number
 }
 
-export type UploadFormField = 'file' | 'channel' | 'title' | 'playlist' | 'poster' | 'tags'
+export type UploadFormField = 'file' | 'channel' | 'title' | 'playlist' | 'poster' | 'tags' | 'captions'
 
 export interface UploadPerson {
   id: string
@@ -769,6 +769,23 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
             hintId="upload-tags-hint"
             errorId="upload-error"
           />
+
+          <label class="field-label" for="upload-captions">
+            Subtitles <span class="field-optional">(optional)</span>
+          </label>
+          <p class="field-hint" id="upload-captions-hint">
+            One WebVTT file. You can attach or replace it later on Watch.
+          </p>
+          <input
+            id="upload-captions"
+            class="field"
+            type="file"
+            name="captions"
+            accept=".vtt,text/vtt"
+            aria-invalid={invalid('captions')}
+            aria-describedby={describedBy('captions', 'upload-captions-hint')}
+          />
+          {errorFor('captions')}
 
           {playlists.length > 0 ? (
             <>

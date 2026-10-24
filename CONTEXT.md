@@ -76,6 +76,14 @@ _Avoid_: Server, backend, instance, NAS (the NAS holds bytes; it may or may not 
 The name people see in the running app in place of LanTube. An Admin sets it on House. Until then it is LanTube.
 _Avoid_: Brand, instance name, title
 
+**Subtitles**:
+The one WebVTT file on a Video, shown as captions on Watch. Attached at upload or later by anyone who may change that Video’s title.
+_Avoid_: Caption tracks (plural), SRT, multi-language
+
+**Chapter**:
+A titled span of a Video taken from chapters embedded in the file, drawn on the Watch seek bar.
+_Avoid_: Timestamp, marker, section (as the product name)
+
 **Media share**:
 The LAN filesystem that holds the bytes — video files, posters, and photos.
 _Avoid_: Bucket, CDN, S3, volume (except as a mount)

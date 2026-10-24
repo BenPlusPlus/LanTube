@@ -46,6 +46,8 @@ export const videos = table({
     file_path: c.text().notNull(),
     owner_id: c.uuid().nullable(),
     visibility: c.text().notNull().default('house'),
+    captions_path: c.text().nullable(),
+    chapters_json: c.text().nullable(),
     created_at: c.timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
 })

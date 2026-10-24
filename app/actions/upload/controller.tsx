@@ -58,7 +58,7 @@ export default createController(routes.upload, {
       try {
         formData = await parseFormData(
           context.request,
-          { maxFiles: 2, maxFileSize: uploadLimits.formFile, maxTotalSize: uploadLimits.formFile + 4 * MB },
+          { maxFiles: 3, maxFileSize: uploadLimits.formFile, maxTotalSize: uploadLimits.formFile + 5 * MB },
           async (file) => {
             if (file.fieldName === 'video') {
               if (file.size === 0) return null
@@ -66,6 +66,7 @@ export default createController(routes.upload, {
               return upload ? upload.id : UNSUPPORTED
             }
             if (file.fieldName === 'poster') return file.size > 0 ? file : null
+            if (file.fieldName === 'captions') return file.size > 0 ? file : null
             return null
           },
         )
@@ -90,6 +91,7 @@ export default createController(routes.upload, {
       let hidden = formData.get('uploadId')
       let uploadId = typeof sent === 'string' && sent ? sent : typeof hidden === 'string' ? hidden : ''
       let poster = formData.get('poster')
+      let captions = formData.get('captions')
       let values = readValues(formData, uploadId === UNSUPPORTED ? '' : uploadId, person.id)
 
       let fail = (error: string, errorField: UploadField) => {
@@ -113,6 +115,7 @@ export default createController(routes.upload, {
         ...values,
         tags: values.tagDraft ? [...values.tags, values.tagDraft] : values.tags,
         poster: poster instanceof Blob ? poster : undefined,
+        captions: captions instanceof Blob ? captions : undefined,
       })
       if ('error' in result) return fail(result.error, result.field)
       return redirect(routes.watch.href({ videoId: result.video.id }), 303)
