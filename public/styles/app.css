@@ -941,6 +941,17 @@ legend {
   outline-offset: -2px;
 }
 
+.vcard-assign-item[aria-busy='true'] {
+  cursor: progress;
+}
+
+.vcard-assign-error {
+  padding: 4px 12px 10px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-wrap: pretty;
+}
+
 .vcard-byline a:hover {
   color: var(--text);
 }

@@ -67,7 +67,7 @@ function dropRoles() {
 }
 
 function assignAction(videoId: string) {
-  return routes.watchAssign.href({ videoId })
+  return routes.watchAssign.action.href({ videoId })
 }
 
 function menu(html: string, videoId: string) {
@@ -127,6 +127,8 @@ describe('assign from the card kebab', () => {
       let channel = await get(routes.channel.href({ channelId: 'leo' }), ruth)
       assert.match(channel.html, /id="assign-no-training-wheels"/)
       assert.match(menu(channel.html, 'no-training-wheels'), />Leo</)
+      assert.match(menu(home.html, 'home-duty'), /name="returnTo" value="\/"/)
+      assert.match(menu(channel.html, 'no-training-wheels'), /name="returnTo" value="\/channel\/leo"/)
 
       assert.doesNotMatch((await get(routes.home.href())).html, /id="assign-/)
       assert.doesNotMatch((await get(routes.home.href(), await signIn('leo'))).html, /id="assign-/)
@@ -166,6 +168,37 @@ describe('assign from the card kebab', () => {
     assert.equal(cleared.status, 303)
     assert.equal(isAssigned('leo', videoId), false)
     assert.doesNotMatch((await get(routes.controls.index.href(), ruth)).html, new RegExp(title))
+  })
+
+  it('assigns in place when the kebab posts quietly, and sends a GET at /assign on to Watch', async () => {
+    withRoles()
+    let ruth = await signIn('ruth')
+    let videoId = 'no-training-wheels'
+    let saved = await post(assignAction(videoId), { intent: 'assign', personId: 'leo', async: '1' }, ruth)
+    assert.equal(saved.status, 204)
+    assert.equal(saved.headers.get('Location'), null)
+    assert.equal(isAssigned('leo', videoId), true)
+
+    let bounced = await get(routes.watchAssign.index.href({ videoId }), ruth)
+    assert.equal(bounced.response.status, 303)
+    assert.equal(bounced.response.headers.get('Location'), routes.watch.href({ videoId }))
+  })
+
+  it('returns to the posted path after a plain assign, and ignores a returnTo that is not a same-site path', async () => {
+    withRoles()
+    let ruth = await signIn('ruth')
+    let channel = routes.channel.href({ channelId: 'leo' })
+    let saved = await post(assignAction('no-training-wheels'), { intent: 'assign', personId: 'leo', returnTo: channel }, ruth)
+    assert.equal(saved.status, 303)
+    assert.equal(saved.headers.get('Location'), channel)
+
+    let refused = await post(
+      assignAction('tahoe-day-2'),
+      { intent: 'assign', personId: 'priya', returnTo: '//evil.example' },
+      ruth,
+    )
+    assert.equal(refused.status, 303)
+    assert.equal(refused.headers.get('Location'), routes.home.href())
   })
 
   it('assigns the same Video to Priya without dropping Leo’s Assignment', async () => {
@@ -245,6 +278,7 @@ describe('assign from playlist entries and Watch related', () => {
     assert.match(playlist.html, /id="assign-hilltop-camp"/)
     assert.match(menu(playlist.html, 'hilltop-camp'), /Assign to/)
     assert.match(menu(playlist.html, 'hilltop-camp'), />Leo</)
+    assert.match(menu(playlist.html, 'hilltop-camp'), /name="returnTo" value="\/playlist\/trips-we-rewatch\?n=/)
     assert.match(menu(playlist.html, 'hilltop-camp'), />Priya</)
     assert.doesNotMatch(menu(playlist.html, 'hilltop-camp'), /Tomás|Tomas/)
 

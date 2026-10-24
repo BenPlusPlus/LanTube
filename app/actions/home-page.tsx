@@ -26,6 +26,12 @@ function tagHref(tag?: string) {
   return tag ? `${href}?tag=${encodeURIComponent(tag)}` : href
 }
 
+function homeReturn(query?: string, tag?: string) {
+  if (query) return `${routes.home.href()}?q=${encodeURIComponent(query)}`
+  if (tag) return `${routes.home.href()}?tag=${encodeURIComponent(tag)}`
+  return routes.home.href()
+}
+
 function TagChips(handle: Handle<{ active?: string; videos: Video[] }>) {
   return () => {
     let { active, videos } = handle.props
@@ -50,9 +56,9 @@ function TagChips(handle: Handle<{ active?: string; videos: Video[] }>) {
   }
 }
 
-function Shelf(handle: Handle<{ id: string; title: string; note?: string; videos: Video[]; viewerId?: string; showRemaining?: boolean; eager?: boolean; single?: boolean }>) {
+function Shelf(handle: Handle<{ id: string; title: string; note?: string; videos: Video[]; viewerId?: string; showRemaining?: boolean; eager?: boolean; single?: boolean; returnTo?: string }>) {
   return () => {
-    let { id, title, note, videos: list, viewerId, showRemaining, eager, single } = handle.props
+    let { id, title, note, videos: list, viewerId, showRemaining, eager, single, returnTo } = handle.props
     return (
       <section class="shelf" aria-labelledby={id}>
         <header class="shelf-head">
@@ -63,7 +69,7 @@ function Shelf(handle: Handle<{ id: string; title: string; note?: string; videos
         </header>
         <div class={single ? 'video-grid is-single-row' : 'video-grid'}>
           {list.map((video, index) => (
-            <VideoCard video={video} viewerId={viewerId} showRemaining={showRemaining} eager={eager && index < 4} />
+            <VideoCard video={video} viewerId={viewerId} showRemaining={showRemaining} eager={eager && index < 4} returnTo={returnTo} />
           ))}
         </div>
       </section>
@@ -74,6 +80,7 @@ function Shelf(handle: Handle<{ id: string; title: string; note?: string; videos
 function Results(handle: Handle<{ query: string; tag?: string; results: Video[]; viewerId?: string }>) {
   return () => {
     let { query, tag, results, viewerId } = handle.props
+    let returnTo = homeReturn(query, tag)
     let tagLabel = getTag(tag)?.name ?? tag
     let heading = query ? `Results for “${query}”` : (tagLabel ?? 'All videos')
     let scope = query && tagLabel ? ` in ${tagLabel}` : ''
@@ -106,7 +113,7 @@ function Results(handle: Handle<{ query: string; tag?: string; results: Video[];
         </header>
         <div class="video-grid">
           {results.map((video, index) => (
-            <VideoCard video={video} viewerId={viewerId} eager={index < 4} />
+            <VideoCard video={video} viewerId={viewerId} eager={index < 4} returnTo={returnTo} />
           ))}
         </div>
       </section>
@@ -171,6 +178,7 @@ export function HomePage(handle: Handle<HomePageProps>) {
     }
 
     let { assigned, resume, latest, earlier, earlierTotal } = splitHomeLibrary(videos, viewerId)
+    let returnTo = homeReturn(query, tag)
     let shown = Math.min(earlierShown, earlier.length)
     let visibleEarlier = earlier.slice(0, shown)
     let earlierHasMore = shown < earlier.length
@@ -193,11 +201,12 @@ export function HomePage(handle: Handle<HomePageProps>) {
                 viewerId={viewerId}
                 showRemaining
                 eager
+                returnTo={returnTo}
               />
             ) : resume.length > 0 ? (
-              <Shelf id="continue" title="Continue watching" videos={resume} viewerId={viewerId} showRemaining eager single />
+              <Shelf id="continue" title="Continue watching" videos={resume} viewerId={viewerId} showRemaining eager single returnTo={returnTo} />
             ) : null}
-            <Shelf id="latest" title="Latest in the house" videos={latest} viewerId={viewerId} eager={assigned.length === 0 && resume.length === 0} />
+            <Shelf id="latest" title="Latest in the house" videos={latest} viewerId={viewerId} eager={assigned.length === 0 && resume.length === 0} returnTo={returnTo} />
             <section class="shelf" aria-labelledby="people">
               <header class="shelf-head">
                 <h2 class="shelf-title" id="people">
@@ -224,7 +233,7 @@ export function HomePage(handle: Handle<HomePageProps>) {
                 </header>
                 <div class="video-grid">
                   {visibleEarlier.map((video) => (
-                    <VideoCard video={video} viewerId={viewerId} />
+                    <VideoCard video={video} viewerId={viewerId} returnTo={returnTo} />
                   ))}
                   {earlierHasMore ? (
                     <VideoFeedMore nextHref={earlierHrefs.nextHref} moreHref={earlierHrefs.moreHref} label="Show earlier videos" />
@@ -250,7 +259,7 @@ export function HomeEarlierBatch(
     return (
       <FeedBatch nextHref={nextHref} moreHref={moreHref}>
         {videos.map((video) => (
-          <VideoCard video={video} viewerId={viewerId} />
+          <VideoCard video={video} viewerId={viewerId} returnTo={routes.home.href()} />
         ))}
       </FeedBatch>
     )

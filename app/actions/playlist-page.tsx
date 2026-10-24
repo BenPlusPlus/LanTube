@@ -59,7 +59,11 @@ function Entry(handle: Handle<{ playlist: Playlist; video: Video; index: number;
             <a class="pentry-title" href={href}>
               {video.title}
             </a>
-            <AssignMenu video={video} viewerId={viewerId} />
+            <AssignMenu
+              video={video}
+              viewerId={viewerId}
+              returnTo={`${routes.playlist.href({ playlistId: playlist.id })}?n=${shown}#entry-${video.id}`}
+            />
           </span>
           <span class="pentry-meta">
             {channel?.name}

@@ -240,7 +240,7 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
               </h2>
               <div class="video-grid">
                 {visible.map((video, index) => (
-                  <VideoCard video={video} viewerId={person?.id} onChannel showRemaining eager={index < 4} />
+                  <VideoCard video={video} viewerId={person?.id} onChannel showRemaining eager={index < 4} returnTo={sortHref(channel, sort)} />
                 ))}
                 {hasMore ? (
                   <VideoFeedMore nextHref={hrefs.nextHref} moreHref={hrefs.moreHref} label="Show more videos" />
@@ -291,14 +291,14 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
 }
 
 export function ChannelVideosBatch(
-  handle: Handle<{ videos: Video[]; nextHref?: string | null; moreHref?: string | null; viewerId?: string }>,
+  handle: Handle<{ videos: Video[]; nextHref?: string | null; moreHref?: string | null; viewerId?: string; returnTo?: string }>,
 ) {
   return () => {
-    let { videos, nextHref, moreHref, viewerId } = handle.props
+    let { videos, nextHref, moreHref, viewerId, returnTo } = handle.props
     return (
       <FeedBatch nextHref={nextHref} moreHref={moreHref}>
         {videos.map((video) => (
-          <VideoCard video={video} viewerId={viewerId} onChannel showRemaining />
+          <VideoCard video={video} viewerId={viewerId} onChannel showRemaining returnTo={returnTo} />
         ))}
       </FeedBatch>
     )

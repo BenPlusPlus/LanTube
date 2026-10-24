@@ -63,9 +63,9 @@ function asChannel(person: Person): Channel {
   return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
-function RelatedCard(handle: Handle<{ video: Video; viewerId?: string }>) {
+function RelatedCard(handle: Handle<{ video: Video; viewerId?: string; returnTo?: string }>) {
   return () => {
-    let { video, viewerId } = handle.props
+    let { video, viewerId, returnTo } = handle.props
     let channel = getChannel(video.channelId)!
     let href = routes.watch.href({ videoId: video.id })
     let progress = progressPercent(video, viewerId)
@@ -86,7 +86,7 @@ function RelatedCard(handle: Handle<{ video: Video; viewerId?: string }>) {
             <h3 class="rcard-title">
               <a href={href}>{video.title}</a>
             </h3>
-            <AssignMenu video={video} viewerId={viewerId} />
+            <AssignMenu video={video} viewerId={viewerId} returnTo={returnTo} />
           </div>
           <p class="rcard-meta">
             <a href={routes.channel.href({ channelId: channel.id })}>{channel.name}</a>
@@ -497,7 +497,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                 <ul class="watch-related-list">
                   {related.map((other) => (
                     <li>
-                      <RelatedCard video={other} viewerId={person?.id} />
+                      <RelatedCard video={other} viewerId={person?.id} returnTo={here} />
                     </li>
                   ))}
                 </ul>

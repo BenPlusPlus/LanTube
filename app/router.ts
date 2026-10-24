@@ -13,6 +13,7 @@ import playlistEditController from './actions/playlistEdit/controller.tsx'
 import playlistNewController from './actions/playlistNew/controller.tsx'
 import signinController from './actions/signin/controller.tsx'
 import uploadController from './actions/upload/controller.tsx'
+import watchAssignController from './actions/watchAssign/controller.tsx'
 import { assets } from './assets.ts'
 import { routes } from './routes.ts'
 import { sessionMiddleware } from './session.ts'
@@ -56,3 +57,4 @@ router.map(routes.channelEdit, channelEditController)
 router.map(routes.playlistNew, playlistNewController)
 router.map(routes.playlistEdit, playlistEditController)
 router.map(routes.upload, uploadController)
+router.map(routes.watchAssign, watchAssignController)

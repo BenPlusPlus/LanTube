@@ -21,6 +21,7 @@ import {
   thumbUrl,
 } from '../data/library.ts'
 import { routes } from '../routes.ts'
+import { AssignMenu as AssignMenuControl } from './public/assign-menu.tsx'
 import { Icon } from './public/icons.tsx'
 import { initialOf as sharedInitialOf } from './public/identity.ts'
 
@@ -64,69 +65,30 @@ export function DurationBadge(handle: Handle<{ seconds: number }>) {
   return () => (handle.props.seconds > 0 ? <span class="vcard-duration">{formatDuration(handle.props.seconds)}</span> : null)
 }
 
-export function AssignMenu(handle: Handle<{ video: Video; viewerId?: string }>) {
+export function AssignMenu(handle: Handle<{ video: Video; viewerId?: string; returnTo?: string }>) {
   return () => {
-    let { video, viewerId } = handle.props
+    let { video, viewerId, returnTo } = handle.props
     let viewer = viewerId ? getPerson(viewerId) : undefined
     if (!viewer?.isParent || !houseHasLimitablePeople()) return null
-    let people = assignablePeople(video)
-    let menuId = `assign-${video.id}`
-    let anchor = `--assign-${video.id}`
     return (
-      <div class="vcard-assign">
-        <button
-          class="icon-btn vcard-assign-btn"
-          type="button"
-          popovertarget={menuId}
-          aria-haspopup="dialog"
-          aria-label={`Assign ${video.title}`}
-          style={`anchor-name:${anchor}`}
-        >
-          <Icon name="ellipsis-vertical" size={18} />
-        </button>
-        <div
-          class="vcard-assign-menu"
-          id={menuId}
-          popover="auto"
-          role="dialog"
-          aria-labelledby={`${menuId}-title`}
-          style={`position-anchor:${anchor}`}
-        >
-          <p class="vcard-assign-title" id={`${menuId}-title`}>
-            Assign to
-          </p>
-          {people.length === 0 ? (
-            <p class="vcard-assign-empty">No one here can watch this yet. Name them on Audience first.</p>
-          ) : (
-            people.map((member) => {
-              let assigned = isAssigned(member.id, video.id)
-              return (
-                <form method="post" action={routes.watchAssign.href({ videoId: video.id })}>
-                  <input type="hidden" name="intent" value={assigned ? 'unassign' : 'assign'} />
-                  <input type="hidden" name="personId" value={member.id} />
-                  <button
-                    class="account-menu-item vcard-assign-item"
-                    type="submit"
-                    aria-pressed={assigned ? 'true' : 'false'}
-                  >
-                    <span class={`check${assigned ? ' is-on' : ''}`} aria-hidden="true">
-                      <Icon name="check" size={14} />
-                    </span>
-                    {member.name}
-                  </button>
-                </form>
-              )
-            })
-          )}
-        </div>
-      </div>
+      <AssignMenuControl
+        videoId={video.id}
+        videoTitle={video.title}
+        action={routes.watchAssign.action.href({ videoId: video.id })}
+        people={assignablePeople(video).map((member) => ({
+          id: member.id,
+          name: member.name,
+          assigned: isAssigned(member.id, video.id),
+        }))}
+        returnTo={returnTo}
+      />
     )
   }
 }
 
-export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; showRemaining?: boolean; eager?: boolean; onChannel?: boolean }>) {
+export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; showRemaining?: boolean; eager?: boolean; onChannel?: boolean; returnTo?: string }>) {
   return () => {
-    let { video, viewerId, showRemaining = false, eager = false, onChannel = false } = handle.props
+    let { video, viewerId, showRemaining = false, eager = false, onChannel = false, returnTo } = handle.props
     let channel = getChannel(video.channelId)!
     let watchHref = routes.watch.href({ videoId: video.id })
     let channelHref = routes.channel.href({ channelId: channel.id })
@@ -158,7 +120,7 @@ export function VideoCard(handle: Handle<{ video: Video; viewerId?: string; show
               <h3 class="vcard-title">
                 <a href={watchHref}>{video.title}</a>
               </h3>
-              <AssignMenu video={video} viewerId={viewerId} />
+              <AssignMenu video={video} viewerId={viewerId} returnTo={returnTo} />
             </div>
             {onChannel ? (
               poster ? (
