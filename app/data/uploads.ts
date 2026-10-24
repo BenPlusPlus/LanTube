@@ -4,7 +4,9 @@ import * as path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import { deleteCatalogueCustomChannel, deleteCatalogueFrozenHome, deleteCatalogueVideo, insertUploadedVideo, uniqueVideoSlug } from './catalogue.ts'
+import { unlinkCaptions, readCaptionsBlob, writeCaptions } from './captions.ts'
+import { chaptersFromFile } from './chapters.ts'
+import { deleteCatalogueCustomChannel, deleteCatalogueFrozenHome, deleteCatalogueVideo, insertUploadedVideo, saveVideoCaptions, uniqueVideoSlug } from './catalogue.ts'
 import { releaseFrozenSlug } from './household.ts'
 import {
   addUploadedVideo,
@@ -169,9 +171,11 @@ export interface UploadInput {
   durationSec: number
   /** A JPEG still picked in the browser. */
   poster?: Blob
+  /** One WebVTT file for this Video. */
+  captions?: Blob
 }
 
-export type UploadField = 'file' | 'channel' | 'title' | 'playlist' | 'poster' | 'tags'
+export type UploadField = 'file' | 'channel' | 'title' | 'playlist' | 'poster' | 'tags' | 'captions'
 
 export type UploadResult = { video: Video } | { error: string; field: UploadField }
 
@@ -211,6 +215,13 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     if (!isJpeg(poster)) return { error: 'That poster frame didn’t come through. Pick it again.', field: 'poster' }
   }
 
+  let captionsText: string | undefined
+  if (input.captions && input.captions.size > 0) {
+    let captions = await readCaptionsBlob(input.captions)
+    if ('error' in captions) return { error: captions.error, field: 'captions' }
+    captionsText = captions.text
+  }
+
   let parsed = parseTagNames(input.tags ?? [])
   if (parsed.error) return { error: parsed.error, field: 'tags' }
   let tagRows = await findOrCreateTags(parsed.names)
@@ -237,6 +248,8 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
 
   let duration = Number.isFinite(input.durationSec) ? Math.round(Math.min(Math.max(input.durationSec, 0), 86_400)) : 0
   let audienceIds = input.visibility === 'private' ? namedAudience(personId, input.audienceIds ?? []) : []
+  let captionsPath = captionsText ? await writeCaptions(id, captionsText) : undefined
+  let chapters = await chaptersFromFile(destination)
   let video = addUploadedVideo({
     id,
     title,
@@ -248,6 +261,8 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     postedBy: personId,
     private: input.visibility === 'private' ? true : undefined,
     audience: input.visibility === 'private' ? audienceIds : undefined,
+    captions: captionsPath,
+    chapters,
   })
   await insertUploadedVideo({
     slug: id,
@@ -260,6 +275,8 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     visibility: input.visibility,
     tagIds: tagRows.map((tag) => tag.id),
     audienceIds,
+    captionsPath,
+    chapters,
   })
   if (playlist) await addVideo(playlist, video.id)
   return { video }
@@ -280,6 +297,20 @@ async function unlinkLanTubeBytes(video: Video) {
   }
   let poster = posterPathFor(video)
   if (poster) await fsp.rm(poster, { force: true })
+  await unlinkCaptions(video)
+}
+
+/** Writes the one .vtt for this Video and points the catalogue at it. */
+export async function replaceVideoCaptions(video: Video, file: Blob): Promise<{ error: string } | { path: string }> {
+  let read = await readCaptionsBlob(file)
+  if ('error' in read) return read
+  let relative = await writeCaptions(video.id, read.text)
+  if (!(await saveVideoCaptions(video.id, relative))) {
+    await fsp.rm(path.join(mediaDir, relative), { force: true })
+    return { error: 'This video isn’t in the catalogue.' }
+  }
+  video.captions = relative
+  return { path: relative }
 }
 
 /** Catalogue row, then bytes LanTube wrote, then in-memory library. */

@@ -22,6 +22,8 @@ import {
   videos,
   type Channel,
 } from './library.ts'
+import { unlinkCaptions } from './captions.ts'
+import { chaptersFromFile } from './chapters.ts'
 import { mediaDir, videoExtensions } from './media.ts'
 import { forgetDeletedVideo } from './assignments.ts'
 import { dropFromPlaylists } from './playlists.ts'
@@ -155,11 +157,13 @@ export async function scanFolder(channel: Channel) {
     if (alreadyIndexed(relative)) continue
     let title = path.parse(file).name || 'video'
     let slug = await uniqueVideoSlug(title)
+    let chapters = await chaptersFromFile(file)
     let saved = await insertIndexedVideo({
       slug,
       title,
       channelSlug: channel.id,
       filePath: relative,
+      chapters,
     })
     if (!saved) continue
     addUploadedVideo({
@@ -170,6 +174,7 @@ export async function scanFolder(channel: Channel) {
       thumb: '',
       tags: [],
       file: relative,
+      chapters,
     })
   }
   for (let video of videos.filter((entry) => entry.channelId === channel.id)) {
@@ -184,6 +189,7 @@ export async function dropIndexedVideo(id: string) {
   let channel = getChannel(video.channelId)
   if (!channel || channel.kind !== 'folder') return false
   await deleteCatalogueVideo(video.id)
+  await unlinkCaptions(video)
   deleteVideo(video.id)
   dropFromPlaylists(video.id)
   forgetDeletedVideo(video.id)

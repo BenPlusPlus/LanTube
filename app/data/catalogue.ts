@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { db } from '../db.ts'
 import { slugify } from './household.ts'
+import { chaptersFromJson, chaptersToJson, type VideoChapter } from '../ui/public/chapter-list.ts'
 import { canWatch, getVideo, videos as memoryVideos, type Video } from './library.ts'
 import { loadCatalogueTags } from './tags.ts'
 import { channels, people, videoAudience, videoTags, videos, tags as tagRows } from './tables.ts'
@@ -18,6 +19,8 @@ type VideoRow = {
   file_path: string
   owner_id: string | null
   visibility: string
+  captions_path: string | null
+  chapters_json: string | null
 }
 
 type ChannelRow = { id: string; slug: string }
@@ -54,6 +57,8 @@ function videoFromRow(
       postedBy: row.owner_id ?? undefined,
       private: isPrivate ? true : undefined,
       audience: isPrivate ? audienceIds : undefined,
+      captions: row.captions_path ?? undefined,
+      chapters: chaptersFromJson(row.chapters_json),
     } as Video,
     'addedDaysAgo',
     {
@@ -142,6 +147,8 @@ export async function insertUploadedVideo(input: {
   visibility: 'house' | 'private'
   tagIds?: string[]
   audienceIds?: string[]
+  captionsPath?: string | null
+  chapters?: VideoChapter[]
 }): Promise<{ id: string; slug: string } | null> {
   let channel = await db.findOne(channels, { where: { slug: input.channelSlug } })
   if (!channel) return null
@@ -159,6 +166,8 @@ export async function insertUploadedVideo(input: {
       file_path: input.filePath,
       owner_id: input.ownerId,
       visibility: input.visibility,
+      captions_path: input.captionsPath ?? null,
+      chapters_json: chaptersToJson(input.chapters ?? []),
     })
     if (input.tagIds?.length) {
       await tx.createMany(
@@ -181,6 +190,7 @@ export async function insertIndexedVideo(input: {
   title: string
   channelSlug: string
   filePath: string
+  chapters?: VideoChapter[]
 }): Promise<{ id: string; slug: string } | null> {
   let channel = await db.findOne(channels, { where: { slug: input.channelSlug } })
   if (!channel || channel.kind !== 'folder') return null
@@ -196,8 +206,17 @@ export async function insertIndexedVideo(input: {
     file_path: input.filePath,
     owner_id: null,
     visibility: 'house',
+    captions_path: null,
+    chapters_json: chaptersToJson(input.chapters ?? []),
   })
   return { id, slug: input.slug }
+}
+
+export async function saveVideoCaptions(slug: string, captionsPath: string | null) {
+  let row = await db.findOne(videos, { where: { slug } })
+  if (!row) return false
+  await db.update(videos, row.id, { captions_path: captionsPath })
+  return true
 }
 
 export async function folderPathTaken(relative: string) {

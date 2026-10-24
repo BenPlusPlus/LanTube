@@ -138,6 +138,8 @@ describe('upload page', () => {
     assert.match(html, /<legend class="field-label">Tags /)
     assert.match(html, /name="tags"/)
     assert.doesNotMatch(html, /name="topics"|Topics/)
+    assert.match(html, /id="upload-captions"/)
+    assert.match(html, />Subtitles </)
   })
 
   it('starts on the channel it was opened from', async () => {
@@ -1515,5 +1517,178 @@ describe('delete uploaded Video', () => {
     assert.equal((await deleteWatch(slug, [['confirm', '1']], otherCookie)).status, 403)
     assert.equal((await deleteWatch(slug, [['confirm', '1']])).status, 403)
     assert.ok(getVideo(slug))
+  })
+})
+
+describe('subtitles on upload and Watch', () => {
+  afterEach(async () => {
+    for (let id of created.splice(0)) deleteVideo(id)
+    fs.rmSync(path.join(mediaDir, 'uploads'), { recursive: true, force: true })
+    fs.rmSync(path.join(mediaDir, '.lantube'), { recursive: true, force: true })
+    await useEmptyHouse()
+    resetHousehold()
+    resetChannels()
+  })
+
+  const vtt = 'WEBVTT\n\n00:00:00.000 --> 00:00:01.500\nHello house\n'
+  const vttFile = () => new Blob([vtt], { type: 'text/vtt' })
+
+  async function join(name: string) {
+    let response = await router.fetch(
+      new Request(new URL(routes.signin.action.href(), 'http://localhost'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `intent=join&name=${encodeURIComponent(name)}&password=lantern&confirm=lantern`,
+        redirect: 'manual',
+      }),
+    )
+    assert.equal(response.status, 303)
+    let header = response.headers.getSetCookie().find((entry) => entry.startsWith('lt_session='))
+    assert.ok(header, 'Expected an lt_session cookie')
+    return header.split(';', 1)[0]
+  }
+
+  function postCaptions(videoId: string, file: Blob | string, cookie?: string) {
+    let body = new FormData()
+    if (typeof file === 'string') body.append('captions', file)
+    else body.append('captions', file, 'en.vtt')
+    return router.fetch(
+      new Request(new URL(routes.watchCaptions.href({ videoId }), 'http://localhost'), {
+        method: 'POST',
+        headers: cookie ? { Cookie: cookie } : undefined,
+        body,
+        redirect: 'manual',
+      }),
+    )
+  }
+
+  it('publishes a .vtt with the video and serves it to anyone who can watch', async () => {
+    await useEmptyHouse()
+    let cookie = await join('Sam')
+    let response = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Lake day'],
+        ['visibility', 'house'],
+        ['captions', vttFile(), 'en.vtt'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 303)
+    let slug = videoIdFrom(response)
+    let video = getVideo(slug)
+    assert.ok(video?.captions)
+    assert.ok(fs.existsSync(path.join(mediaDir, video.captions)))
+
+    let watch = await get(routes.watch.href({ videoId: slug }), cookie)
+    assert.match(watch.html, /aria-label="Subtitles off"/)
+    assert.match(watch.html, new RegExp(`action="${routes.watchCaptions.href({ videoId: slug })}"`))
+    assert.match(watch.html, /Replace subtitles/)
+
+    let unsigned = await get(routes.watch.href({ videoId: slug }))
+    assert.match(unsigned.html, /aria-label="Subtitles off"/)
+    assert.doesNotMatch(unsigned.html, /Attach subtitles/)
+    assert.doesNotMatch(unsigned.html, /Replace subtitles/)
+
+    let captions = await router.fetch(new Request(new URL(routes.captions.href({ videoId: slug }), 'http://localhost')))
+    assert.equal(captions.status, 200)
+    assert.match(captions.headers.get('Content-Type') ?? '', /text\/vtt/)
+    assert.match(await captions.text(), /Hello house/)
+  })
+
+  it('lets the Video owner replace the .vtt later and forbids everyone else', async () => {
+    await useEmptyHouse()
+    let owner = await join('Sam')
+    let other = await join('Alex')
+    let published = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Lake day'],
+        ['visibility', 'house'],
+      ],
+      owner,
+    )
+    let slug = videoIdFrom(published)
+    let watch = await get(routes.watch.href({ videoId: slug }), owner)
+    assert.match(watch.html, /Attach subtitles/)
+    assert.doesNotMatch(watch.html, /aria-label="Subtitles off"/)
+
+    let attached = await postCaptions(slug, vttFile(), owner)
+    assert.equal(attached.status, 303)
+    assert.ok(getVideo(slug)?.captions)
+    assert.equal((await postCaptions(slug, vttFile(), other)).status, 403)
+    assert.equal((await postCaptions(slug, vttFile())).status, 403)
+
+    let rejected = await postCaptions(slug, new Blob(['not captions'], { type: 'text/plain' }), owner)
+    assert.equal(rejected.status, 400)
+    assert.match(await rejected.text(), /WEBVTT/)
+  })
+
+  it('hides captions for a private Video the viewer cannot watch', async () => {
+    await useEmptyHouse()
+    let owner = await join('Sam')
+    let other = await join('Alex')
+    let published = await publish(
+      [
+        ['video', new Blob([clip], { type: 'video/mp4' }), 'clip.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Secret'],
+        ['visibility', 'private'],
+        ['captions', vttFile(), 'en.vtt'],
+      ],
+      owner,
+    )
+    let slug = videoIdFrom(published)
+    assert.equal(
+      (await router.fetch(new Request(new URL(routes.captions.href({ videoId: slug }), 'http://localhost'), { headers: { Cookie: other } }))).status,
+      404,
+    )
+    assert.equal((await router.fetch(new Request(new URL(routes.captions.href({ videoId: slug }), 'http://localhost')))).status, 404)
+  })
+
+  it('reads embedded chapters at publish and draws them on the Watch seek bar', async () => {
+    function box(type: string, payload: Buffer) {
+      let buf = Buffer.alloc(8 + payload.length)
+      buf.writeUInt32BE(buf.length, 0)
+      buf.write(type, 4, 4, 'ascii')
+      payload.copy(buf, 8)
+      return buf
+    }
+    let titles = [Buffer.from('Dock'), Buffer.from('Bay')]
+    let payload = Buffer.alloc(5 + titles.reduce((n, title) => n + 9 + title.length, 0))
+    payload[4] = 2
+    payload.writeBigUInt64BE(0n, 5)
+    payload[13] = titles[0].length
+    titles[0].copy(payload, 14)
+    payload.writeBigUInt64BE(BigInt(12.5 * 10_000_000), 14 + titles[0].length)
+    let second = 14 + titles[0].length + 8
+    payload[second] = titles[1].length
+    titles[1].copy(payload, second + 1)
+    let bytes = Buffer.concat([box('ftyp', Buffer.from('isom')), box('moov', box('udta', box('chpl', payload)))])
+
+    await useEmptyHouse()
+    let cookie = await join('Sam')
+    let response = await publish(
+      [
+        ['video', new Blob([bytes], { type: 'video/mp4' }), 'dock.mp4'],
+        ['channel', 'sam'],
+        ['title', 'Dock day'],
+        ['visibility', 'house'],
+        ['duration', '40'],
+      ],
+      cookie,
+    )
+    assert.equal(response.status, 303)
+    let slug = videoIdFrom(response)
+    assert.deepEqual(getVideo(slug)?.chapters, [
+      { startSec: 0, title: 'Dock' },
+      { startSec: 12.5, title: 'Bay' },
+    ])
+    let watch = await get(routes.watch.href({ videoId: slug }), cookie)
+    assert.match(watch.html, /class="seek has-chapters"/)
+    assert.match(watch.html, /Dock/)
+    assert.match(watch.html, /Bay/)
   })
 })

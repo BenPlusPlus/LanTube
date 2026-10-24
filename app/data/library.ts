@@ -5,8 +5,11 @@
 import { randomUUID } from 'node:crypto'
 
 import { db } from '../db.ts'
+import type { VideoChapter } from '../ui/public/chapter-list.ts'
 import { hueFor, isAdmin, isParent, listPeople, getPerson as getHouseholdPerson, slugify, type Person } from './household.ts'
 import { channelManagers, channels, people } from './tables.ts'
+
+export type { VideoChapter } from '../ui/public/chapter-list.ts'
 
 /** `person`: everyone's home channel. `custom`: a named channel someone runs. `folder`: an indexed share. */
 export type ChannelKind = 'person' | 'custom' | 'folder'
@@ -46,6 +49,10 @@ export interface Video {
   private?: boolean
   /** Empty is allowed: private with nobody extra named. */
   audience?: string[]
+  /** Relative Media-share path of the one .vtt on this Video, if any. */
+  captions?: string
+  /** Titled spans embedded in the file; empty means the seek bar stays plain. */
+  chapters?: VideoChapter[]
 }
 
 /** A private Video exists for its Video owner, named Audience, any Parent, and — on a Custom channel — the Channel owner and Managers. */

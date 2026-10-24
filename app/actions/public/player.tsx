@@ -1,6 +1,7 @@
 import { clientEntry, on, ref } from 'remix/component'
 import type { Handle } from 'remix/component'
 
+import { chapterAt, chapterSpans, type VideoChapter } from '../../ui/public/chapter-list.ts'
 import { routes } from '../../routes.ts'
 import { Icon, type IconName } from '../../ui/public/icons.tsx'
 
@@ -25,6 +26,10 @@ export interface PlayerProps {
   timeLeftSec?: number
   /** Signed-in limitable Person still has Assignments, and this Video is not one of them. */
   mustFinishAssigned?: boolean
+  /** Same-origin WebVTT for this Video, when one is attached. */
+  captionsSrc?: string
+  /** Embedded chapters, already normalized (two or more). */
+  chapters?: VideoChapter[]
 }
 
 type Failure = 'unsupported' | 'network' | 'missing' | 'time-up' | 'assigned'
@@ -103,6 +108,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   let pipSupported = false
   let fullscreenSupported = false
   let touch = false
+  let captionsOn = false
 
   let hideTimer: ReturnType<typeof setTimeout> | undefined
   let waitTimer: ReturnType<typeof setTimeout> | undefined
@@ -297,6 +303,24 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     } catch {}
   }
 
+  function applyCaptions() {
+    if (!video) return
+    let track = video.textTracks[0]
+    if (!track) return
+    track.mode = captionsOn && handle.props.captionsSrc ? 'showing' : 'hidden'
+  }
+
+  function toggleCaptions() {
+    if (!handle.props.captionsSrc) return
+    captionsOn = !captionsOn
+    try {
+      localStorage.setItem('lt_captions', captionsOn ? '1' : '0')
+    } catch {}
+    applyCaptions()
+    showFlash('captions', captionsOn ? 'Subtitles on' : 'Subtitles off')
+    poke()
+  }
+
   function toggleTheater() {
     theater = !theater
     root?.closest('.watch')?.classList.toggle('is-theater', theater)
@@ -364,6 +388,9 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
         if (!inPlayer) return
         setVolume((video!.muted ? 0 : video!.volume) + (event.key === 'ArrowUp' ? 0.05 : -0.05))
         break
+      case 'c':
+        toggleCaptions()
+        break
       case 'f':
         toggleFullscreen()
         break
@@ -413,6 +440,11 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
         video.muted = Boolean(saved.muted)
       }
     } catch {}
+    try {
+      captionsOn = localStorage.getItem('lt_captions') === '1'
+      applyCaptions()
+      handle.update()
+    } catch {}
 
     let signal = handle.signal
     document.addEventListener('keydown', onKey, { signal })
@@ -451,6 +483,10 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
 
   return () => {
     let { title, src, poster, expectedFile } = handle.props
+    let chapters = handle.props.chapters ?? []
+    let spans = chapterSpans(chapters, duration)
+    let hoverChapter = hover ? chapterAt(chapters, hover.time, duration) : undefined
+    let nowChapter = chapterAt(chapters, current, duration)
     let shown = controlsShown || !playing || speedOpen || scrubbing
     let played = duration > 0 ? Math.min(100, (current / duration) * 100) : 0
     let buffered = duration > 0 ? Math.min(100, (bufferedEnd / duration) * 100) : 0
@@ -546,12 +582,15 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               }
               node.addEventListener('enterpictureinpicture', setPip(true), { signal })
               node.addEventListener('leavepictureinpicture', setPip(false), { signal })
+              node.textTracks.addEventListener('addtrack', () => applyCaptions(), { signal })
+              applyCaptions()
             }),
             on('loadedmetadata', () => {
               duration = video!.duration
               if (resumeAt > 0 && resumeAt < duration - 15) video!.currentTime = resumeAt
               else resumeAt = 0
               current = video!.currentTime
+              applyCaptions()
               handle.update()
             }),
             on('durationchange', () => {
@@ -642,7 +681,11 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               handle.update()
             }),
           ]}
-        />
+        >
+          {handle.props.captionsSrc ? (
+            <track kind="captions" src={handle.props.captionsSrc} srclang="und" label="Subtitles" />
+          ) : null}
+        </video>
 
         <button
           class="player-surface"
@@ -757,14 +800,16 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
             ]}
           >
             <div
-              class={scrubbing ? 'seek is-scrubbing' : 'seek'}
+              class={['seek', scrubbing ? 'is-scrubbing' : '', spans.length ? 'has-chapters' : ''].filter(Boolean).join(' ')}
               role="slider"
               tabindex={0}
               aria-label="Seek"
               aria-valuemin={0}
               aria-valuemax={Math.round(duration)}
               aria-valuenow={Math.round(current)}
-              aria-valuetext={`${spoken(current)} of ${spoken(duration)}`}
+              aria-valuetext={
+                nowChapter ? `${nowChapter.title}, ${spoken(current)} of ${spoken(duration)}` : `${spoken(current)} of ${spoken(duration)}`
+              }
               style={`--played:${played.toFixed(2)}%;--buffered:${buffered.toFixed(2)}%`}
               mix={[
                 ref((node) => (seekEl = node)),
@@ -808,13 +853,33 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
                 }),
               ]}
             >
-              <span class="seek-track">
-                <span class="seek-buffered" />
-                <span class="seek-played" />
-              </span>
+              {spans.length ? (
+                <span class="seek-chapters" aria-hidden="true">
+                  {spans.map((span) => {
+                    let width = Math.max(span.endSec - span.startSec, 0.01)
+                    let playedHere = Math.min(1, Math.max(0, (current - span.startSec) / width))
+                    let bufferedHere = Math.min(1, Math.max(0, (bufferedEnd - span.startSec) / width))
+                    return (
+                      <span
+                        class="seek-chapter"
+                        style={`flex-grow:${width};--played:${(playedHere * 100).toFixed(2)}%;--buffered:${(bufferedHere * 100).toFixed(2)}%`}
+                      >
+                        <span class="seek-buffered" />
+                        <span class="seek-played" />
+                      </span>
+                    )
+                  })}
+                </span>
+              ) : (
+                <span class="seek-track">
+                  <span class="seek-buffered" />
+                  <span class="seek-played" />
+                </span>
+              )}
               <span class="seek-thumb" />
               {hover ? (
                 <span class="seek-tip" style={`--x:${hover.x.toFixed(1)}px`} aria-hidden="true">
+                  {hoverChapter ? <span class="seek-tip-chapter">{hoverChapter.title}</span> : null}
                   {clock(hover.time)}
                 </span>
               ) : null}
@@ -874,6 +939,20 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               </p>
 
               <span class="pspacer" />
+
+              {handle.props.captionsSrc ? (
+                <button
+                  class={captionsOn ? 'pbtn pbtn-text pbtn-cc is-changed' : 'pbtn pbtn-text pbtn-cc'}
+                  type="button"
+                  aria-label={captionsOn ? 'Subtitles on' : 'Subtitles off'}
+                  aria-pressed={captionsOn ? 'true' : 'false'}
+                  aria-keyshortcuts="c"
+                  title={captionsOn ? 'Subtitles on (c)' : 'Subtitles off (c)'}
+                  mix={on('click', () => toggleCaptions())}
+                >
+                  CC
+                </button>
+              ) : null}
 
               <div class="pspeed">
                 <button
