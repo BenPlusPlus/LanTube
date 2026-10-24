@@ -32,7 +32,7 @@ import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
 
 import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
 import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
-import { assign, dropImpossibleAssignments, mustFinishAssignedFirst, unassign } from '../data/assignments.ts'
+import { dropImpossibleAssignments, mustFinishAssignedFirst } from '../data/assignments.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
 import { routes } from '../routes.ts'
 import { channelFeedHrefs, homeEarlierHrefs, playlistFeedHrefs } from '../ui/feed-batch.tsx'
@@ -249,36 +249,6 @@ export default createController(routes, {
       else await deleteUploadedVideo(video)
       return redirect(routes.channel.href({ channelId }), 303)
     },
-    async watchAssign(context) {
-      let person = personFromSession(context.session)
-      if (!person) return redirect(routes.signin.index.href(), 303)
-      if (!person.isParent) return new Response('Forbidden', { status: 403 })
-      let video = watchable(context.params.videoId, person.id)
-      if (!video) {
-        return context.render(
-          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
-          { status: 404 },
-        )
-      }
-      let form = context.formData
-      let personId = form.get('personId')
-      let intent = form.get('intent')
-      if (typeof personId !== 'string' || (intent !== 'assign' && intent !== 'unassign')) {
-        return new Response('Bad Request', { status: 400 })
-      }
-      let result = intent === 'assign' ? await assign(person.id, personId, video.id) : await unassign(person.id, personId, video.id)
-      if (result !== true) return new Response(result.error, { status: 400 })
-      let next = routes.home.href()
-      let referer = context.request.headers.get('Referer')
-      if (referer) {
-        try {
-          let url = new URL(referer)
-          let path = `${url.pathname}${url.search}`
-          if (url.origin === new URL(context.request.url).origin && /^\/(?![/\\])/.test(path)) next = path
-        } catch {}
-      }
-      return redirect(next, 303)
-    },
     async media(context) {
       let person = personFromSession(context.session)
       if (!person && !unsignedWatchAllowed()) return new Response('Sign in to watch', { status: 401 })
@@ -396,6 +366,7 @@ export default createController(routes, {
           nextHref={hasMore ? hrefs.nextHref : null}
           moreHref={hasMore ? hrefs.moreHref : null}
           viewerId={person?.id}
+          returnTo={sort === 'latest' ? routes.channel.href({ channelId: channel.id }) : `${routes.channel.href({ channelId: channel.id })}?sort=${sort}`}
         />,
       )
     },

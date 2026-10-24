@@ -4,7 +4,7 @@ import type { Person } from '../data/household.ts'
 import { formatAdded, getChannel, progressPercent, type Video } from '../data/library.ts'
 import { daysSince, formatLength, isOwner, playlistDuration, playlistVideos, type Playlist } from '../data/playlists.ts'
 import { routes } from '../routes.ts'
-import { Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
+import { AssignMenu, Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
 import { Icon, type IconName } from '../ui/public/icons.tsx'
 import { FeedBatch, playlistFeedHrefs } from '../ui/feed-batch.tsx'
 import { ownerOf, PlaylistCover, videoCount, VisibilityLabel, watchInList } from '../ui/playlists.tsx'
@@ -55,9 +55,16 @@ function Entry(handle: Handle<{ playlist: Playlist; video: Video; index: number;
           ) : null}
         </span>
         <span class="pentry-text">
-          <a class="pentry-title" href={href}>
-            {video.title}
-          </a>
+          <span class="pentry-heading">
+            <a class="pentry-title" href={href}>
+              {video.title}
+            </a>
+            <AssignMenu
+              video={video}
+              viewerId={viewerId}
+              returnTo={`${routes.playlist.href({ playlistId: playlist.id })}?n=${shown}#entry-${video.id}`}
+            />
+          </span>
           <span class="pentry-meta">
             {channel?.name}
             <span aria-hidden="true"> · </span>

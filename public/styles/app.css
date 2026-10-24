@@ -941,6 +941,17 @@ legend {
   outline-offset: -2px;
 }
 
+.vcard-assign-item[aria-busy='true'] {
+  cursor: progress;
+}
+
+.vcard-assign-error {
+  padding: 4px 12px 10px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-wrap: pretty;
+}
+
 .vcard-byline a:hover {
   color: var(--text);
 }
@@ -2010,9 +2021,18 @@ label.poster:hover {
   min-width: 0;
 }
 
+.pentry-heading {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
 .pentry-title {
   display: -webkit-box;
   overflow: hidden;
+  flex: 1;
+  min-width: 0;
   font-size: var(--fs-base);
   font-weight: 600;
   line-height: 1.375;
@@ -3761,9 +3781,18 @@ input.watch-title:focus-visible {
   min-width: 0;
 }
 
+.rcard-heading {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+  margin: 0 0 4px;
+}
+
 .rcard-title {
   display: -webkit-box;
-  margin: 0 0 4px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   overflow: hidden;
   font-size: var(--fs-md);
   font-weight: 600;

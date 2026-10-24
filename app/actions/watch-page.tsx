@@ -23,7 +23,7 @@ import { playlistsOwnedBy, playlistVideos, type Playlist } from '../data/playlis
 import { tagsInUse } from '../data/tags.ts'
 import { uploadLimits } from '../data/uploads.ts'
 import { routes } from '../routes.ts'
-import { Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
+import { AssignMenu, Avatar, DurationBadge, ThumbImage } from '../ui/cards.tsx'
 import { Icon } from '../ui/public/icons.tsx'
 import { ownerOf, watchInList } from '../ui/playlists.tsx'
 import { AppShell } from '../ui/shell.tsx'
@@ -63,9 +63,9 @@ function asChannel(person: Person): Channel {
   return { id: person.slug, name: person.name, kind: 'person', hue: person.hue, photo: person.photo }
 }
 
-function RelatedCard(handle: Handle<{ video: Video; viewerId?: string }>) {
+function RelatedCard(handle: Handle<{ video: Video; viewerId?: string; returnTo?: string }>) {
   return () => {
-    let { video, viewerId } = handle.props
+    let { video, viewerId, returnTo } = handle.props
     let channel = getChannel(video.channelId)!
     let href = routes.watch.href({ videoId: video.id })
     let progress = progressPercent(video, viewerId)
@@ -82,9 +82,12 @@ function RelatedCard(handle: Handle<{ video: Video; viewerId?: string }>) {
           ) : null}
         </a>
         <div class="rcard-text">
-          <h3 class="rcard-title">
-            <a href={href}>{video.title}</a>
-          </h3>
+          <div class="rcard-heading">
+            <h3 class="rcard-title">
+              <a href={href}>{video.title}</a>
+            </h3>
+            <AssignMenu video={video} viewerId={viewerId} returnTo={returnTo} />
+          </div>
           <p class="rcard-meta">
             <a href={routes.channel.href({ channelId: channel.id })}>{channel.name}</a>
           </p>
@@ -494,7 +497,7 @@ export function WatchPage(handle: Handle<WatchPageProps>) {
                 <ul class="watch-related-list">
                   {related.map((other) => (
                     <li>
-                      <RelatedCard video={other} viewerId={person?.id} />
+                      <RelatedCard video={other} viewerId={person?.id} returnTo={here} />
                     </li>
                   ))}
                 </ul>
