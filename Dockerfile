@@ -8,7 +8,7 @@ RUN corepack enable \
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack prepare pnpm@12.7.0 --activate \
+RUN corepack prepare pnpm@12.16.1 --activate \
   && pnpm install --frozen-lockfile --prod
 
 COPY remix.json tsconfig.json server.ts ./
