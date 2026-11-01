@@ -503,7 +503,7 @@ Navigation adapts in three steps:
 
 Content is a size container. Video shelves use container queries, not viewport media queries, to pick columns: 1 column below 540px, 2 at 540px, 3 at 880px, 4 at 1120px, 5 at 1760px. Grid gaps are 16px horizontal, 40px vertical (28px on phones).
 
-The topic chip row is sticky directly under the top bar, scrolls sideways with hidden scrollbars, and sits on Graphite Ground so content slides under it cleanly.
+The topic chip row is sticky directly under the top bar, scrolls sideways with hidden scrollbars, and sits on Graphite Ground so content slides under it cleanly. After All, Tags in use appear in a fresh random order on each visit.
 
 Home shelves, in order:
 1. **Continue watching**: one row that scrolls sideways with scroll-snap; on narrow containers each card is 84% wide and bleeds to the screen edge so the next card peeks.

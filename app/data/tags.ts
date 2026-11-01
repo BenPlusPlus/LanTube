@@ -146,3 +146,14 @@ export function tagsInUse(videos: { tags: string[] }[]): Tag[] {
     .map((slug) => getTag(slug) ?? { id: slug, slug, name: slug, hue: 0 })
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 }
+
+export function shuffleTags(tags: Tag[], random: () => number = Math.random): Tag[] {
+  let copy = tags.slice()
+  for (let i = copy.length - 1; i > 0; i--) {
+    let j = Math.floor(random() * (i + 1))
+    let current = copy[i]!
+    copy[i] = copy[j]!
+    copy[j] = current
+  }
+  return copy
+}

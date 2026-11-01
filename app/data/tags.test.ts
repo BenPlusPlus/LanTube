@@ -3,7 +3,7 @@ import { afterEach, describe, it } from 'remix/test'
 
 import { listVisibleVideos } from './catalogue.ts'
 import { resetHousehold, useEmptyHouse } from './household.ts'
-import { findOrCreateTags, getTag, listTags, parseTagNames, resetCatalogueTags } from './tags.ts'
+import { findOrCreateTags, getTag, listTags, parseTagNames, resetCatalogueTags, shuffleTags, tagsInUse } from './tags.ts'
 
 describe('household Tags', () => {
   afterEach(async () => {
@@ -52,5 +52,25 @@ describe('household Tags', () => {
       error: 'Keep each Tag between 1 and 40 characters.',
     })
     assert.deepEqual(parseTagNames(''), { names: [] })
+  })
+
+  it('lists Tags in use A–Z by name', () => {
+    let tags = tagsInUse([{ tags: ['trips', 'kids'] }, { tags: ['kids', 'sports'] }])
+    assert.deepEqual(
+      tags.map((tag) => tag.name),
+      ['Kids', 'Sports', 'Trips'],
+    )
+  })
+
+  it('shuffles Tags with a given random source', () => {
+    let tags = tagsInUse([{ tags: ['trips', 'kids', 'sports'] }])
+    assert.deepEqual(
+      shuffleTags(tags, () => 0).map((tag) => tag.name),
+      ['Sports', 'Trips', 'Kids'],
+    )
+    assert.deepEqual(
+      tags.map((tag) => tag.name),
+      ['Kids', 'Sports', 'Trips'],
+    )
   })
 })
