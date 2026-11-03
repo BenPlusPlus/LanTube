@@ -3,7 +3,7 @@ import type { Handle } from 'remix/component'
 import type { Person } from '../data/household.ts'
 import type { Video } from '../data/library.ts'
 import { getChannels } from '../data/library.ts'
-import { getTag, tagsInUse } from '../data/tags.ts'
+import { getTag, shuffleTags, tagsInUse } from '../data/tags.ts'
 import { splitHomeLibrary } from '../data/video-feed.ts'
 import { routes } from '../routes.ts'
 import { VideoFeedMore } from './public/video-feed-more.tsx'
@@ -43,7 +43,7 @@ function TagChips(handle: Handle<{ active?: string; videos: Video[] }>) {
               All
             </a>
           </li>
-          {tagsInUse(videos).map((tag) => (
+          {shuffleTags(tagsInUse(videos)).map((tag) => (
             <li>
               <a class="chip" href={tagHref(tag.slug)} aria-current={active === tag.slug ? 'page' : undefined}>
                 {tag.name}
