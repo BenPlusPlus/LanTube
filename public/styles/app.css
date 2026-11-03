@@ -2955,6 +2955,34 @@ label.poster:hover {
   border-color: #33363b;
 }
 
+/* A native file chooser inside the pill: its button fills the height so name and button share a centre line. */
+.field[type='file'] {
+  padding: 4px 18px 4px 4px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 34px;
+  cursor: pointer;
+}
+
+.field[type='file']::file-selector-button {
+  height: 34px;
+  margin-right: 12px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  vertical-align: top;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease);
+}
+
+.field[type='file']:hover::file-selector-button {
+  background: var(--raised-hover);
+}
+
 .field:focus-visible {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);

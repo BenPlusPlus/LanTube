@@ -734,7 +734,7 @@ Upload (`/upload`, `.upload`) starts with where the video goes, not with a file 
 
 **Private videos:** a video posted as "Only me" exists only for its uploader: on Home, search, channel pages, playlists and "More like this" it is missing for everyone else, and its watch page, media and poster return not-found. Wherever the uploader sees it, it carries the Ash lock + "Private".
 
-**Subtitles** are one optional WebVTT file; the hint says it can be attached or replaced later from Edit.
+**Subtitles** are one optional WebVTT file in a `.field` pill whose Raised file button fills its height (4px inset) so button and filename share the centre line; the hint says it can be attached or replaced later from Edit.
 
 **Honest states:** unsigned visitors get the empty-state frame with an upload icon, "Sign in to upload", and a secondary Sign in (user icon). Without JavaScript the form is one multipart post with no frame pick, and a too-large file returns plainly: "Without JavaScript, LanTube can take videos up to 512 MB in one go. Turn JavaScript on to send bigger ones."
 
