@@ -245,9 +245,11 @@ describe('publishing', () => {
     let own = await get(watch, mia)
     assert.equal(own.response.status, 200)
     assert.match(own.html, /Private/)
-    assert.match(own.html, /name="audience"/)
-    assert.match(own.html, new RegExp(`action="${routes.watchSave.href({ videoId: id })}"`))
-    assert.doesNotMatch(own.html, /Only me/)
+    assert.match(own.html, new RegExp(`href="${routes.watchEdit.href({ videoId: id })}"`))
+    let ownEdit = await get(routes.watchEdit.href({ videoId: id }), mia)
+    assert.match(ownEdit.html, /name="audience"/)
+    assert.match(ownEdit.html, new RegExp(`action="${routes.watchSave.href({ videoId: id })}"`))
+    assert.doesNotMatch(ownEdit.html, /Only me/)
     assert.deepEqual(getVideo(id)?.audience ?? [], [])
 
     let tomas = await signIn('tomas')
@@ -698,18 +700,20 @@ describe('private Video with Audience', () => {
     assert.equal(ownerWatch.response.status, 200)
     assert.match(ownerWatch.html, /Private/)
     assert.match(ownerWatch.html, /pvis vcard-private|class="pvis"/)
-    assert.match(ownerWatch.html, /name="audience"/)
-    assert.match(ownerWatch.html, new RegExp(`value="${named.id}"[^>]*checked|checked[^>]*value="${named.id}"`))
-    assert.doesNotMatch(ownerWatch.html, /Only me|Public/)
+    let ownerEdit = await get(routes.watchEdit.href({ videoId: slug }), ownerCookie)
+    assert.match(ownerEdit.html, /name="audience"/)
+    assert.match(ownerEdit.html, new RegExp(`value="${named.id}"[^>]*checked|checked[^>]*value="${named.id}"`))
+    assert.doesNotMatch(ownerEdit.html, /Only me|Public/)
 
     let namedWatch = await get(watch, namedCookie)
     assert.equal(namedWatch.response.status, 200)
     assert.match(namedWatch.html, /<h1[^>]*>Backyard<\/h1>/)
     assert.match(namedWatch.html, /Private/)
-    assert.doesNotMatch(namedWatch.html, /name="audience"/)
-    assert.doesNotMatch(namedWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: slug })}"`))
+    assert.doesNotMatch(namedWatch.html, new RegExp(`href="${routes.watchEdit.href({ videoId: slug })}"`))
+    assert.equal((await get(routes.watchEdit.href({ videoId: slug }), namedCookie)).response.status, 403)
 
     assert.equal((await get(watch, otherCookie)).response.status, 404)
+    assert.equal((await get(routes.watchEdit.href({ videoId: slug }), otherCookie)).response.status, 404)
     assert.equal((await get(watch)).response.status, 404)
     assert.equal((await get(poster, otherCookie)).response.status, 404)
     assert.equal((await get(media, otherCookie)).response.status, 404)
@@ -828,12 +832,12 @@ describe('private Video with Audience', () => {
     assert.equal(video?.private, undefined)
     assert.equal(video?.audience, undefined)
 
-    let ownerWatch = await get(routes.watch.href({ videoId: slug }), ownerCookie)
-    assert.equal(ownerWatch.response.status, 200)
-    assert.match(ownerWatch.html, /Everyone in the house/)
-    assert.match(ownerWatch.html, /value="house"[^>]*checked|checked[^>]*value="house"/)
-    assert.match(ownerWatch.html, /name="audience"/)
-    assert.doesNotMatch(ownerWatch.html, /Only me/)
+    let ownerEdit = await get(routes.watchEdit.href({ videoId: slug }), ownerCookie)
+    assert.equal(ownerEdit.response.status, 200)
+    assert.match(ownerEdit.html, /Everyone in the house/)
+    assert.match(ownerEdit.html, /value="house"[^>]*checked|checked[^>]*value="house"/)
+    assert.match(ownerEdit.html, /name="audience"/)
+    assert.doesNotMatch(ownerEdit.html, /Only me/)
 
     let unsignedHome = await get(routes.home.href())
     assert.match(unsignedHome.html, /Now for the house/)
@@ -979,13 +983,16 @@ describe('edit title and Tags on Watch', () => {
 
     let watch = await get(routes.watch.href({ videoId: slug }), ownerCookie)
     assert.equal(watch.response.status, 200)
-    assert.match(watch.html, /name="title"[^>]*value="Evening lake"|value="Evening lake"[^>]*name="title"/)
-    assert.doesNotMatch(watch.html, /<h1[^>]*>Evening lake<\/h1>/)
-    assert.match(watch.html, /<legend class="field-label">Tags /)
-    assert.match(watch.html, /name="tags"/)
-    assert.match(watch.html, /"tags":\["Trips","Garden"\]|"tags":\["Garden","Trips"\]/)
-    assert.match(watch.html, /value="private"[^>]*checked|checked[^>]*value="private"/)
-    assert.match(watch.html, new RegExp(`value="${named.id}"[^>]*checked|checked[^>]*value="${named.id}"`))
+    assert.match(watch.html, /<h1[^>]*>Evening lake<\/h1>/)
+    assert.doesNotMatch(watch.html, /name="title"/)
+    let edit = await get(routes.watchEdit.href({ videoId: slug }), ownerCookie)
+    assert.equal(edit.response.status, 200)
+    assert.match(edit.html, /name="title"[^>]*value="Evening lake"|value="Evening lake"[^>]*name="title"/)
+    assert.match(edit.html, /<legend class="field-label">Tags /)
+    assert.match(edit.html, /name="tags"/)
+    assert.match(edit.html, /"tags":\["Trips","Garden"\]|"tags":\["Garden","Trips"\]/)
+    assert.match(edit.html, /value="private"[^>]*checked|checked[^>]*value="private"/)
+    assert.match(edit.html, new RegExp(`value="${named.id}"[^>]*checked|checked[^>]*value="${named.id}"`))
 
     let namedWatch = await get(routes.watch.href({ videoId: slug }), namedCookie)
     assert.equal(namedWatch.response.status, 200)
@@ -1031,9 +1038,9 @@ describe('edit title and Tags on Watch', () => {
     assert.ok(firstFile && fs.existsSync(path.join(mediaDir, firstFile)))
     assert.ok(secondFile && fs.existsSync(path.join(mediaDir, secondFile)))
 
-    let watch = await get(routes.watch.href({ videoId: second }), cookie)
-    assert.equal(watch.response.status, 200)
-    assert.match(watch.html, /name="title"[^>]*value="Lake day"|value="Lake day"[^>]*name="title"/)
+    let edit = await get(routes.watchEdit.href({ videoId: second }), cookie)
+    assert.equal(edit.response.status, 200)
+    assert.match(edit.html, /name="title"[^>]*value="Lake day"|value="Lake day"[^>]*name="title"/)
   })
 
   it('shows the Tags field to the owner even with zero Tags, and hides viewer chips when empty', async () => {
@@ -1042,11 +1049,11 @@ describe('edit title and Tags on Watch', () => {
     let { cookie: otherCookie } = await join('Alex')
     let slug = await publishHome(ownerCookie, 'No labels')
 
+    let ownerEdit = await get(routes.watchEdit.href({ videoId: slug }), ownerCookie)
+    assert.match(ownerEdit.html, /<legend class="field-label">Tags /)
+    assert.match(ownerEdit.html, /name="tags"/)
     let ownerWatch = await get(routes.watch.href({ videoId: slug }), ownerCookie)
-    assert.match(ownerWatch.html, /<legend class="field-label">Tags /)
-    assert.match(ownerWatch.html, /name="tags"/)
     assert.doesNotMatch(ownerWatch.html, /aria-label="Tags"/)
-    assert.doesNotMatch(ownerWatch.html, /<h1[^>]*>No labels<\/h1>/)
 
     let otherWatch = await get(routes.watch.href({ videoId: slug }), otherCookie)
     assert.match(otherWatch.html, /<h1[^>]*>No labels<\/h1>/)
@@ -1094,7 +1101,7 @@ describe('edit title and Tags on Watch', () => {
     assert.equal(badTags.status, 400)
     let tagHtml = await badTags.text()
     assert.match(tagHtml, /Keep each Tag between 1 and 40 characters/)
-    assert.match(tagHtml, /id="watch-tags"[^>]*aria-invalid="true"|aria-invalid="true"[^>]*id="watch-tags"/)
+    assert.match(tagHtml, /id="vedit-tags"[^>]*aria-invalid="true"|aria-invalid="true"[^>]*id="vedit-tags"/)
     assert.match(tagHtml, /"tags":\["Trips"\]/)
     assert.match(tagHtml, new RegExp(`"tagDraft":"${tooLong}"`))
     assert.equal(getVideo(slug)?.title, 'Lake day')
@@ -1272,10 +1279,10 @@ describe('Custom channel post and Watch edit', () => {
     assert.equal((await get(routes.watch.href({ videoId: managerSlug }), ownerCookie)).response.status, 200)
     assert.equal((await get(routes.watch.href({ videoId: ownerSlug }), otherCookie)).response.status, 404)
 
-    let managerWatch = await get(routes.watch.href({ videoId: ownerSlug }), managerCookie)
-    assert.match(managerWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: ownerSlug })}"`))
-    assert.match(managerWatch.html, /poster-role">Owner</)
-    assert.doesNotMatch(managerWatch.html, /You · owner/)
+    let managerEdit = await get(routes.watchEdit.href({ videoId: ownerSlug }), managerCookie)
+    assert.match(managerEdit.html, new RegExp(`action="${routes.watchSave.href({ videoId: ownerSlug })}"`))
+    assert.match(managerEdit.html, /poster-role">Owner</)
+    assert.doesNotMatch(managerEdit.html, /You · owner/)
 
     let saved = await saveWatch(
       ownerSlug,
@@ -1323,7 +1330,7 @@ describe('Custom channel post and Watch edit', () => {
     assert.equal((await get(routes.watch.href({ videoId: managerSlug }), managerCookie)).response.status, 200)
     assert.equal((await get(routes.watch.href({ videoId: ownerSlug }), managerCookie)).response.status, 404)
     assert.match(
-      (await get(routes.watch.href({ videoId: managerSlug }), managerCookie)).html,
+      (await get(routes.watchEdit.href({ videoId: managerSlug }), managerCookie)).html,
       new RegExp(`action="${routes.watchSave.href({ videoId: managerSlug })}"`),
     )
     assert.equal((await get(routes.channelEdit.index.href({ channelId: 'board-games' }), managerCookie)).response.status, 403)
@@ -1379,18 +1386,22 @@ describe('delete uploaded Video', () => {
     assert.equal(response.status, 303)
     let slug = videoIdFrom(response)
     let watch = routes.watch.href({ videoId: slug })
+    let edit = routes.watchEdit.href({ videoId: slug })
 
-    let owner = await get(watch, ownerCookie)
+    assert.match((await get(watch, ownerCookie)).html, new RegExp(`href="${edit}"`))
+    let owner = await get(edit, ownerCookie)
     assert.match(owner.html, /Delete this video/)
     assert.match(owner.html, /name="confirm"/)
     assert.match(owner.html, new RegExp(`action="${routes.watchDelete.href({ videoId: slug })}"`))
 
-    let other = await get(watch, otherCookie)
-    assert.doesNotMatch(other.html, /Delete this video/)
+    assert.doesNotMatch((await get(watch, otherCookie)).html, new RegExp(`href="${edit}"`))
+    let other = await get(edit, otherCookie)
+    assert.equal(other.response.status, 403)
     assert.doesNotMatch(other.html, /name="confirm"/)
 
-    let unsigned = await get(watch)
-    assert.doesNotMatch(unsigned.html, /Delete this video/)
+    let unsigned = await get(edit)
+    assert.equal(unsigned.response.status, 303)
+    assert.equal(unsigned.response.headers.get('Location'), routes.signin.index.href())
   })
 
   function deleteWatch(videoId: string, fields: [string, string][], cookie?: string) {
@@ -1491,8 +1502,8 @@ describe('delete uploaded Video', () => {
       ownerCookie,
     )
     let slug = videoIdFrom(published)
-    let watch = await get(routes.watch.href({ videoId: slug }), managerCookie)
-    assert.match(watch.html, /Delete this video/)
+    let edit = await get(routes.watchEdit.href({ videoId: slug }), managerCookie)
+    assert.match(edit.html, /Delete this video/)
     let deleted = await deleteWatch(slug, [['confirm', '1']], managerCookie)
     assert.equal(deleted.status, 303)
     assert.equal(deleted.headers.get('Location'), routes.channel.href({ channelId: 'board-games' }))
@@ -1519,7 +1530,7 @@ describe('delete uploaded Video', () => {
   })
 })
 
-describe('subtitles on upload and Watch', () => {
+describe('subtitles on upload and Edit', () => {
   afterEach(async () => {
     for (let id of created.splice(0)) deleteVideo(id)
     fs.rmSync(path.join(mediaDir, 'uploads'), { recursive: true, force: true })
@@ -1552,7 +1563,7 @@ describe('subtitles on upload and Watch', () => {
     if (typeof file === 'string') body.append('captions', file)
     else body.append('captions', file, 'en.vtt')
     return router.fetch(
-      new Request(new URL(routes.watchCaptions.href({ videoId }), 'http://localhost'), {
+      new Request(new URL(routes.watchSave.href({ videoId }), 'http://localhost'), {
         method: 'POST',
         headers: cookie ? { Cookie: cookie } : undefined,
         body,
@@ -1582,13 +1593,11 @@ describe('subtitles on upload and Watch', () => {
 
     let watch = await get(routes.watch.href({ videoId: slug }), cookie)
     assert.match(watch.html, /aria-label="Subtitles off"/)
-    assert.match(watch.html, new RegExp(`action="${routes.watchCaptions.href({ videoId: slug })}"`))
-    assert.match(watch.html, /Replace subtitles/)
+    let edit = await get(routes.watchEdit.href({ videoId: slug }), cookie)
+    assert.match(edit.html, /A \.vtt is attached/)
 
     let unsigned = await get(routes.watch.href({ videoId: slug }))
     assert.match(unsigned.html, /aria-label="Subtitles off"/)
-    assert.doesNotMatch(unsigned.html, /Attach subtitles/)
-    assert.doesNotMatch(unsigned.html, /Replace subtitles/)
 
     let captions = await router.fetch(new Request(new URL(routes.captions.href({ videoId: slug }), 'http://localhost')))
     assert.equal(captions.status, 200)
@@ -1611,12 +1620,14 @@ describe('subtitles on upload and Watch', () => {
     )
     let slug = videoIdFrom(published)
     let watch = await get(routes.watch.href({ videoId: slug }), owner)
-    assert.match(watch.html, /Attach subtitles/)
     assert.doesNotMatch(watch.html, /aria-label="Subtitles off"/)
+    let edit = await get(routes.watchEdit.href({ videoId: slug }), owner)
+    assert.match(edit.html, /One WebVTT file/)
 
     let attached = await postCaptions(slug, vttFile(), owner)
     assert.equal(attached.status, 303)
     assert.ok(getVideo(slug)?.captions)
+    assert.equal(getVideo(slug)?.title, 'Lake day', 'A captions-only save keeps the title')
     assert.equal((await postCaptions(slug, vttFile(), other)).status, 403)
     assert.equal((await postCaptions(slug, vttFile())).status, 403)
 

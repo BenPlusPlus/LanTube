@@ -322,7 +322,7 @@ describe('house people', () => {
     )
     assert.equal(removed.status, 303)
 
-    let watch = await get(routes.watch.href({ videoId: slug }), admin)
+    let watch = await get(routes.watchEdit.href({ videoId: slug }), admin)
     assert.equal(watch.response.status, 200)
     assert.match(watch.html, /poster-name">Alex/)
     assert.match(watch.html, />Owner</)
@@ -740,14 +740,16 @@ describe('folder titles, Tags, drop, and rescan', () => {
 
     let adminWatch = await get(routes.watch.href({ videoId: 'cabin-weekend' }), admin)
     assert.equal(adminWatch.response.status, 200)
-    assert.match(adminWatch.html, /name="title"/)
-    assert.match(adminWatch.html, /name="tags"/)
-    assert.match(adminWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: 'cabin-weekend' })}"`))
-    assert.doesNotMatch(adminWatch.html, /Who can see it/)
-    assert.doesNotMatch(adminWatch.html, /name="visibility"/)
-    assert.doesNotMatch(adminWatch.html, /name="audience"/)
-    assert.match(adminWatch.html, /Drop this video/)
-    assert.doesNotMatch(adminWatch.html, /Delete this video/)
+    assert.match(adminWatch.html, new RegExp(`href="${routes.watchEdit.href({ videoId: 'cabin-weekend' })}"`))
+    let adminEdit = await get(routes.watchEdit.href({ videoId: 'cabin-weekend' }), admin)
+    assert.equal(adminEdit.response.status, 200)
+    assert.match(adminEdit.html, /name="title"/)
+    assert.match(adminEdit.html, /name="tags"/)
+    assert.match(adminEdit.html, new RegExp(`action="${routes.watchSave.href({ videoId: 'cabin-weekend' })}"`))
+    assert.doesNotMatch(adminEdit.html, /name="visibility"/)
+    assert.doesNotMatch(adminEdit.html, /name="audience"/)
+    assert.match(adminEdit.html, /Drop this video/)
+    assert.doesNotMatch(adminEdit.html, /Delete this video/)
 
     let saved = await saveWatch(
       'cabin-weekend',
@@ -772,8 +774,8 @@ describe('folder titles, Tags, drop, and rescan', () => {
     assert.doesNotMatch(memberWatch.html, /name="title"/)
     assert.match(memberWatch.html, /name="tags"/)
     assert.match(memberWatch.html, new RegExp(`action="${routes.watchSave.href({ videoId: 'cabin-weekend' })}"`))
-    assert.doesNotMatch(memberWatch.html, /Who can see it/)
-    assert.doesNotMatch(memberWatch.html, /Drop this video/)
+    assert.doesNotMatch(memberWatch.html, new RegExp(`href="${routes.watchEdit.href({ videoId: 'cabin-weekend' })}"`))
+    assert.equal((await get(routes.watchEdit.href({ videoId: 'cabin-weekend' }), member)).response.status, 403)
 
     let tagged = await saveWatch(
       'cabin-weekend',
@@ -786,6 +788,17 @@ describe('folder titles, Tags, drop, and rescan', () => {
     assert.equal(tagged.status, 303)
     assert.equal(getVideo('cabin-weekend')?.title, 'Cabin weekend')
     assert.deepEqual(getVideo('cabin-weekend')?.tags, ['kids'])
+
+    let adminInline = await saveWatch('cabin-weekend', [['from', 'watch'], ['tags', 'Kids, Garden']], admin)
+    assert.equal(adminInline.status, 303, 'An Admin tagging from Watch keeps the title')
+    assert.equal(getVideo('cabin-weekend')?.title, 'Cabin weekend')
+    assert.deepEqual(getVideo('cabin-weekend')?.tags, ['kids', 'garden'])
+
+    let badInline = await saveWatch('cabin-weekend', [['from', 'watch'], ['tags', 'x'.repeat(41)]], member)
+    assert.equal(badInline.status, 400)
+    let badHtml = await badInline.text()
+    assert.match(badHtml, /<h1[^>]*>Cabin weekend<\/h1>/, 'A bad inline tag save stays on Watch')
+    assert.match(badHtml, /Keep each Tag between 1 and 40 characters/)
 
     let unsigned = await get(routes.watch.href({ videoId: 'cabin-weekend' }))
     assert.match(unsigned.html, /<h1[^>]*>Cabin weekend<\/h1>/)

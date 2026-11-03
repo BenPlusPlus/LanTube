@@ -2122,22 +2122,14 @@ label.poster:hover {
   margin-top: 16px;
 }
 
-.watch-access {
-  margin-top: 16px;
-}
-
-.watch-access .audience-picker,
+.vedit-form .audience-picker,
 .plform .audience-picker {
   display: none;
 }
 
-.watch-access:has(input[name='visibility'][value='private']:checked) .audience-picker,
+.vedit-form:has(input[name='visibility'][value='private']:checked) .audience-picker,
 .plform:has(input[name='visibility'][value='private']:checked) .audience-picker {
   display: block;
-}
-
-.watch-access .chform-actions {
-  margin-top: 16px;
 }
 
 .radio {
@@ -3590,32 +3582,6 @@ label.poster:hover {
   text-wrap: pretty;
 }
 
-input.watch-title {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #121316;
-  caret-color: var(--text);
-  outline: none;
-  text-wrap: unset;
-}
-
-input.watch-title:hover {
-  border-color: #33363b;
-}
-
-input.watch-title:focus-visible {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.watch-info > .field-error {
-  margin: 8px 0 0;
-}
-
 .watch-channel {
   display: flex;
   flex-wrap: wrap;
@@ -3658,6 +3624,23 @@ input.watch-title:focus-visible {
 .watch-channel-sub {
   color: var(--text-2);
   font-size: var(--fs-sm);
+}
+
+.watch-channel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Folder videos: anyone signed in tags them where they watch. */
+.watch-tagform {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.watch-tagform > .upload-tags {
+  justify-self: stretch;
 }
 
 .watch-facts {
@@ -3714,26 +3697,6 @@ input.watch-title:focus-visible {
   margin: 10px 0 0;
   color: var(--text-2);
   font-size: var(--fs-sm);
-}
-
-.watch-captions {
-  margin-top: 16px;
-}
-
-.watch-captions .field-hint {
-  margin: -4px 0 10px;
-}
-
-.watch-captions .field {
-  margin-bottom: 10px;
-}
-
-.watch-captions .field-error {
-  margin: 8px 0 0;
-}
-
-.watch-captions-actions {
-  margin-top: 8px;
 }
 
 .watch-related-title {
@@ -4888,6 +4851,97 @@ input.watch-title:focus-visible {
     font-size: var(--fs-sm);
   }
 }
+/* ---------- Edit video ---------- */
+
+/* The form leads; the player and a live watch-page preview ride alongside as a reference. */
+.vedit {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) minmax(0, 480px);
+  gap: 48px;
+  align-items: start;
+  padding-bottom: 64px;
+}
+
+.vedit-main {
+  min-width: 0;
+}
+
+.vedit-form {
+  display: grid;
+}
+
+.vedit-form > .field,
+.vedit-form > .upload-tags,
+.vedit-form > .vedit-fixed {
+  margin-bottom: 24px;
+}
+
+.vedit-form > .field-hint {
+  margin: -8px 0 8px;
+}
+
+.vedit-form > .field-error {
+  margin: -16px 0 24px;
+}
+
+.vedit-fixed .field-hint {
+  margin: 0;
+}
+
+.vedit-fixed-value {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.vedit-form .chform-actions {
+  margin-top: 32px;
+}
+
+.vedit-side {
+  position: sticky;
+  top: calc(var(--topbar-h) + 24px);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.vedit-side-label {
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.vedit-preview .watch-title {
+  font-size: var(--fs-md);
+}
+
+.vedit-preview .is-placeholder {
+  color: var(--text-2);
+}
+
+.vedit-preview .watch-channel {
+  margin-top: 8px;
+}
+
+.vedit-preview .watch-facts {
+  margin-top: 10px;
+}
+
+.vedit-preview .watch-stats {
+  font-size: var(--fs-sm);
+}
+
+@container content (max-width: 1099px) {
+  .vedit {
+    grid-template-columns: minmax(0, 640px);
+    gap: 32px;
+  }
+
+  .vedit-side {
+    position: static;
+  }
+}
+
 /* ---------- Upload ---------- */
 
 /* Post to first: where it goes, the file, then the details. The channel's shelf rides alongside. */

@@ -631,6 +631,7 @@ The custom player on the watch page (`app/actions/public/player.tsx`, a client e
 - **Idle:** while playing, the bar and cursor hide after 2.6s without pointer movement, unless the pointer is over the bar, a menu is open, or a control has keyboard focus.
 - **Key flash:** the one authored motion. Keyboard actions flash a 64px black pill in the centre with an icon and optional label ("+10 s", "60%", "1.5×") that scales 0.92 → 1.12 and fades over 700ms (opacity-only under reduced motion).
 - **Shortcuts:** space/k play-pause, j/l ∓10s, ←/→ ∓5s, ↑/↓ volume (only with focus in the player), m mute, f fullscreen, t theater, i picture-in-picture, < > speed, 0–9 jump to tenths, Home/End.
+- **Compact** (`compact`, the edit view's reference player): no theater button or `t`, and shortcuts only answer while focus is inside the player, so typing in the form beside it never seeks or pauses. Limits, assignments, resume, and play counts work exactly as on the watch page.
 - **Touch:** a tap on the picture shows or hides the controls; it never pauses. Double-tap does nothing (double-click toggles fullscreen with a mouse).
 - **Spinner:** a 48px white ring after 300ms of buffering.
 - **Honest failures** (black-tinted overlay, 40px file icon, Paper title, Ash copy, monospace path chip): file not on the host ("LanTube looks for `Home Movies/…` in its media folder"), format this browser can't play (no transcoding yet), and lost connection with a "Try again" button. Time up for a limited person uses the same frame with a timer icon (see Parental controls). Never red.
@@ -638,7 +639,8 @@ The custom player on the watch page (`app/actions/public/player.tsx`, a client e
 
 ### Watch page info
 - **Title:** 1.25rem/700, −0.015em, `text-wrap: pretty`.
-- **Channel row:** 40px avatar, name (600, underlines on hover), Ash "n videos" (plus "· folder"); the whole row links to the channel.
+- **Channel row:** 40px avatar, name (600, underlines on hover), Ash "n videos" (plus "· folder"); the whole row links to the channel. Beside it, **Edit** (secondary pill, 18px pencil) for people who can change the video, then Save.
+- **Read-only by default:** the title, facts, and chips never turn into fields here. The one exception is a Folder video's Tags: anyone signed in gets the Tags field in the facts box with a secondary small "Save tags"; a bad tag returns to the watch page with the inline error.
 - **Facts box:** Graphite Surface, 12px radius. "**N plays** · Published October 10, 2026 (5 hours ago)" in tabular 0.875rem, with "Added" instead of "Published" for indexed folders. A private video adds "· Private" with the 14px Ash lock (titled "Only you can see this video"). Topic chips (28px) link to the home topic filter. Folder videos add an Ash "Indexed from /media/…" line.
 - **No social furniture:** no likes, subscribe, share, or comments.
 
@@ -732,7 +734,16 @@ Upload (`/upload`, `.upload`) starts with where the video goes, not with a file 
 
 **Private videos:** a video posted as "Only me" exists only for its uploader: on Home, search, channel pages, playlists and "More like this" it is missing for everyone else, and its watch page, media and poster return not-found. Wherever the uploader sees it, it carries the Ash lock + "Private".
 
+**Subtitles** are one optional WebVTT file; the hint says it can be attached or replaced later from Edit.
+
 **Honest states:** unsigned visitors get the empty-state frame with an upload icon, "Sign in to upload", and a secondary Sign in (user icon). Without JavaScript the form is one multipart post with no frame pick, and a too-large file returns plainly: "Without JavaScript, LanTube can take videos up to 512 MB in one go. Turn JavaScript on to send bigger ones."
+
+### Edit video
+Edit (`/watch/:videoId/edit`, `.vedit`) is where a Video's details change, reached only from the watch page's Edit pill. It opens for the Video owner and a Custom channel's owner or Managers (uploaded videos) and for Admins (Folder videos); anyone else signed in gets the not-built frame with "You can’t change this video" (403), and unsigned visitors go to Sign in.
+- **Layout:** the upload head (Page Title "Edit video", Ash lede "Changes show everywhere in the house once you save."), then a 640px form | 480px aside grid with a 48px gap. Below a 1100px container it is one column with the form first and the aside after it, no longer sticky.
+- **Form** (`.vedit-form`, one multipart post to the save route): Title (Field Well pill), Tags (the upload Tags field), Subtitles (native file input; the hint says whether a .vtt is attached), Who can see it (the radio cards and audience picker; Folder videos get an Ash note that the whole house sees them instead), then **Save changes** (primary) and **Cancel** (ghost, back to Watch). Fields sit 24px apart; a Folder video whose title the person can't change shows it as a fixed value with an Ash hint. Saving returns to the watch page; a bad field re-renders here with the inline error.
+- **Delete / Drop zone:** the playlist form's pldelete foot under the form, with the same checkbox confirm.
+- **Aside** (`.vedit-side`, sticky 24px under the top bar): the compact player as a reference, then an Ash "On the watch page" and a live **preview** of the watch page's title block (title at 1rem, channel row, facts box with the lock + "Private" and tag chips). It follows the form as you type, tag, and flip privacy; an empty title reads "Your title goes here" in Ash.
 
 ### Parental controls
 Parental controls (`/controls`, Parent-only, linked from the account menu as "Parental controls" with the timer icon) is **one roster**: a single semantic table, a row per Person, where a Parent sets each person's daily watch limit and gives extra time for today. Page head: the Page Title and the lede "How long each person can watch each day. Extra time lasts until 5 am." Non-Parents get the empty-state frame ("You need to be a Parent").

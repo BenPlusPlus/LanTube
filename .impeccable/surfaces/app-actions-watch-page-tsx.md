@@ -8,6 +8,7 @@ related_targets: ["app/actions/public/player.tsx"]
 # Surface brief: LanTube watch page (/watch/:videoId)
 
 Scope: the watch page, where every thumbnail in the house lands. Mode: Operate (the visitor's task is watching one video, then picking the next).
+Editing lives elsewhere: people who can change the Video get a secondary "Edit" pill beside Save that opens /watch/:videoId/edit (see that surface's brief). Only Folder-video tagging stays inline here.
 Audience/job: anyone in the house on phone, laptop, tablet or TV. Watch with zero friction, resume where they left off, see when it was published and how much the house has played it, move to a similarly tagged video.
 Constraints: real files streamed from a host folder (LANTUBE_MEDIA_DIR) with HTTP range support; no transcoding (browser-unsupported formats get an honest error); no comments, likes, or recommendation model; related = shared tags, then same channel, then newest.
 Chosen: category standard, pinned by PRODUCT.md brand commitment (no concept roll). Benchmark craft = YouTube, Rumble watch pages.
