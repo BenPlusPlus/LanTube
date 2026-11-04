@@ -30,8 +30,9 @@ import { addVideo, canSee, getPlaylist, isOwner, moveVideo, playlistVideos, remo
 import { feedPage, parseCount, splitHomeLibrary, VIDEO_FEED_PAGE } from '../data/video-feed.ts'
 import { captionsFileFor } from '../data/captions.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
+import { canDeletePost, canSeePosts, channelPosts, deletePost, getPost, picturePathFor, POSTS_PAGE } from '../data/posts.ts'
 
-import { findOrCreateTags, parseTagNames } from '../data/tags.ts'
+import { findOrCreateTags, parseTagNames, tagsInUse } from '../data/tags.ts'
 import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, replaceVideoCaptions, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
 import { dropImpossibleAssignments, mustFinishAssignedFirst } from '../data/assignments.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
@@ -45,6 +46,7 @@ import { NotBuiltPage } from './not-built-page.tsx'
 import { playlistAccess } from './playlist-access.ts'
 import { PlaylistPage, PlaylistVideosBatch } from './playlist-page.tsx'
 import { PlaylistsPage } from './playlists-page.tsx'
+import { VideoEditPage, type VideoEditField, type VideoEditValues } from './video-edit-page.tsx'
 import { WatchPage } from './watch-page.tsx'
 
 /** Only same-site paths; anything else falls back. */
@@ -66,6 +68,30 @@ function watchFields(video: Video, personId: string | undefined | null) {
     canDelete: canDeleteVideo(video, personId),
     canDrop: canDropFolderVideo(video, personId),
   }
+}
+
+/** The edit view opens for anyone who can change more than a Folder video's tags. */
+function canOpenEdit(fields: ReturnType<typeof watchFields>): boolean {
+  return fields.canEditTitle || fields.canEditAccess || fields.canDelete || fields.canDrop
+}
+
+function watchPageProps(request: Request, video: Video, person: Person | null) {
+  let fields = watchFields(video, person?.id)
+  return {
+    video,
+    media: mediaFileFor(video),
+    theater: /(?:^|;\s*)lt_theater=1(?:;|$)/.test(request.headers.get('Cookie') ?? ''),
+    person,
+    canEdit: canOpenEdit(fields),
+    canTagInline: fields.canEditTags && getChannel(video.channelId)?.kind === 'folder',
+  }
+}
+
+function videoNotFound(context: { render: (node: JSX.Element, init?: ResponseInit) => Response }, person: Person | null) {
+  return context.render(
+    <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
+    { status: 404 },
+  )
 }
 
 export default createController(routes, {
@@ -110,83 +136,98 @@ export default createController(routes, {
       let person = personFromSession(context.session)
       if (!person && !unsignedWatchAllowed()) return redirect(routes.signin.index.href(), 303)
       let video = watchable(context.params.videoId, person?.id)
-      if (!video) {
-        return context.render(
-          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
-          { status: 404 },
-        )
-      }
-      let theater = /(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')
+      if (!video) return videoNotFound(context, person)
       let listId = new URL(context.request.url).searchParams.get('list')
       let list = listId ? getPlaylist(listId) : undefined
       if (list && (!canSee(list, person?.id) || !list.videoIds.includes(video.id))) list = undefined
-      return context.render(
-        <WatchPage
-          video={video}
-          media={mediaFileFor(video)}
-          theater={theater}
-          person={person}
-          people={listPeople()}
-          list={list}
-          {...watchFields(video, person?.id)}
-        />,
-      )
+      return context.render(<WatchPage {...watchPageProps(context.request, video, person)} list={list} />)
+    },
+    watchEdit(context) {
+      let person = personFromSession(context.session)
+      if (!person) return redirect(routes.signin.index.href(), 303)
+      let video = watchable(context.params.videoId, person.id)
+      if (!video) return videoNotFound(context, person)
+      let fields = watchFields(video, person.id)
+      if (!canOpenEdit(fields)) {
+        return context.render(
+          <NotBuiltPage current={null} title="You can’t change this video" detail="Only the people who look after it can edit it." person={person} />,
+          { status: 403 },
+        )
+      }
+      return context.render(<VideoEditPage video={video} media={mediaFileFor(video)} person={person} people={listPeople()} {...fields} />)
     },
     async watchSave(context) {
       let person = personFromSession(context.session)
       let video = watchable(context.params.videoId, person?.id)
-      if (!video) {
-        return context.render(
-          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
-          { status: 404 },
-        )
-      }
+      if (!video) return videoNotFound(context, person)
       let fields = watchFields(video, person?.id)
       if (!person || !(fields.canEditTitle || fields.canEditTags || fields.canEditAccess)) {
         return new Response('Forbidden', { status: 403 })
       }
       let form = context.formData
+      let fromWatch = form.get('from') === 'watch'
       let rawTitle = form.get('title')
-      let postedTitle = typeof rawTitle === 'string' ? rawTitle.trim().replace(/\s+/g, ' ') : ''
-      let title = fields.canEditTitle ? postedTitle : video.title
-      let parsed = parseTagNames(form.getAll('tags').filter((value): value is string => typeof value === 'string'))
-      let visibility: 'house' | 'private' = form.get('visibility') === 'private' ? 'private' : 'house'
+      let title = fields.canEditTitle && typeof rawTitle === 'string' ? rawTitle.trim().replace(/\s+/g, ' ') : video.title
+      let parsed = form.has('tags')
+        ? parseTagNames(form.getAll('tags').filter((value): value is string => typeof value === 'string'))
+        : { names: tagsInUse([video]).map((tag) => tag.name), leftover: undefined, error: undefined }
+      let postedVisibility = form.get('visibility')
+      let visibility: 'house' | 'private' =
+        fields.canEditAccess && (postedVisibility === 'private' || postedVisibility === 'house')
+          ? postedVisibility
+          : video.private
+            ? 'private'
+            : 'house'
       let audienceIds =
-        visibility === 'private'
-          ? namedAudience(
-              video.postedBy ?? person.id,
-              form.getAll('audience').filter((value): value is string => typeof value === 'string'),
-            )
-          : []
-      let edit = {
+        visibility !== 'private'
+          ? []
+          : fields.canEditAccess && postedVisibility === 'private'
+            ? namedAudience(
+                video.postedBy ?? person.id,
+                form.getAll('audience').filter((value): value is string => typeof value === 'string'),
+              )
+            : (video.audience ?? [])
+      let values: VideoEditValues = {
         title: fields.canEditTitle && typeof rawTitle === 'string' ? rawTitle : video.title,
         tags: parsed.names,
         tagDraft: parsed.leftover,
         visibility,
         audienceIds,
       }
-      let fail = (error: string, errorField: 'title' | 'tags') =>
-        context.render(
-          <WatchPage
+      let fail = (error: string, errorField: VideoEditField) => {
+        if (fromWatch && errorField === 'tags') {
+          let props = watchPageProps(context.request, video, person)
+          return context.render(<WatchPage {...props} tags={values.tags} tagDraft={values.tagDraft} error={error} />, {
+            status: 400,
+          })
+        }
+        return context.render(
+          <VideoEditPage
             video={video}
             media={mediaFileFor(video)}
-            theater={/(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')}
             person={person}
             people={listPeople()}
             {...fields}
-            edit={edit}
+            values={values}
             error={error}
             errorField={errorField}
           />,
           { status: 400 },
         )
+      }
       if (fields.canEditTitle && (title.length < 1 || title.length > uploadLimits.title)) {
         return fail(`Give the video a title between 1 and ${uploadLimits.title} characters.`, 'title')
       }
       if (fields.canEditTags && parsed.error) return fail(parsed.error, 'tags')
+      let captions = form.get('captions')
+      if (captions instanceof Blob && captions.size > 0) {
+        if (!fields.canEditTitle) return new Response('Forbidden', { status: 403 })
+        let result = await replaceVideoCaptions(video, captions)
+        if ('error' in result) return fail(result.error, 'captions')
+      }
       let folder = getChannel(video.channelId)?.kind === 'folder'
       let tagRows = fields.canEditTags ? await findOrCreateTags(parsed.names) : []
-      let tagIds = fields.canEditTags ? tagRows.map((tag) => tag.id) : []
+      let tagIds = tagRows.map((tag) => tag.id)
       let saved = folder
         ? await saveIndexedVideo({ slug: video.id, title, tagIds })
         : await saveUploadedVideo({
@@ -196,12 +237,7 @@ export default createController(routes, {
             audienceIds,
             tagIds,
           })
-      if (!saved) {
-        return context.render(
-          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
-          { status: 404 },
-        )
-      }
+      if (!saved) return videoNotFound(context, person)
       video.title = title
       if (fields.canEditTags) video.tags = tagRows.map((tag) => tag.slug)
       if (!folder) {
@@ -216,46 +252,10 @@ export default createController(routes, {
       }
       return redirect(routes.watch.href({ videoId: video.id }), 303)
     },
-    async watchCaptions(context) {
-      let person = personFromSession(context.session)
-      let video = watchable(context.params.videoId, person?.id)
-      if (!video) {
-        return context.render(
-          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
-          { status: 404 },
-        )
-      }
-      let fields = watchFields(video, person?.id)
-      if (!person || !fields.canEditTitle) return new Response('Forbidden', { status: 403 })
-      let fail = (error: string) =>
-        context.render(
-          <WatchPage
-            video={video}
-            media={mediaFileFor(video)}
-            theater={/(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')}
-            person={person}
-            people={listPeople()}
-            {...fields}
-            error={error}
-            errorField="captions"
-          />,
-          { status: 400 },
-        )
-      let uploaded = context.formData.get('captions')
-      if (!(uploaded instanceof Blob) || uploaded.size === 0) return fail('Choose a .vtt subtitles file.')
-      let result = await replaceVideoCaptions(video, uploaded)
-      if ('error' in result) return fail(result.error)
-      return redirect(routes.watch.href({ videoId: video.id }), 303)
-    },
     async watchDelete(context) {
       let person = personFromSession(context.session)
       let video = watchable(context.params.videoId, person?.id)
-      if (!video) {
-        return context.render(
-          <NotBuiltPage current={null} title="Video not found" detail="It may have been removed or renamed on the host." person={person} />,
-          { status: 404 },
-        )
-      }
+      if (!video) return videoNotFound(context, person)
       let fields = watchFields(video, person?.id)
       let folder = getChannel(video.channelId)?.kind === 'folder'
       if (!person || (folder ? !fields.canDrop : !fields.canDelete)) {
@@ -263,10 +263,9 @@ export default createController(routes, {
       }
       if (context.formData.get('confirm') !== '1') {
         return context.render(
-          <WatchPage
+          <VideoEditPage
             video={video}
             media={mediaFileFor(video)}
-            theater={/(?:^|;\s*)lt_theater=1(?:;|$)/.test(context.request.headers.get('Cookie') ?? '')}
             person={person}
             people={listPeople()}
             {...fields}
@@ -526,6 +525,48 @@ export default createController(routes, {
       let file = video ? posterPathFor(video) : null
       if (!file) return new Response('Not Found', { status: 404 })
       return createFileResponse(openLazyFile(file, { type: 'image/jpeg' }), context.request, {
+        cacheControl: 'private, max-age=86400',
+      })
+    },
+    async channelPostDelete(context) {
+      let person = personFromSession(context.session)
+      let channel = getChannel(context.params.channelId)
+      let post = getPost(context.params.postId)
+      if (!channel || !post || post.channelId !== channel.id || !canSeePosts(channel, person?.id)) {
+        return context.render(
+          <NotBuiltPage current={null} title="Post not found" detail="It may already have been deleted." person={person} />,
+          { status: 404 },
+        )
+      }
+      if (!person || !canDeletePost(post, channel, person.id)) return new Response('Forbidden', { status: 403 })
+      if (context.formData.get('confirm') !== '1') {
+        return context.render(
+          <ChannelPage
+            channel={channel}
+            sort="latest"
+            person={person}
+            shown={VIDEO_FEED_PAGE}
+            tab="posts"
+            posts={{
+              posts: channelPosts(channel.id),
+              shown: Math.max(POSTS_PAGE, channelPosts(channel.id).findIndex((entry) => entry.id === post.id) + 1),
+              deleteError: { postId: post.id, error: 'Tick the box to confirm, then delete.' },
+            }}
+          />,
+          { status: 400 },
+        )
+      }
+      await deletePost(post)
+      return redirect(routes.channelPosts.index.href({ channelId: channel.id }), 303)
+    },
+    postPicture(context) {
+      let channel = getChannel(context.params.channelId)
+      let post = getPost(context.params.postId)
+      let visible = channel && post && post.channelId === channel.id && canSeePosts(channel, personFromSession(context.session)?.id)
+      let picture = visible && post && /^[1-9]\d*$/.test(context.params.n) ? post.pictures[Number(context.params.n) - 1] : undefined
+      let file = picture ? picturePathFor(picture) : null
+      if (!picture || !file) return new Response('Not Found', { status: 404 })
+      return createFileResponse(openLazyFile(file, { type: picture.type }), context.request, {
         cacheControl: 'private, max-age=86400',
       })
     },

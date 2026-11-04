@@ -631,6 +631,7 @@ The custom player on the watch page (`app/actions/public/player.tsx`, a client e
 - **Idle:** while playing, the bar and cursor hide after 2.6s without pointer movement, unless the pointer is over the bar, a menu is open, or a control has keyboard focus.
 - **Key flash:** the one authored motion. Keyboard actions flash a 64px black pill in the centre with an icon and optional label ("+10 s", "60%", "1.5×") that scales 0.92 → 1.12 and fades over 700ms (opacity-only under reduced motion).
 - **Shortcuts:** space/k play-pause, j/l ∓10s, ←/→ ∓5s, ↑/↓ volume (only with focus in the player), m mute, f fullscreen, t theater, i picture-in-picture, < > speed, 0–9 jump to tenths, Home/End.
+- **Compact** (`compact`, the edit view's reference player): no theater button or `t`, and shortcuts only answer while focus is inside the player, so typing in the form beside it never seeks or pauses. Limits, assignments, resume, and play counts work exactly as on the watch page.
 - **Touch:** a tap on the picture shows or hides the controls; it never pauses. Double-tap does nothing (double-click toggles fullscreen with a mouse).
 - **Spinner:** a 48px white ring after 300ms of buffering.
 - **Honest failures** (black-tinted overlay, 40px file icon, Paper title, Ash copy, monospace path chip): file not on the host ("LanTube looks for `Home Movies/…` in its media folder"), format this browser can't play (no transcoding yet), and lost connection with a "Try again" button. Time up for a limited person uses the same frame with a timer icon (see Parental controls). Never red.
@@ -638,7 +639,8 @@ The custom player on the watch page (`app/actions/public/player.tsx`, a client e
 
 ### Watch page info
 - **Title:** 1.25rem/700, −0.015em, `text-wrap: pretty`.
-- **Channel row:** 40px avatar, name (600, underlines on hover), Ash "n videos" (plus "· folder"); the whole row links to the channel.
+- **Channel row:** 40px avatar, name (600, underlines on hover), Ash "n videos" (plus "· folder"); the whole row links to the channel. Beside it, **Edit** (secondary pill, 18px pencil) for people who can change the video, then Save.
+- **Read-only by default:** the title, facts, and chips never turn into fields here. The one exception is a Folder video's Tags: anyone signed in gets the Tags field in the facts box with a secondary small "Save tags"; a bad tag returns to the watch page with the inline error.
 - **Facts box:** Graphite Surface, 12px radius. "**N plays** · Published October 10, 2026 (5 hours ago)" in tabular 0.875rem, with "Added" instead of "Published" for indexed folders. A private video adds "· Private" with the 14px Ash lock (titled "Only you can see this video"). Topic chips (28px) link to the home topic filter. Folder videos add an Ash "Indexed from /media/…" line.
 - **No social furniture:** no likes, subscribe, share, or comments.
 
@@ -732,7 +734,16 @@ Upload (`/upload`, `.upload`) starts with where the video goes, not with a file 
 
 **Private videos:** a video posted as "Only me" exists only for its uploader: on Home, search, channel pages, playlists and "More like this" it is missing for everyone else, and its watch page, media and poster return not-found. Wherever the uploader sees it, it carries the Ash lock + "Private".
 
+**Subtitles** are one optional WebVTT file in a `.field` pill whose Raised file button fills its height (4px inset) so button and filename share the centre line; the hint says it can be attached or replaced later from Edit.
+
 **Honest states:** unsigned visitors get the empty-state frame with an upload icon, "Sign in to upload", and a secondary Sign in (user icon). Without JavaScript the form is one multipart post with no frame pick, and a too-large file returns plainly: "Without JavaScript, LanTube can take videos up to 512 MB in one go. Turn JavaScript on to send bigger ones."
+
+### Edit video
+Edit (`/watch/:videoId/edit`, `.vedit`) is where a Video's details change, reached only from the watch page's Edit pill. It opens for the Video owner and a Custom channel's owner or Managers (uploaded videos) and for Admins (Folder videos); anyone else signed in gets the not-built frame with "You can’t change this video" (403), and unsigned visitors go to Sign in.
+- **Layout:** the upload head (Page Title "Edit video", Ash lede "Changes show everywhere in the house once you save."), then a 640px form | 480px aside grid with a 48px gap. Below a 1100px container it is one column with the form first and the aside after it, no longer sticky.
+- **Form** (`.vedit-form`, one multipart post to the save route): Title (Field Well pill), Tags (the upload Tags field), Subtitles (native file input; the hint says whether a .vtt is attached), Who can see it (the radio cards and audience picker; Folder videos get an Ash note that the whole house sees them instead), then **Save changes** (primary) and **Cancel** (ghost, back to Watch). Fields sit 24px apart; a Folder video whose title the person can't change shows it as a fixed value with an Ash hint. Saving returns to the watch page; a bad field re-renders here with the inline error.
+- **Delete / Drop zone:** the playlist form's pldelete foot under the form, with the same checkbox confirm.
+- **Aside** (`.vedit-side`, sticky 24px under the top bar): the compact player as a reference, then an Ash "On the watch page" and a live **preview** of the watch page's title block (title at 1rem, channel row, facts box with the lock + "Private" and tag chips). It follows the form as you type, tag, and flip privacy; an empty title reads "Your title goes here" in Ash.
 
 ### Parental controls
 Parental controls (`/controls`, Parent-only, linked from the account menu as "Parental controls" with the timer icon) is **one roster**: a single semantic table, a row per Person, where a Parent sets each person's daily watch limit and gives extra time for today. Page head: the Page Title and the lede "How long each person can watch each day. Extra time lasts until 5 am." Non-Parents get the empty-state frame ("You need to be a Parent").
@@ -753,6 +764,54 @@ Parental controls (`/controls`, Parent-only, linked from the account menu as "Pa
 **Time up in the player:** when a limited person has no time left, the stage shows the poster under the failure scrim with a 40px timer icon, Paper "That’s all the watching for today", Ash "More time starts at 5 am, or a parent can give you some now." (prefixed with "4:47 is saved, so you can pick up here." once the video has started) and a secondary "Check again" that reloads. Playing stops the moment time runs out (progress saved, fullscreen exited); an open player picks up a new limit, extra time, or "No limit" from its next progress report. The host refuses the media file and play counts while time is up, so the limit holds without JavaScript.
 
 **Icons added for parental controls** (Lucide outlines, same 1.75 stroke): timer, chevron-down.
+
+### Channel posts
+Home and Custom channels have a **Posts** tab beside **Videos**. Posts are short updates from the Channel owner or Managers: text, plus up to four pictures. The register is a quiet notebook: entries separated by hairlines, with no counts, reactions, or titles. Folder channels and Frozen Homes have no tabs. When posts are Private and the viewer isn't allowed to see them, the tab doesn't exist for them (404).
+
+**Channel tabs** (`nav.chtabs`, under the channel header): links, not ARIA tabs. Videos is `/channel/:id`, Posts is `/channel/:id/posts`, and the open one has `aria-current="page"`. Tabs are 48px tall, 28px apart (24px below a 540px container), and set in 1rem/600 Ash, turning Paper on hover. The open tab is Paper with a 2px Paper underline sitting on the bar's 1px Graphite Line, never blue. On the Posts tab the page title becomes "Twice · Posts".
+
+**Posts column** (`.posts`): a 680px reading column, left-aligned, 20px below the tabs.
+- **Composer** (`.pcompose`, Owner and Managers only): Graphite Surface, 12px radius, 16px padding, laid out as 36px avatar | main.
+  - A textarea sits on the page ground, at least 88px tall and 2000 characters at most. Its placeholder is "Share something with the house" on a Home channel, or "Share an update on Twice" on a Custom one.
+  - Then the picture well. The foot holds an Ash "Up to 4 pictures, 10 MB each." and the page's single primary, **Post**.
+  - Below 540px the card widens to just inside the screen edge, and the avatar drops.
+- **Picture well** (`.ppics`): the upload page's dashed `photo-well`, sized to its content and reading "Add pictures", then "Add more (2 of 4)", then a solid "4 of 4 pictures" once full.
+  - Picks add up across several file choices. Each picture shows as a square tile (8px radius, 4 across) with a 32px dark scrim remove button in the corner.
+  - Extras beyond four are dropped, with an Ash note: "Only 4 pictures fit on a post. One was left out."
+  - Without JavaScript it's a plain multiple file input.
+- **Visibility line** (`.posts-vis`): a fact under the composer, not a banner. It's an Ash 0.875rem line with a 16px icon (channels or lock), a Paper **Private** when private, and a sentence:
+  - People who manage the channel get the full list ("The owner, Managers, Ruth, and Parents can see posts here.") and an underlined Paper **Change** link to the visibility setting.
+  - Other readers of a private channel get "Only some people in the house can see posts here."
+  - On a house-visible channel, readers get no line at all.
+- **Post entry** (`article.post` in `ol.post-list`, newest first, 24px vertical padding, divided by Graphite Line):
+  - **Head:** a 36px avatar, the author's name (1rem/600, linking to their Home channel), and the time in Ash tabular 0.875rem. The time uses the same relative wording as videos ("Just now", "3 days ago"), with the full date in its `title`. The delete toggle sits at the end of the head.
+  - **Body:** 1rem/1.6, at most 68ch, `pre-line`, so line breaks the author typed are kept.
+- **Picture mosaic** (`.post-pics-n`): 4px gaps and a 12px outer radius. Every picture links to its full-size file, and with JavaScript a click opens the picture viewer instead (see below).
+  - One picture keeps its own shape: up to 560px wide and 520px tall.
+  - Two are side by side in a 2:1 frame.
+  - Three are one large picture with two stacked beside it, in a 3:2 frame.
+  - Four form a 2×2 grid in a 3:2 frame.
+  - Below 540px, the 2- and 4-picture frames go square and the 3-picture frame becomes 4:3. Hovering a picture dims it to 0.88.
+- **Picture viewer** (`dialog.lightbox`, one per page): a modal `<dialog>` over a 94% near-black backdrop that holds one post's pictures.
+  - The picture is contained in the viewport at its own shape (8px radius), between 48px round Graphite Raised arrow buttons (Raised Hover on hover) at the sides. A 40px icon-button X sits top right, and an Ash tabular "2 of 4" sits top left.
+  - The arrows, ←/→ keys, and a sideways swipe all step through the pictures, wrapping at the ends. The neighbouring pictures preload. A single picture gets no arrows and no count.
+  - Esc, the X, or a press on the dark around the picture closes it, and focus returns to the picture that opened it. The page doesn't scroll while it's open. After a pointer open, the X's focus ring waits for the first Tab.
+  - It fades in over 180ms, and the picture settles from 0.97 scale. Under reduced motion there's no scale.
+  - Below 640px the picture takes the full width, and the arrows and count sit together in a bottom row within thumb reach.
+  - A modifier-click, or no JavaScript, still opens the full-size file.
+- **Delete** (`details.post-delete`, shown to the author, the Channel owner, and Managers): a 40px round Ash trash toggle, Raised on hover and while open.
+  - It opens a 300px Graphite Surface panel with a 1px Raised Hover border, 12px radius, and no shadow, labelled "Delete this post?" (0.875rem/600).
+  - The panel holds an Ash hint ("It can’t be brought back, and its pictures leave the Media share."), the house tick-to-confirm "Yes, delete this post", and a secondary **Delete post** button.
+  - The `<details>` share a `name`, so only one can be open at a time. With JavaScript, Esc or a press outside closes it, and Esc returns focus to the toggle.
+  - Submitting without the tick re-renders the tab at 400, with that panel open and the inline error. Posts can't be edited.
+- **More and empty:** after 20 posts, a secondary "Show older posts". When there are no posts, the writer sees an Ash line between hairlines ("Nothing posted yet. Posts show here, newest first."). A reader sees the empty-state frame with the notebook icon: "No posts on Twice yet" and "When Mia posts something, it will show up here."
+
+**Who can see posts** (`fieldset.posts-who`): the setting covers every post on the channel, old and new. Videos keep their own visibility.
+- It uses the playlist radio cards: "Everyone in the house" (channels icon, "Anyone who opens the channel") and "Private" (lock, "You choose who else can see them").
+- Private reveals the house audience picker, with an Ash line naming who always sees the posts. That's the owner, Managers, and Parents, the same as the Private rule.
+- It lives in the Custom channel's edit form (anchor `#posts-visibility`). For a Home channel it's on a small settings page (`/channel/:id/settings`, "Your channel settings", with **Save** as the primary and **Cancel**), and saving returns to the Posts tab.
+
+**Icons added for posts** (Lucide outlines, same 1.75 stroke): image, notebook.
 
 ## Do's and Don'ts
 

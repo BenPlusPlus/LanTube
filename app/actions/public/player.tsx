@@ -30,6 +30,8 @@ export interface PlayerProps {
   captionsSrc?: string
   /** Embedded chapters, already normalized (two or more). */
   chapters?: VideoChapter[]
+  /** A secondary player beside other work: no theater, and shortcuts only while focus is inside it. */
+  compact?: boolean
 }
 
 type Failure = 'unsupported' | 'network' | 'missing' | 'time-up' | 'assigned'
@@ -361,7 +363,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     let target = event.target as HTMLElement | null
     let onControl = target?.closest('button, a, [role="slider"], [role="menu"]') != null
     let inPlayer = root?.contains(target) ?? false
-
+    if (handle.props.compact && !inPlayer) return
     switch (event.key) {
       case ' ':
       case 'Enter':
@@ -398,7 +400,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
         toggleMute(true)
         break
       case 't':
-        if (!fullscreen) toggleTheater()
+        if (!fullscreen && !handle.props.compact) toggleTheater()
         break
       case 'i':
         togglePip()
@@ -1030,7 +1032,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
                 </button>
               ) : null}
 
-              {fullscreen ? null : (
+              {fullscreen || handle.props.compact ? null : (
                 <button
                   class="pbtn pbtn-theater"
                   type="button"

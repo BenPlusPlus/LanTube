@@ -10,11 +10,13 @@ import { resetCatalogueTags } from './tags.ts'
 import {
   assignments,
   channelManagers,
+  channelPostAudience,
   channels,
   people,
   playlistAudience,
   playlistVideos,
   playlists as playlistTable,
+  posts as postTable,
   tags,
   videoAudience,
   videoTags,
@@ -287,6 +289,7 @@ export async function removePerson(actorId: string, targetId: string): Promise<t
       await tx.deleteMany(assignments, { where: { person_id: row.person.id } })
       await tx.updateMany(assignments, { assigned_by: null }, { where: { assigned_by: row.person.id } })
       await tx.deleteMany(videoAudience, { where: { person_id: row.person.id } })
+      await tx.deleteMany(channelPostAudience, { where: { person_id: row.person.id } })
       await tx.deleteMany(channelManagers, { where: { person_id: row.person.id } })
       await tx.updateMany(channels, { owner_id: actor.person.id }, { where: { owner_id: row.person.id, kind: 'custom' } })
       let nowOwned = await tx.findMany(channels, { where: { owner_id: actor.person.id, kind: 'custom' } })
@@ -308,11 +311,13 @@ export async function removePerson(actorId: string, targetId: string): Promise<t
   let { forgetRemovedPerson: forgetFromHistory } = await import('./history.ts')
   let { forgetRemovedPerson: forgetFromWatchLimits } = await import('./watch-limits.ts')
   let { forgetRemovedPerson: forgetFromAssignments } = await import('./assignments.ts')
+  let { forgetRemovedPerson: forgetFromPosts } = await import('./posts.ts')
   forgetFromLibrary(row.person, actor.person.id)
   forgetFromPlaylists(row.person.id)
   forgetFromHistory(row.person.id)
   forgetFromWatchLimits(row.person.id)
   forgetFromAssignments(row.person.id)
+  forgetFromPosts(row.person.id)
   return true
 }
 
@@ -432,6 +437,8 @@ export async function useEmptyHouse() {
   await db.deleteMany(videoTags, { where: notNull(videoTags.video_id) })
   await db.deleteMany(videoAudience, { where: notNull(videoAudience.video_id) })
   await db.deleteMany(videos, { where: notNull(videos.id) })
+  await db.deleteMany(postTable, { where: notNull(postTable.id) })
+  await db.deleteMany(channelPostAudience, { where: notNull(channelPostAudience.channel_id) })
   await db.deleteMany(channelManagers, { where: notNull(channelManagers.channel_id) })
   await db.deleteMany(channels, { where: notNull(channels.id) })
   await db.deleteMany(people, { where: notNull(people.id) })

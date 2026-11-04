@@ -1,0 +1,3 @@
+# Post visibility is set per channel
+
+A channel's Posts are all house-visible, or all private with one Audience for the channel. The setting lives on the Custom channel's edit form or on a Home channel's settings page. It is not chosen per Post. Posts are short and frequent, so asking about visibility on each one would add friction and invite mistakes. The question people actually ask is "who reads this channel's news?" When Posts are private, people outside the Audience see no Posts tab, the same way a private Video doesn't exist for them. Changing the setting applies right away to every Post, old and new. Post pictures sit under `.lantube/posts/` on the Media share. LanTube deletes them with the Post or the channel.

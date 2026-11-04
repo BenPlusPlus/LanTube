@@ -6,6 +6,7 @@ import { routes } from '../routes.ts'
 import { Avatar } from '../ui/cards.tsx'
 import { Icon } from '../ui/public/icons.tsx'
 import { AppShell } from '../ui/shell.tsx'
+import { PostVisibilityFieldset, type PostVisibilityValues } from './channel-posts.tsx'
 import { ChannelPicture } from './public/channel-picture.tsx'
 
 export interface ChannelFormValues {
@@ -26,6 +27,8 @@ export interface ChannelFormPageProps {
   errorField?: 'name' | 'description' | 'photo' | 'delete'
   /** Only the Channel owner may delete a Custom channel. */
   canDelete?: boolean
+  /** Editing: who can see the channel's Posts. */
+  postVisibility?: PostVisibilityValues
 }
 
 function asChannel(person: Person): Channel {
@@ -78,8 +81,8 @@ export function ChannelFormPage(handle: Handle<ChannelFormPageProps>) {
             <p class="page-lede">
               {editing
                 ? canNameManagers
-                  ? 'Rename it, change the picture, or change the Managers. Its address stays the same.'
-                  : 'Rename it or change the picture. Its address stays the same.'
+                  ? 'Rename it, change the picture, the Managers, or who sees posts. Its address stays the same.'
+                  : 'Rename it, change the picture, or change who sees posts. Its address stays the same.'
                 : 'A channel collects videos about one thing: a band, a hobby, a game. You run it, and you name Managers.'}
             </p>
           </header>
@@ -172,6 +175,10 @@ export function ChannelFormPage(handle: Handle<ChannelFormPageProps>) {
               </fieldset>
             ) : null}
 
+            {channel && handle.props.postVisibility ? (
+              <PostVisibilityFieldset channel={channel} person={person} people={people} values={handle.props.postVisibility} />
+            ) : null}
+
             {error && !errorField ? errorMessage : null}
 
             <div class="chform-actions">
@@ -190,7 +197,7 @@ export function ChannelFormPage(handle: Handle<ChannelFormPageProps>) {
               <h2 class="pldelete-title" id="chdelete-title">
                 Delete this channel
               </h2>
-              <p class="field-hint">The channel and every video on it go. Uploads leave the Media share.</p>
+              <p class="field-hint">The channel, every video on it, and its posts go. Uploads and post pictures leave the Media share.</p>
               <label class="chform-remove">
                 <input type="checkbox" name="confirm" value="1" aria-invalid={invalid('delete')} aria-describedby={describedBy('delete')} />
                 <span class="check" aria-hidden="true">

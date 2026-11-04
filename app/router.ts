@@ -6,6 +6,8 @@ import { createRouter, type RouterContext } from 'remix/router'
 import controller from './actions/controller.tsx'
 import channelEditController from './actions/channelEdit/controller.tsx'
 import channelNewController from './actions/channelNew/controller.tsx'
+import channelPostsController from './actions/channelPosts/controller.tsx'
+import channelSettingsController from './actions/channelSettings/controller.tsx'
 import controlsController from './actions/controls/controller.tsx'
 import detailsController from './actions/details/controller.tsx'
 import houseController from './actions/house/controller.tsx'
@@ -24,9 +26,14 @@ const parseForms = formData({
   maxTotalSize: 1.5 * 1024 * 1024,
 })
 
-/** Publishing an upload can carry a whole video without JavaScript, so it parses its own form with its own limits. */
+/**
+ * Publishing an upload can carry a whole video without JavaScript, and a Post can carry four pictures,
+ * so each parses its own form with its own limits.
+ */
+const ownForms = [/^\/upload$/, /^\/channel\/[^/]+\/posts$/]
+
 const forms: typeof parseForms = (context, next) => {
-  if (context.method === 'POST' && new URL(context.request.url).pathname === routes.upload.action.href()) return next()
+  if (context.method === 'POST' && ownForms.some((pattern) => pattern.test(new URL(context.request.url).pathname))) return next()
   return parseForms(context, next)
 }
 
@@ -54,6 +61,8 @@ router.map(routes.house, houseController)
 router.map(routes.controls, controlsController)
 router.map(routes.channelNew, channelNewController)
 router.map(routes.channelEdit, channelEditController)
+router.map(routes.channelPosts, channelPostsController)
+router.map(routes.channelSettings, channelSettingsController)
 router.map(routes.playlistNew, playlistNewController)
 router.map(routes.playlistEdit, playlistEditController)
 router.map(routes.upload, uploadController)

@@ -774,7 +774,7 @@ export const UploadForm = clientEntry(import.meta.url, function UploadForm(handl
             Subtitles <span class="field-optional">(optional)</span>
           </label>
           <p class="field-hint" id="upload-captions-hint">
-            One WebVTT file. You can attach or replace it later on Watch.
+            One WebVTT file. You can attach or replace it later from Edit.
           </p>
           <input
             id="upload-captions"
