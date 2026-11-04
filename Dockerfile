@@ -1,6 +1,7 @@
 FROM node:26-bookworm-slim
 
-RUN corepack enable \
+# Node 25+ no longer bundles Corepack, so pnpm comes from npm at the version package.json pins.
+RUN npm install -g pnpm@12.16.1 \
   && apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata \
   && rm -rf /var/lib/apt/lists/*
@@ -8,8 +9,7 @@ RUN corepack enable \
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack prepare pnpm@12.16.1 --activate \
-  && pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod
 
 COPY remix.json tsconfig.json server.ts ./
 COPY app ./app
