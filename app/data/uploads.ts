@@ -24,6 +24,7 @@ import {
 import { findOrCreateTags, parseTagNames } from './tags.ts'
 import { mediaDir, mediaFileFor, videoExtensions } from './media.ts'
 import { forgetDeletedVideo } from './assignments.ts'
+import { forgetChannelPosts } from './posts.ts'
 import { addVideo, dropFromPlaylists, getPlaylist } from './playlists.ts'
 
 /** Uploads land in the media folder, so they stream like everything else on the host. */
@@ -333,6 +334,7 @@ export async function deleteCustomChannel(channel: Channel) {
     dropFromPlaylists(video.id)
     forgetDeletedVideo(video.id)
   }
+  await forgetChannelPosts(channel.id)
   dropCustomChannel(channel.id)
 }
 
@@ -349,5 +351,6 @@ export async function deleteFrozenHomeChannel(channel: Channel) {
     dropFromPlaylists(video.id)
     forgetDeletedVideo(video.id)
   }
+  await forgetChannelPosts(channel.id)
   dropFrozenHomeChannel(channel.id)
 }

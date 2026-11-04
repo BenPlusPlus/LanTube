@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { db } from '../db.ts'
 import type { VideoChapter } from '../ui/public/chapter-list.ts'
 import { hueFor, isAdmin, isParent, listPeople, getPerson as getHouseholdPerson, slugify, type Person } from './household.ts'
+import { resetPosts } from './posts.ts'
 import { channelManagers, channels, people } from './tables.ts'
 
 export type { VideoChapter } from '../ui/public/chapter-list.ts'
@@ -472,6 +473,7 @@ export function resetChannels() {
   folderChannels = process.env.NODE_ENV === 'test' ? seedFolderChannels() : []
   frozenHomeChannels = []
   forgottenPosters = []
+  resetPosts()
 }
 
 /** Home channel stays Frozen; Custom channels pass to the Admin who removed the Person. */

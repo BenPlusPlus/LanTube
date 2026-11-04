@@ -7,6 +7,8 @@ import { deleteCustomChannel } from '../../data/uploads.ts'
 import { readPhoto } from '../../data/photo.ts'
 import { routes } from '../../routes.ts'
 import { readChannelForm } from '../channel-form.ts'
+import { currentPostVisibility, readPostVisibility } from '../channel-posts.tsx'
+import { savePostSettings } from '../../data/posts.ts'
 import { ChannelFormPage } from '../channel-form-page.tsx'
 import { NotBuiltPage } from '../not-built-page.tsx'
 
@@ -49,6 +51,7 @@ export default createController(routes.channelEdit, {
           canNameManagers={canNameManagers}
           canDelete={canDeleteCustomChannel(channel, person.id)}
           values={{ name: channel.name, description: channel.description ?? '', managerIds: channel.managerIds ?? [] }}
+          postVisibility={currentPostVisibility(channel)}
         />,
       )
     },
@@ -71,6 +74,7 @@ export default createController(routes.channelEdit, {
               canNameManagers={canNameManagers}
               canDelete
               values={{ name: channel.name, description: channel.description ?? '', managerIds: channel.managerIds ?? [] }}
+              postVisibility={currentPostVisibility(channel)}
               error="Tick the box to confirm, then delete."
               errorField="delete"
             />,
@@ -81,6 +85,7 @@ export default createController(routes.channelEdit, {
         return redirect(routes.channels.href(), 303)
       }
       let values = readChannelForm(context.formData)
+      let postVisibility = readPostVisibility(context.formData)
       let fail = (error: string, errorField: 'name' | 'description' | 'photo') =>
         context.render(
           <ChannelFormPage
@@ -90,6 +95,7 @@ export default createController(routes.channelEdit, {
             canNameManagers={canNameManagers}
             canDelete={canDelete}
             values={values}
+            postVisibility={postVisibility}
             error={error}
             errorField={errorField}
           />,
@@ -105,6 +111,7 @@ export default createController(routes.channelEdit, {
         managerIds: canNameManagers ? values.managerIds : (channel.managerIds ?? []),
       })
       if ('error' in updated) return fail(updated.error, updated.field)
+      await savePostSettings(channel, { private: postVisibility.postsPrivate, audienceIds: postVisibility.postsAudience })
       return redirect(routes.channel.href({ channelId: channel.id }), 303)
     },
   },

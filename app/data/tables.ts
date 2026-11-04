@@ -28,6 +28,30 @@ export const channels = table({
     photo_path: c.text().nullable(),
     owner_id: c.uuid().nullable(),
     description: c.text().nullable(),
+    /** Who can see this channel's Posts: `house` or `private` (Audience in `channel_post_audience`). */
+    posts_visibility: c.text().notNull().default('house'),
+    created_at: c.timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+})
+
+export const channelPostAudience = table({
+  name: 'channel_post_audience',
+  primaryKey: ['channel_id', 'person_id'],
+  columns: {
+    channel_id: c.uuid().notNull(),
+    person_id: c.uuid().notNull(),
+  },
+})
+
+export const posts = table({
+  name: 'posts',
+  columns: {
+    id: c.uuid().primaryKey(),
+    channel_id: c.uuid().notNull(),
+    author_id: c.uuid().nullable(),
+    body: c.text().notNull(),
+    /** `[{ "file": ".lantube/posts/<id>/1.jpg", "type": "image/jpeg", "width": 1600, "height": 1200 }]` */
+    pictures_json: c.text().notNull().default('[]'),
     created_at: c.timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
 })

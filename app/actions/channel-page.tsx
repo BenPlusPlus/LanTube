@@ -4,11 +4,13 @@ import { brandName } from '../data/brand.ts'
 import { getPerson, type Person } from '../data/household.ts'
 import type { Channel, ChannelSort, Video } from '../data/library.ts'
 import { canAdminDeleteChannel, canPost, channelStats, channelVideos, channelsFor, formatPlays, getChannel } from '../data/library.ts'
+import { canSeePosts } from '../data/posts.ts'
 import { routes } from '../routes.ts'
 import { Avatar, VideoCard } from '../ui/cards.tsx'
 import { channelFeedHrefs, FeedBatch } from '../ui/feed-batch.tsx'
 import { Icon } from '../ui/public/icons.tsx'
 import { AppShell, type Section } from '../ui/shell.tsx'
+import { ChannelTabs, PostsPanel, type ChannelTab, type PostsPanelProps } from './channel-posts.tsx'
 import { VideoFeedMore } from './public/video-feed-more.tsx'
 
 export interface ChannelPageProps {
@@ -18,6 +20,10 @@ export interface ChannelPageProps {
   shown: number
   error?: string
   errorField?: 'delete'
+  /** Videos unless the Posts tab is open. */
+  tab?: ChannelTab
+  /** The Posts tab: what it shows and any form that came back. */
+  posts?: Omit<PostsPanelProps, 'channel' | 'person'>
 }
 
 const sorts: { id: ChannelSort; label: string }[] = [
@@ -168,7 +174,9 @@ function Empty(handle: Handle<{ channel: Channel; person: Person | null }>) {
 
 export function ChannelPage(handle: Handle<ChannelPageProps>) {
   return () => {
-    let { channel, sort, person = null, shown, error, errorField } = handle.props
+    let { channel, sort, person = null, shown, error, errorField, posts } = handle.props
+    let showTabs = canSeePosts(channel, person?.id)
+    let tab: ChannelTab = showTabs && handle.props.tab === 'posts' && posts ? 'posts' : 'videos'
     let stats = channelStats(channel.id, person?.id)
     let list = channelVideos(channel.id, sort, person?.id)
     let visible = list.slice(0, shown)
@@ -180,7 +188,7 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
     let current: Section = channel.kind === 'custom' ? 'channels' : `channel:${channel.id}`
 
     return (
-      <AppShell current={current} title={channel.name} person={person}>
+      <AppShell current={current} title={tab === 'posts' ? `${channel.name} · Posts` : channel.name} person={person}>
         <header class={`chhead chhead-${channel.kind}`}>
           <Avatar channel={channel} size="xl" />
           <div class="chhead-text">
@@ -217,7 +225,11 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
           ) : null}
         </header>
 
-        {list.length === 0 ? (
+        {showTabs ? <ChannelTabs channel={channel} current={tab} /> : null}
+
+        {tab === 'posts' && posts ? (
+          <PostsPanel channel={channel} person={person} {...posts} />
+        ) : list.length === 0 ? (
           <Empty channel={channel} person={person} />
         ) : (
           <>
@@ -249,15 +261,15 @@ export function ChannelPage(handle: Handle<ChannelPageProps>) {
             </section>
           </>
         )}
-        {canAdminDelete ? (
+        {canAdminDelete && tab === 'videos' ? (
           <form class="pldelete" method="post" action={routes.channelDelete.href({ channelId: channel.id })} aria-labelledby="chdelete-title">
             <h2 class="pldelete-title" id="chdelete-title">
               Delete this channel
             </h2>
             <p class="field-hint">
               {channel.kind === 'person'
-                ? 'The Frozen channel and every video on it go, including private. This address can be used again. Uploads leave the Media share.'
-                : 'The channel and every video on it go. Uploads leave the Media share.'}
+                ? 'The Frozen channel, every video on it including private, and its posts go. This address can be used again. Uploads and post pictures leave the Media share.'
+                : 'The channel, every video on it, and its posts go. Uploads and post pictures leave the Media share.'}
             </p>
             <label class="chform-remove">
               <input

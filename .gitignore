@@ -36,3 +36,6 @@ tmp/
 /config/development.env
 /.impeccable/mocks/decision
 /.agents/skills
+/.claude
+/.cursor
+/.grok

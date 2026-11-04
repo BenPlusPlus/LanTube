@@ -765,6 +765,54 @@ Parental controls (`/controls`, Parent-only, linked from the account menu as "Pa
 
 **Icons added for parental controls** (Lucide outlines, same 1.75 stroke): timer, chevron-down.
 
+### Channel posts
+Home and Custom channels have a **Posts** tab beside **Videos**. Posts are short updates from the Channel owner or Managers: text, plus up to four pictures. The register is a quiet notebook: entries separated by hairlines, with no counts, reactions, or titles. Folder channels and Frozen Homes have no tabs. When posts are Private and the viewer isn't allowed to see them, the tab doesn't exist for them (404).
+
+**Channel tabs** (`nav.chtabs`, under the channel header): links, not ARIA tabs. Videos is `/channel/:id`, Posts is `/channel/:id/posts`, and the open one has `aria-current="page"`. Tabs are 48px tall, 28px apart (24px below a 540px container), and set in 1rem/600 Ash, turning Paper on hover. The open tab is Paper with a 2px Paper underline sitting on the bar's 1px Graphite Line, never blue. On the Posts tab the page title becomes "Twice · Posts".
+
+**Posts column** (`.posts`): a 680px reading column, left-aligned, 20px below the tabs.
+- **Composer** (`.pcompose`, Owner and Managers only): Graphite Surface, 12px radius, 16px padding, laid out as 36px avatar | main.
+  - A textarea sits on the page ground, at least 88px tall and 2000 characters at most. Its placeholder is "Share something with the house" on a Home channel, or "Share an update on Twice" on a Custom one.
+  - Then the picture well. The foot holds an Ash "Up to 4 pictures, 10 MB each." and the page's single primary, **Post**.
+  - Below 540px the card widens to just inside the screen edge, and the avatar drops.
+- **Picture well** (`.ppics`): the upload page's dashed `photo-well`, sized to its content and reading "Add pictures", then "Add more (2 of 4)", then a solid "4 of 4 pictures" once full.
+  - Picks add up across several file choices. Each picture shows as a square tile (8px radius, 4 across) with a 32px dark scrim remove button in the corner.
+  - Extras beyond four are dropped, with an Ash note: "Only 4 pictures fit on a post. One was left out."
+  - Without JavaScript it's a plain multiple file input.
+- **Visibility line** (`.posts-vis`): a fact under the composer, not a banner. It's an Ash 0.875rem line with a 16px icon (channels or lock), a Paper **Private** when private, and a sentence:
+  - People who manage the channel get the full list ("The owner, Managers, Ruth, and Parents can see posts here.") and an underlined Paper **Change** link to the visibility setting.
+  - Other readers of a private channel get "Only some people in the house can see posts here."
+  - On a house-visible channel, readers get no line at all.
+- **Post entry** (`article.post` in `ol.post-list`, newest first, 24px vertical padding, divided by Graphite Line):
+  - **Head:** a 36px avatar, the author's name (1rem/600, linking to their Home channel), and the time in Ash tabular 0.875rem. The time uses the same relative wording as videos ("Just now", "3 days ago"), with the full date in its `title`. The delete toggle sits at the end of the head.
+  - **Body:** 1rem/1.6, at most 68ch, `pre-line`, so line breaks the author typed are kept.
+- **Picture mosaic** (`.post-pics-n`): 4px gaps and a 12px outer radius. Every picture links to its full-size file, and with JavaScript a click opens the picture viewer instead (see below).
+  - One picture keeps its own shape: up to 560px wide and 520px tall.
+  - Two are side by side in a 2:1 frame.
+  - Three are one large picture with two stacked beside it, in a 3:2 frame.
+  - Four form a 2×2 grid in a 3:2 frame.
+  - Below 540px, the 2- and 4-picture frames go square and the 3-picture frame becomes 4:3. Hovering a picture dims it to 0.88.
+- **Picture viewer** (`dialog.lightbox`, one per page): a modal `<dialog>` over a 94% near-black backdrop that holds one post's pictures.
+  - The picture is contained in the viewport at its own shape (8px radius), between 48px round Graphite Raised arrow buttons (Raised Hover on hover) at the sides. A 40px icon-button X sits top right, and an Ash tabular "2 of 4" sits top left.
+  - The arrows, ←/→ keys, and a sideways swipe all step through the pictures, wrapping at the ends. The neighbouring pictures preload. A single picture gets no arrows and no count.
+  - Esc, the X, or a press on the dark around the picture closes it, and focus returns to the picture that opened it. The page doesn't scroll while it's open. After a pointer open, the X's focus ring waits for the first Tab.
+  - It fades in over 180ms, and the picture settles from 0.97 scale. Under reduced motion there's no scale.
+  - Below 640px the picture takes the full width, and the arrows and count sit together in a bottom row within thumb reach.
+  - A modifier-click, or no JavaScript, still opens the full-size file.
+- **Delete** (`details.post-delete`, shown to the author, the Channel owner, and Managers): a 40px round Ash trash toggle, Raised on hover and while open.
+  - It opens a 300px Graphite Surface panel with a 1px Raised Hover border, 12px radius, and no shadow, labelled "Delete this post?" (0.875rem/600).
+  - The panel holds an Ash hint ("It can’t be brought back, and its pictures leave the Media share."), the house tick-to-confirm "Yes, delete this post", and a secondary **Delete post** button.
+  - The `<details>` share a `name`, so only one can be open at a time. With JavaScript, Esc or a press outside closes it, and Esc returns focus to the toggle.
+  - Submitting without the tick re-renders the tab at 400, with that panel open and the inline error. Posts can't be edited.
+- **More and empty:** after 20 posts, a secondary "Show older posts". When there are no posts, the writer sees an Ash line between hairlines ("Nothing posted yet. Posts show here, newest first."). A reader sees the empty-state frame with the notebook icon: "No posts on Twice yet" and "When Mia posts something, it will show up here."
+
+**Who can see posts** (`fieldset.posts-who`): the setting covers every post on the channel, old and new. Videos keep their own visibility.
+- It uses the playlist radio cards: "Everyone in the house" (channels icon, "Anyone who opens the channel") and "Private" (lock, "You choose who else can see them").
+- Private reveals the house audience picker, with an Ash line naming who always sees the posts. That's the owner, Managers, and Parents, the same as the Private rule.
+- It lives in the Custom channel's edit form (anchor `#posts-visibility`). For a Home channel it's on a small settings page (`/channel/:id/settings`, "Your channel settings", with **Save** as the primary and **Cancel**), and saving returns to the Posts tab.
+
+**Icons added for posts** (Lucide outlines, same 1.75 stroke): image, notebook.
+
 ## Do's and Don'ts
 
 ### Do:

@@ -56,6 +56,10 @@ _Avoid_: Uploader, poster
 An ordered stack of Videos a Person keeps. Each Playlist has its own visibility, independent of the Videos in it.
 _Avoid_: Collection, album, list, queue
 
+**Post**:
+A short text with up to four pictures, written on a Home or Custom channel by the people who run it: the Home's Person, or the Channel owner and Managers. A Post can't be edited. Its author, the Channel owner, or a Manager may delete it. Folder and Frozen channels have no Posts. Deleting a Frozen Home removes its Posts.
+_Avoid_: Update, status, community post, tweet, message
+
 **Assignment**:
 A Parent-required watch of one Video by one Person who is neither Parent nor Admin. It is a duty, not a permission: it does not grant sight of the Video.
 _Avoid_: Queue, homework, task, assigned video (the Video is unchanged; the Assignment is the duty)
@@ -103,7 +107,7 @@ _Avoid_: Guardian, overseer, super-viewer, admin
 ## Visibility
 
 **Visibility**:
-House-visible or private. Set separately on each Video and each Playlist.
+House-visible or private. Set separately on each Video and each Playlist, and once per channel for all of its Posts.
 _Avoid_: Public, unlisted, shared (as a visibility)
 
 **House-visible**:
@@ -115,7 +119,7 @@ House setting an Admin turns on or off. On (the default): anyone on the LAN can 
 _Avoid_: guest playback, anonymous viewing, public watch
 
 **Private**:
-To everyone else the item does not exist. A private Playlist is visible to its owner, its Audience, and any Parent. A private Video is visible to its Video owner, its Audience, any Parent, and — on a Custom channel — the Channel owner and that channel’s Managers.
+To everyone else the item does not exist. A private Playlist is visible to its owner, its Audience, and any Parent. A private Video is visible to its Video owner, its Audience, any Parent, and — on a Custom channel — the Channel owner and that channel’s Managers. A channel's private Posts are visible to the Home's Person or the Channel owner and Managers, the channel's Posts Audience, and any Parent. Everyone else gets no Posts tab.
 _Avoid_: Hidden, unlisted, only me (only me is private with an empty Audience)
 
 **Audience**:

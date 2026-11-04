@@ -30,6 +30,7 @@ import { addVideo, canSee, getPlaylist, isOwner, moveVideo, playlistVideos, remo
 import { feedPage, parseCount, splitHomeLibrary, VIDEO_FEED_PAGE } from '../data/video-feed.ts'
 import { captionsFileFor } from '../data/captions.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
+import { canDeletePost, canSeePosts, channelPosts, deletePost, getPost, picturePathFor, POSTS_PAGE } from '../data/posts.ts'
 
 import { findOrCreateTags, parseTagNames, tagsInUse } from '../data/tags.ts'
 import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, replaceVideoCaptions, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
@@ -524,6 +525,48 @@ export default createController(routes, {
       let file = video ? posterPathFor(video) : null
       if (!file) return new Response('Not Found', { status: 404 })
       return createFileResponse(openLazyFile(file, { type: 'image/jpeg' }), context.request, {
+        cacheControl: 'private, max-age=86400',
+      })
+    },
+    async channelPostDelete(context) {
+      let person = personFromSession(context.session)
+      let channel = getChannel(context.params.channelId)
+      let post = getPost(context.params.postId)
+      if (!channel || !post || post.channelId !== channel.id || !canSeePosts(channel, person?.id)) {
+        return context.render(
+          <NotBuiltPage current={null} title="Post not found" detail="It may already have been deleted." person={person} />,
+          { status: 404 },
+        )
+      }
+      if (!person || !canDeletePost(post, channel, person.id)) return new Response('Forbidden', { status: 403 })
+      if (context.formData.get('confirm') !== '1') {
+        return context.render(
+          <ChannelPage
+            channel={channel}
+            sort="latest"
+            person={person}
+            shown={VIDEO_FEED_PAGE}
+            tab="posts"
+            posts={{
+              posts: channelPosts(channel.id),
+              shown: Math.max(POSTS_PAGE, channelPosts(channel.id).findIndex((entry) => entry.id === post.id) + 1),
+              deleteError: { postId: post.id, error: 'Tick the box to confirm, then delete.' },
+            }}
+          />,
+          { status: 400 },
+        )
+      }
+      await deletePost(post)
+      return redirect(routes.channelPosts.index.href({ channelId: channel.id }), 303)
+    },
+    postPicture(context) {
+      let channel = getChannel(context.params.channelId)
+      let post = getPost(context.params.postId)
+      let visible = channel && post && post.channelId === channel.id && canSeePosts(channel, personFromSession(context.session)?.id)
+      let picture = visible && post && /^[1-9]\d*$/.test(context.params.n) ? post.pictures[Number(context.params.n) - 1] : undefined
+      let file = picture ? picturePathFor(picture) : null
+      if (!picture || !file) return new Response('Not Found', { status: 404 })
+      return createFileResponse(openLazyFile(file, { type: picture.type }), context.request, {
         cacheControl: 'private, max-age=86400',
       })
     },

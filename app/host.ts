@@ -6,6 +6,7 @@ import { loadCatalogueHistory } from './data/history.ts'
 import { loadCataloguePeople } from './data/household.ts'
 import { loadCatalogueChannels } from './data/library.ts'
 import { loadCataloguePlaylists } from './data/playlists.ts'
+import { loadCataloguePosts } from './data/posts.ts'
 import { loadCatalogueAssignments } from './data/assignments.ts'
 import { loadCatalogueWatchLimits } from './data/watch-limits.ts'
 import { migrateCatalogue } from './db.ts'
@@ -22,6 +23,7 @@ export async function prepareHost(
     await loadHouseSettings()
     await loadCataloguePeople()
     await loadCatalogueChannels()
+    await loadCataloguePosts()
     await loadCatalogueVideos()
     await scanAttachedFolders()
     await loadCataloguePlaylists()
