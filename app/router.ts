@@ -1,3 +1,6 @@
+import * as zlib from 'node:zlib'
+
+import { compression } from 'remix/middleware/compression'
 import { formData } from 'remix/middleware/form-data'
 import { render } from 'remix/middleware/render'
 import { staticFiles } from 'remix/middleware/static'
@@ -39,7 +42,12 @@ const forms: typeof parseForms = (context, next) => {
 
 export const router = createRouter({
   middleware: [
-    staticFiles('./public', { index: false }),
+    // Pages and the stylesheet are text a slow link carries in a fifth of the bytes. Brotli's
+    // default quality is too slow to spend on every page render. Files that offer byte ranges
+    // (video, HLS, posters) pass through untouched.
+    compression({ brotli: { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } } }),
+    // Nothing here needs byte ranges, and offering them would keep the stylesheet uncompressed.
+    staticFiles('./public', { index: false, acceptRanges: false }),
     sessionMiddleware,
     forms,
     render({ assets }),

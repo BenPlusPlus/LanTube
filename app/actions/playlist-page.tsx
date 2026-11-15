@@ -46,7 +46,7 @@ function Entry(handle: Handle<{ playlist: Playlist; video: Video; index: number;
       <li class="pentry" id={`entry-${video.id}`}>
         <span class="pentry-index">{index + 1}</span>
         <span class="pentry-thumb">
-          <ThumbImage video={video} eager={index < 6} />
+          <ThumbImage video={video} eager={index < 6} shown="row" />
           <DurationBadge seconds={video.durationSec} />
           {progress !== null ? (
             <span class="vcard-progress">

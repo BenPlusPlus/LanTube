@@ -18,8 +18,8 @@ import {
   isNew,
   channelStats,
   progressPercent,
-  thumbUrl,
 } from '../data/library.ts'
+import { thumbSources } from '../data/posters.ts'
 import { routes } from '../routes.ts'
 import { AssignMenu as AssignMenuControl } from './public/assign-menu.tsx'
 import { Icon } from './public/icons.tsx'
@@ -51,12 +51,35 @@ function initialOf(name: string): string {
   return sharedInitialOf(name) || '?'
 }
 
+/**
+ * How wide a thumb shows, for browsers that can't measure it themselves (`auto` covers lazy images
+ * in those that can). Rough is fine: the steps are 320, 480 and 640.
+ */
+const THUMB_SIZES = {
+  /** A grid card: one column on a phone, two on a tablet, then four or five. */
+  card: 'auto, (max-width: 600px) 100vw, (max-width: 1200px) 45vw, 400px',
+  /** A list row's thumb (history, playlists, up next): about 100–200px. */
+  row: 'auto, (max-width: 600px) 50vw, 200px',
+} as const
+
 /** A video's still, or nothing: the thumb box behind it stays Graphite Raised. */
-export function ThumbImage(handle: Handle<{ video: Pick<Video, 'thumb'>; eager?: boolean }>) {
+export function ThumbImage(handle: Handle<{ video: Pick<Video, 'id' | 'thumb'>; eager?: boolean; shown?: keyof typeof THUMB_SIZES }>) {
   return () => {
-    let { video, eager = false } = handle.props
-    let src = thumbUrl(video)
-    return src ? <img src={src} alt="" width={960} height={540} loading={eager ? 'eager' : 'lazy'} decoding="async" /> : null
+    let { video, eager = false, shown = 'card' } = handle.props
+    let sources = thumbSources(video)
+    if (!sources) return null
+    return (
+      <img
+        src={sources.src}
+        srcset={sources.srcset}
+        sizes={sources.srcset ? THUMB_SIZES[shown] : undefined}
+        alt=""
+        width={960}
+        height={540}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+      />
+    )
   }
 }
 

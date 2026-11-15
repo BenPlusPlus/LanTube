@@ -102,7 +102,7 @@ function ChannelRow(handle: Handle<{ channel: Channel; viewerId?: string; eager?
               return (
                 <li>
                   <a class="chrow-thumb" href={routes.watch.href({ videoId: video.id })} tabindex={-1} title={video.title}>
-                    <ThumbImage video={video} eager={eager} />
+                    <ThumbImage video={video} eager={eager} shown="row" />
                     {isNew(video, viewerId) ? <span class="badge-new chrow-thumb-new">New</span> : null}
                     <DurationBadge seconds={video.durationSec} />
                     {progress !== null ? (

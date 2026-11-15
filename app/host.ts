@@ -9,6 +9,7 @@ import { loadCataloguePlaylists } from './data/playlists.ts'
 import { loadCataloguePosts } from './data/posts.ts'
 import { loadCatalogueAssignments } from './data/assignments.ts'
 import { loadCatalogueWatchLimits } from './data/watch-limits.ts'
+import { startPosterSizes } from './data/posters.ts'
 import { startRenditions } from './data/renditions.ts'
 import { migrateCatalogue } from './db.ts'
 
@@ -32,5 +33,6 @@ export async function prepareHost(
     await loadCatalogueWatchLimits()
     await loadCatalogueAssignments()
     startRenditions(options.env ?? process.env)
+    startPosterSizes(options.env ?? process.env)
   }
 }

@@ -15,9 +15,9 @@ import {
   progressPercent,
   publishedAt,
   relatedVideos,
-  thumbUrl,
 } from '../data/library.ts'
 import type { MediaFile } from '../data/media.ts'
+import { stillUrl } from '../data/posters.ts'
 import { renditionsReady } from '../data/renditions.ts'
 import { playlistsOwnedBy, playlistVideos, type Playlist } from '../data/playlists.ts'
 import { tagsInUse } from '../data/tags.ts'
@@ -64,7 +64,7 @@ export function videoPlayerProps(video: Video, media: MediaFile | null, person: 
         playable && !assignedFirst && renditionsReady(video)
           ? routes.hls.href({ videoId: video.id, path: 'master.m3u8' })
           : undefined,
-      poster: thumbUrl(video) ?? undefined,
+      poster: stillUrl(video) ?? undefined,
       durationSec: video.durationSec,
       resumeAt: isInProgress(video, person?.id) ? progressOf(video, person?.id) : undefined,
       furthestAt: assigned && person ? highWaterOf(person.id, video.id) : undefined,
@@ -102,7 +102,7 @@ function RelatedCard(handle: Handle<{ video: Video; viewerId?: string; returnTo?
     return (
       <article class="rcard">
         <a class="rcard-thumb" href={href} tabindex={-1} aria-hidden="true">
-          <ThumbImage video={video} />
+          <ThumbImage video={video} shown="row" />
           <DurationBadge seconds={video.durationSec} />
           {progress !== null ? (
             <span class="vcard-progress">
@@ -186,7 +186,7 @@ function ListPanel(handle: Handle<{ playlist: Playlist; video: Video; person: Pe
                     {current ? <Icon name="play" size={12} /> : i + 1}
                   </span>
                   <span class="wlist-thumb">
-                    <ThumbImage video={entry} />
+                    <ThumbImage video={entry} shown="row" />
                     <DurationBadge seconds={entry.durationSec} />
                   </span>
                   <span class="wlist-text">

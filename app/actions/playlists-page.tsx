@@ -96,7 +96,7 @@ function HouseRow(handle: Handle<{ playlist: Playlist; eager?: boolean; viewerId
                   tabindex={-1}
                   title={video.title}
                 >
-                  <ThumbImage video={video} eager={eager} />
+                  <ThumbImage video={video} eager={eager} shown="row" />
                   {fresh ? <span class="badge-new chrow-thumb-new">New</span> : null}
                   <DurationBadge seconds={video.durationSec} />
                 </a>
