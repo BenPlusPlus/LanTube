@@ -3,6 +3,7 @@ import type { Handle, RemixNode } from 'remix/component'
 import { brandLimits, brandName } from '../../data/brand.ts'
 import type { Person } from '../../data/household.ts'
 import { channelLimits, getChannels } from '../../data/library.ts'
+import { renditionsStatus, type RenditionsStatus } from '../../data/renditions.ts'
 import { routes } from '../../routes.ts'
 import { Avatar } from '../../ui/cards.tsx'
 import { Icon } from '../../ui/public/icons.tsx'
@@ -43,6 +44,18 @@ export interface HousePageProps {
   errorField?: HouseErrorField
   folderPath?: string
   folderName?: string
+}
+
+/** How far the Host has got making lighter copies for slow connections. */
+export function renditionsNote(brand: string, status: RenditionsStatus = renditionsStatus()): string {
+  if (!status.enabled) return `Lighter copies for slow Wi‑Fi are turned off on this host, so videos play at their original quality.`
+  if (status.unavailable) return `${brand} can’t find ffmpeg on the host, so videos play at their original quality.`
+  if (status.making) {
+    let more = status.waiting > 0 ? ` ${status.waiting} more waiting.` : ''
+    return `Making lighter copies for slow Wi‑Fi: “${status.making.title}”, ${status.making.percent}% done.${more}`
+  }
+  if (status.waiting > 0) return `${status.waiting} video${status.waiting === 1 ? '' : 's'} waiting for lighter copies for slow Wi‑Fi.`
+  return 'No videos are waiting for lighter copies. Slow Wi‑Fi gets a smaller picture instead of stalling.'
 }
 
 /** A destructive step tucked behind a disclosure; it opens itself when the server sends back an error for it. */
@@ -131,6 +144,9 @@ export function HousePage(handle: Handle<HousePageProps>) {
               <h2 class="shelf-title" id="house-watch">
                 Watching
               </h2>
+              <p class="shelf-note" role="status">
+                {renditionsNote(brand)}
+              </p>
             </header>
             <form class="house-watch" method="post" action={action}>
               <input type="hidden" name="intent" value="unsigned-watch" />

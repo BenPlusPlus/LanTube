@@ -11,7 +11,7 @@ export const assets = createAssetServer({
   rootDir,
 
   allowFiles: ['app/routes.ts', 'app/**/public/**'],
-  allowPackages: ['remix'],
+  allowPackages: ['remix', 'hls.js'],
   denyFiles: ['app/**/*.test.*'],
   sourceMaps: isDevelopment ? 'external' : undefined,
   minify: !isDevelopment,
@@ -28,3 +28,9 @@ export const assets = createAssetServer({
 const entry = 'app/actions/public/entry.ts'
 
 export const scriptEntry = await assets.getScriptEntry(entry)
+
+/** Modules the browser imports on demand: in the import map so they resolve, but never preloaded. */
+const onDemand = ['app/actions/public/hls.ts']
+
+/** The entry's import map plus whatever the on-demand modules need. */
+export const importMap = await assets.getImportMap([entry, ...onDemand])

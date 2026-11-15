@@ -1,7 +1,7 @@
 import type { Handle, RemixNode } from 'remix/component'
 import { ImportMap } from 'remix/component/server'
 
-import { scriptEntry } from '../assets.ts'
+import { importMap, scriptEntry } from '../assets.ts'
 import { brandName } from '../data/brand.ts'
 
 export interface DocumentProps {
@@ -14,7 +14,7 @@ export interface DocumentProps {
 export function Document(handle: Handle<DocumentProps>) {
   return () => {
     let { children, head, title = brandName(), bodyClass } = handle.props
-    let { href, importMap, preloads } = scriptEntry
+    let { href, preloads } = scriptEntry
 
     return (
       <html lang="en">

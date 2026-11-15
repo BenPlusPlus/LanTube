@@ -18,6 +18,7 @@ import {
   thumbUrl,
 } from '../data/library.ts'
 import type { MediaFile } from '../data/media.ts'
+import { renditionsReady } from '../data/renditions.ts'
 import { playlistsOwnedBy, playlistVideos, type Playlist } from '../data/playlists.ts'
 import { tagsInUse } from '../data/tags.ts'
 import { routes } from '../routes.ts'
@@ -59,6 +60,10 @@ export function videoPlayerProps(video: Video, media: MediaFile | null, person: 
       videoId: video.id,
       title: video.title,
       src: playable && !assignedFirst ? routes.media.href({ videoId: video.id }) : null,
+      hlsSrc:
+        playable && !assignedFirst && renditionsReady(video)
+          ? routes.hls.href({ videoId: video.id, path: 'master.m3u8' })
+          : undefined,
       poster: thumbUrl(video) ?? undefined,
       durationSec: video.durationSec,
       resumeAt: isInProgress(video, person?.id) ? progressOf(video, person?.id) : undefined,

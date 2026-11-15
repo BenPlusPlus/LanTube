@@ -5,6 +5,7 @@ import { listenHost } from './app/config.ts'
 import { db } from './app/db.ts'
 import { getPerson } from './app/data/household.ts'
 import { prepareHost } from './app/host.ts'
+import { stopRenditions } from './app/data/renditions.ts'
 import { router } from './app/router.ts'
 
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
@@ -56,6 +57,7 @@ function shutdown() {
   }
 
   shuttingDown = true
+  stopRenditions()
   server.close(() => {
     db.close().finally(() => process.exit(0))
   })

@@ -26,6 +26,7 @@ import { mediaDir, mediaFileFor, videoExtensions } from './media.ts'
 import { forgetDeletedVideo } from './assignments.ts'
 import { forgetChannelPosts } from './posts.ts'
 import { addVideo, dropFromPlaylists, getPlaylist } from './playlists.ts'
+import { queueRenditions, removeRenditions } from './renditions.ts'
 
 /** Uploads land in the media folder, so they stream like everything else on the host. */
 const uploadsDir = path.join(mediaDir, 'uploads')
@@ -280,6 +281,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
     chapters,
   })
   if (playlist) await addVideo(playlist, video.id)
+  queueRenditions(video.id)
   return { video }
 }
 
@@ -299,6 +301,7 @@ async function unlinkLanTubeBytes(video: Video) {
   let poster = posterPathFor(video)
   if (poster) await fsp.rm(poster, { force: true })
   await unlinkCaptions(video)
+  await removeRenditions(video.id)
 }
 
 /** Writes the one .vtt for this Video and points the catalogue at it. */

@@ -1,5 +1,6 @@
 import { clientEntry, on, ref } from 'remix/component'
 import type { Handle } from 'remix/component'
+import type HlsPlayer from 'hls.js/light'
 
 import { chapterAt, chapterSpans, type VideoChapter } from '../../ui/public/chapter-list.ts'
 import { routes } from '../../routes.ts'
@@ -10,6 +11,8 @@ export interface PlayerProps {
   title: string
   /** Media URL, or null when the file isn't on the host. */
   src: string | null
+  /** HLS master playlist of this Video's Renditions, once the host has made them. */
+  hlsSrc?: string
   poster?: string
   /** Catalogue duration, used until the file reports its own. */
   durationSec: number
@@ -35,6 +38,26 @@ export interface PlayerProps {
 }
 
 type Failure = 'unsupported' | 'network' | 'missing' | 'time-up' | 'assigned'
+/** `pending` until the browser shows what it can play; `native` is the browser's own HLS, `hlsjs` is hls.js. */
+type Source = 'pending' | 'original' | 'native' | 'hlsjs'
+/** A height picks that step and holds it; `auto` lets the connection choose; `original` plays the file itself. */
+type Quality = 'auto' | 'original' | number
+
+const QUALITY_KEY = 'lt_quality'
+
+function savedQuality(): Quality {
+  try {
+    let value = localStorage.getItem(QUALITY_KEY)
+    if (value === 'original') return 'original'
+    let height = Number(value)
+    if (Number.isInteger(height) && height > 0) return height
+  } catch {}
+  return 'auto'
+}
+
+function qualityLabel(quality: Quality): string {
+  return quality === 'auto' ? 'Auto' : quality === 'original' ? 'Original' : `${quality}p`
+}
 
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 const HIDE_AFTER_MS = 2600
@@ -75,6 +98,9 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   let seekEl: HTMLElement | undefined
   let speedBtn: HTMLButtonElement | undefined
   let speedMenu: HTMLElement | undefined
+  let qualityBtn: HTMLButtonElement | undefined
+  let qualityMenu: HTMLElement | undefined
+  let hls: HlsPlayer | undefined
 
   let startedOnce = false
   let playing = false
@@ -111,6 +137,17 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   let fullscreenSupported = false
   let touch = false
   let captionsOn = false
+  let source: Source = handle.props.hlsSrc && handle.props.src ? 'pending' : 'original'
+  let quality: Quality = 'auto'
+  /** Steps hls.js found in the master playlist, tallest first. Empty with the browser's own HLS. */
+  let levels: { index: number; height: number }[] = []
+  /** The step Auto is on right now. */
+  let autoHeight: number | null = null
+  let qualityOpen = false
+  /** Changing source mid-watch: where to pick up, and whether to keep playing. */
+  let switching: { at: number; play: boolean } | null = null
+  /** Set once the Renditions have failed here (or been retried), so the player never bounces between sources. */
+  let adaptiveFailed = false
 
   let hideTimer: ReturnType<typeof setTimeout> | undefined
   let waitTimer: ReturnType<typeof setTimeout> | undefined
@@ -196,7 +233,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     controlsShown = true
     clearTimeout(hideTimer)
     hideTimer = setTimeout(() => {
-      if (playing && !speedOpen && !scrubbing && !pointerOverBar && !root?.querySelector(':focus-visible')) {
+      if (playing && !speedOpen && !qualityOpen && !scrubbing && !pointerOverBar && !root?.querySelector(':focus-visible')) {
         controlsShown = false
         handle.update()
       }
@@ -342,6 +379,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
   }
 
   function openSpeed() {
+    qualityOpen = false
     speedOpen = true
     poke()
     handle.queueTask(() => {
@@ -355,6 +393,168 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     speedOpen = false
     handle.update()
     if (restoreFocus) speedBtn?.focus()
+  }
+
+  /* ---------- Quality and source ---------- */
+
+  /** Plays the Renditions with hls.js where the browser has Media Source, else its own HLS. False if neither. */
+  async function startAdaptive(): Promise<boolean> {
+    let hlsSrc = handle.props.hlsSrc
+    if (!hlsSrc || !video) return false
+    if ('MediaSource' in window || 'ManagedMediaSource' in window) {
+      try {
+        let { default: Hls } = await import('./hls.ts')
+        if (handle.signal.aborted || !video) return false
+        if (Hls.isSupported()) {
+          source = 'hlsjs'
+          // The <video> must have no src of its own before hls.js takes it over.
+          await handle.update()
+          attachHls(Hls, hlsSrc)
+          return true
+        }
+      } catch {}
+    }
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // The browser picks its own steps, so a held step means Auto here.
+      if (typeof quality === 'number') quality = 'auto'
+      source = 'native'
+      handle.update()
+      return true
+    }
+    return false
+  }
+
+  function attachHls(Hls: typeof HlsPlayer, hlsSrc: string) {
+    if (!video) return
+    let instance = new Hls({ enableWorker: false, capLevelToPlayerSize: true, startLevel: -1 })
+    hls = instance
+    instance.on(Hls.Events.MANIFEST_PARSED, () => {
+      levels = instance.levels
+        .map((level, index) => ({ index, height: Math.min(level.width || level.height, level.height || level.width) }))
+        .filter((level) => level.height > 0)
+        .sort((a, b) => b.height - a.height)
+      let held = typeof quality === 'number' ? levels.find((level) => level.height === quality) : undefined
+      if (held) instance.currentLevel = held.index
+      else if (typeof quality === 'number') quality = 'auto'
+      handle.update()
+    })
+    instance.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+      autoHeight = levels.find((level) => level.index === data.level)?.height ?? null
+      handle.update()
+    })
+    instance.on(Hls.Events.ERROR, (_event, data) => {
+      if (data.fatal) fallBackToOriginal()
+    })
+    instance.loadSource(hlsSrc)
+    instance.attachMedia(video)
+  }
+
+  function stopAdaptive() {
+    hls?.destroy()
+    hls = undefined
+    levels = []
+    autoHeight = null
+  }
+
+  /** Renditions wouldn't play here: the original file still might. */
+  function fallBackToOriginal(): boolean {
+    if (source === 'original' || !handle.props.src) return false
+    adaptiveFailed = true
+    holdPlace()
+    stopAdaptive()
+    source = 'original'
+    quality = 'original'
+    handle.update()
+    return true
+  }
+
+  /** The original won't play in this browser (an .mkv, say) but the Renditions might. Tried once. */
+  function retryAdaptive(): boolean {
+    if (source !== 'original' || adaptiveFailed || !handle.props.hlsSrc) return false
+    if (video?.error?.code !== MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) return false
+    adaptiveFailed = true
+    holdPlace()
+    quality = 'auto'
+    startAdaptive().then((started) => {
+      if (started || handle.signal.aborted) return
+      failure = 'unsupported'
+      playing = false
+      waiting = false
+      handle.update()
+    })
+    return true
+  }
+
+  function holdPlace() {
+    if (!video || (!startedOnce && video.currentTime === 0)) return
+    switching = { at: video.currentTime, play: !video.paused }
+  }
+
+  async function chooseQuality(next: Quality) {
+    qualityOpen = false
+    let before = quality
+    quality = next
+    try {
+      localStorage.setItem(QUALITY_KEY, String(next))
+    } catch {}
+    showFlash('speed', qualityLabel(next))
+    poke()
+    if (next === before) return
+    if (next === 'original') {
+      holdPlace()
+      stopAdaptive()
+      source = 'original'
+      handle.update()
+      return
+    }
+    if (source === 'hlsjs' && hls) {
+      let held = typeof next === 'number' ? levels.find((level) => level.height === next) : undefined
+      // Picking a step changes now; going back to Auto changes at the next segment.
+      if (held) hls.currentLevel = held.index
+      else hls.nextLevel = -1
+      return
+    }
+    if (source === 'original') {
+      holdPlace()
+      if (!(await startAdaptive())) {
+        switching = null
+        quality = 'original'
+        handle.update()
+      }
+    }
+  }
+
+  function openQuality() {
+    speedOpen = false
+    qualityOpen = true
+    poke()
+    handle.queueTask(() => {
+      qualityMenu?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
+    })
+  }
+
+  function closeQuality(restoreFocus = true) {
+    if (!qualityOpen) return
+    qualityOpen = false
+    handle.update()
+    if (restoreFocus) qualityBtn?.focus()
+  }
+
+  /** Arrow keys walk a player menu, Escape closes it, Tab leaves it. */
+  function menuKeys(event: KeyboardEvent, menu: HTMLElement | undefined, close: (restoreFocus?: boolean) => void) {
+    let items = [...(menu?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])]
+    let index = items.indexOf(document.activeElement as HTMLElement)
+    if (event.key === 'Escape') {
+      close()
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      let next = (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+      items[next]?.focus()
+    } else if (event.key === 'Tab') {
+      close(false)
+      return
+    } else return
+    event.preventDefault()
+    event.stopPropagation()
   }
 
   function onKey(event: KeyboardEvent) {
@@ -447,6 +647,20 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
       applyCaptions()
       handle.update()
     } catch {}
+    if (source === 'pending') {
+      quality = savedQuality()
+      if (quality === 'original') {
+        source = 'original'
+        handle.update()
+      } else {
+        startAdaptive().then((started) => {
+          if (started || handle.signal.aborted) return
+          source = 'original'
+          quality = 'original'
+          handle.update()
+        })
+      }
+    }
 
     let signal = handle.signal
     document.addEventListener('keydown', onKey, { signal })
@@ -461,10 +675,9 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     document.addEventListener(
       'pointerdown',
       (event) => {
-        if (!speedOpen) return
         let target = event.target as Node
-        if (speedMenu?.contains(target) || speedBtn?.contains(target)) return
-        closeSpeed(false)
+        if (speedOpen && !speedMenu?.contains(target) && !speedBtn?.contains(target)) closeSpeed(false)
+        if (qualityOpen && !qualityMenu?.contains(target) && !qualityBtn?.contains(target)) closeQuality(false)
       },
       { signal },
     )
@@ -475,6 +688,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     window.addEventListener('pagehide', () => saveProgress(true), { signal })
     signal.addEventListener('abort', () => {
       saveProgress(true)
+      stopAdaptive()
       cancelAnimationFrame(frame)
       clearTimeout(hideTimer)
       clearTimeout(waitTimer)
@@ -489,7 +703,10 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
     let spans = chapterSpans(chapters, duration)
     let hoverChapter = hover ? chapterAt(chapters, hover.time, duration) : undefined
     let nowChapter = chapterAt(chapters, current, duration)
-    let shown = controlsShown || !playing || speedOpen || scrubbing
+    let shown = controlsShown || !playing || speedOpen || qualityOpen || scrubbing
+    let videoSrc = source === 'original' ? (src ?? undefined) : source === 'native' ? handle.props.hlsSrc : undefined
+    let qualities: Quality[] =
+      handle.props.hlsSrc && src ? ['auto', ...levels.map((level) => level.height), 'original'] : []
     let played = duration > 0 ? Math.min(100, (current / duration) * 100) : 0
     let buffered = duration > 0 ? Math.min(100, (bufferedEnd / duration) * 100) : 0
     let offerResume = !startedOnce && resumeAt > 0 && failure === null
@@ -561,7 +778,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
             if (event.pointerType === 'mouse') poke()
           }),
           on('pointerleave', () => {
-            if (playing && !speedOpen) {
+            if (playing && !speedOpen && !qualityOpen) {
               controlsShown = false
               handle.update()
             }
@@ -571,7 +788,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
       >
         <video
           class="player-video"
-          src={src}
+          src={videoSrc}
           poster={poster}
           preload="metadata"
           playsInline
@@ -589,7 +806,11 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
             }),
             on('loadedmetadata', () => {
               duration = video!.duration
-              if (resumeAt > 0 && resumeAt < duration - 15) video!.currentTime = resumeAt
+              if (switching) {
+                video!.currentTime = capPlayhead(switching.at)
+                if (switching.play) video!.play().catch(() => {})
+                switching = null
+              } else if (resumeAt > 0 && resumeAt < duration - 15) video!.currentTime = resumeAt
               else resumeAt = 0
               current = video!.currentTime
               applyCaptions()
@@ -676,6 +897,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
               handle.update()
             }),
             on('error', () => {
+              if (fallBackToOriginal() || retryAdaptive()) return
               let code = video!.error?.code
               failure = code === MediaError.MEDIA_ERR_NETWORK ? 'network' : 'unsupported'
               playing = false
@@ -746,10 +968,17 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
             ) : (
               <>
                 <p class="player-message-title">This file can’t play in this browser</p>
-                <p>
-                  {handle.props.brand} doesn’t convert videos yet. <code>{expectedFile}</code> needs to be MP4 (H.264)
-                  or WebM to play everywhere.
-                </p>
+                {handle.props.hlsSrc ? (
+                  <p>
+                    Neither <code>{expectedFile}</code> nor the copies {handle.props.brand} made of it will play here. Try
+                    another browser or device.
+                  </p>
+                ) : (
+                  <p>
+                    {handle.props.brand} hasn’t made a copy of <code>{expectedFile}</code> that plays everywhere yet. Try
+                    again later, or save it as MP4 (H.264) or WebM.
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -980,21 +1209,7 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
                   hidden={speedOpen ? undefined : true}
                   mix={[
                     ref((node) => (speedMenu = node)),
-                    on('keydown', (event) => {
-                      let items = [...speedMenu!.querySelectorAll<HTMLElement>('[role="menuitemradio"]')]
-                      let index = items.indexOf(document.activeElement as HTMLElement)
-                      if (event.key === 'Escape') {
-                        closeSpeed()
-                      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                        let next = (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
-                        items[next]?.focus()
-                      } else if (event.key === 'Tab') {
-                        closeSpeed(false)
-                        return
-                      } else return
-                      event.preventDefault()
-                      event.stopPropagation()
-                    }),
+                    on('keydown', (event) => menuKeys(event, speedMenu, closeSpeed)),
                   ]}
                 >
                   {rateList().map((value) => (
@@ -1017,6 +1232,61 @@ export const Player = clientEntry(import.meta.url, function Player(handle: Handl
                   ))}
                 </ul>
               </div>
+
+              {qualities.length > 0 ? (
+                <div class="pspeed">
+                  <button
+                    class={quality === 'auto' ? 'pbtn pbtn-text' : 'pbtn pbtn-text is-changed'}
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={qualityOpen ? 'true' : 'false'}
+                    aria-controls="player-quality-menu"
+                    aria-label={`Quality, ${quality === 'auto' && autoHeight ? `Auto, ${autoHeight}p now` : qualityLabel(quality)}`}
+                    title="Quality"
+                    mix={[
+                      ref((node) => (qualityBtn = node)),
+                      on('click', () => (qualityOpen ? closeQuality() : openQuality())),
+                    ]}
+                  >
+                    {qualityLabel(quality)}
+                  </button>
+                  <ul
+                    class="pmenu"
+                    id="player-quality-menu"
+                    role="menu"
+                    aria-label="Quality"
+                    hidden={qualityOpen ? undefined : true}
+                    mix={[
+                      ref((node) => (qualityMenu = node)),
+                      on('keydown', (event) => menuKeys(event, qualityMenu, closeQuality)),
+                    ]}
+                  >
+                    {qualities.map((value) => (
+                      <li role="none">
+                        <button
+                          class="pmenu-item"
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={value === quality ? 'true' : 'false'}
+                          tabindex={-1}
+                          mix={on('click', () => {
+                            chooseQuality(value)
+                            qualityBtn?.focus()
+                          })}
+                        >
+                          <span class="pmenu-check">{value === quality ? <Icon name="check" size={18} /> : null}</span>
+                          {qualityLabel(value)}
+                          {value === 'auto' && quality === 'auto' && autoHeight ? (
+                            <span class="pmenu-note">{autoHeight}p now</span>
+                          ) : value === 'original' ? (
+                            <span class="pmenu-note">Full file</span>
+                          ) : null}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
               {pipSupported ? (
                 <button

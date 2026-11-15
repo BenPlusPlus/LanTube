@@ -5085,6 +5085,13 @@ label.poster:hover {
   outline-offset: -2px;
 }
 
+.pmenu-note {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
 .pmenu-check {
   display: grid;
   place-items: center;

@@ -122,6 +122,12 @@ The account in `/etc/lantube/cifs.cred` must have **Read/Write** on the Media sh
 
 If the library is a subdirectory of the share, put that path in the mount unit `What=` (`//server/share/subdir`). The `prefixpath=` option is ignored on kernels after 3.10, so the mount lands on the share root and the container sees the whole share. After changing `What=`, `systemctl daemon-reload`, restart the unit, then `docker compose restart` so `/media` picks up the new filesystem.
 
+## Renditions (lighter copies for slow Wi‑Fi)
+
+The image includes ffmpeg. On every start the container makes Renditions (ADR 0019) for any Video that lacks them, newest first and one at a time, at low CPU priority. The first start after this feature lands works through the whole library, which can take hours or days on a modest CPU. Videos keep playing their originals in the meantime. House → Watching shows progress.
+
+Renditions live in `/mnt/lantube-media/.lantube/renditions` and add roughly half again to the library's size. The CIFS account needs write access there, the same as for uploads. Set `LANTUBE_RENDITIONS=off` in `/etc/lantube/production.env` to stop making them (existing ones still play). `LANTUBE_FFMPEG` and `LANTUBE_FFPROBE` point at other binaries if needed.
+
 ## Layout (reference)
 
 | Piece | Location |
@@ -131,6 +137,7 @@ If the library is a subdirectory of the share, put that path in the mount unit `
 | Secrets | `/etc/lantube/production.env` (`640 root:docker`) |
 | House overlay | `$HOME/.config/lantube/compose.override.yaml` (symlink in the project) |
 | Media share | `/mnt/lantube-media` → container `/media` |
+| Renditions | `/mnt/lantube-media/.lantube/renditions/<video slug>/` |
 | House timezone | Host `/etc/localtime` and `/etc/timezone` (optional `TZ` in production.env) |
 | HTTP | Host port 80 → container 44100 |
 | Catalogue | LAN Postgres (not a container); host pin in the overlay |
