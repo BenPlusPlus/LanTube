@@ -27,6 +27,7 @@ import { chaptersFromFile } from './chapters.ts'
 import { mediaDir, videoExtensions } from './media.ts'
 import { forgetDeletedVideo } from './assignments.ts'
 import { dropFromPlaylists } from './playlists.ts'
+import { queueRenditions, removeRenditions } from './renditions.ts'
 
 export type FolderField = 'path' | 'name' | 'detach'
 export type FolderResult = Channel | { error: string; field: FolderField }
@@ -176,6 +177,7 @@ export async function scanFolder(channel: Channel) {
       file: relative,
       chapters,
     })
+    queueRenditions(slug)
   }
   for (let video of videos.filter((entry) => entry.channelId === channel.id)) {
     if (video.file && present.has(video.file)) continue
@@ -190,6 +192,7 @@ export async function dropIndexedVideo(id: string) {
   if (!channel || channel.kind !== 'folder') return false
   await deleteCatalogueVideo(video.id)
   await unlinkCaptions(video)
+  await removeRenditions(video.id)
   deleteVideo(video.id)
   dropFromPlaylists(video.id)
   forgetDeletedVideo(video.id)
@@ -208,6 +211,7 @@ export async function detachFolder(id: string) {
   let onChannel = videos.filter((video) => video.channelId === channel.id)
   await deleteCatalogueFolder(channel.id)
   for (let video of onChannel) {
+    await removeRenditions(video.id)
     deleteVideo(video.id)
     dropFromPlaylists(video.id)
     forgetDeletedVideo(video.id)

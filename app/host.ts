@@ -9,6 +9,7 @@ import { loadCataloguePlaylists } from './data/playlists.ts'
 import { loadCataloguePosts } from './data/posts.ts'
 import { loadCatalogueAssignments } from './data/assignments.ts'
 import { loadCatalogueWatchLimits } from './data/watch-limits.ts'
+import { startRenditions } from './data/renditions.ts'
 import { migrateCatalogue } from './db.ts'
 
 export async function prepareHost(
@@ -30,5 +31,6 @@ export async function prepareHost(
     await loadCatalogueHistory()
     await loadCatalogueWatchLimits()
     await loadCatalogueAssignments()
+    startRenditions(options.env ?? process.env)
   }
 }

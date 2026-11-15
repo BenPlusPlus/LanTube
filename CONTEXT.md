@@ -88,6 +88,10 @@ _Avoid_: Caption tracks (plural), SRT, multi-language
 A titled span of a Video taken from chapters embedded in the file, drawn on the Watch seek bar.
 _Avoid_: Timestamp, marker, section (as the product name)
 
+**Rendition**:
+A lighter copy of a Video's file that the Host makes in the background so slow connections play without stalling. A Video has a ladder of them, from 1080p down to 360p; the player moves between them as the connection changes. A Video plays its original file until its Renditions exist.
+_Avoid_: Transcode, proxy, version, quality (the player's word for the step being watched)
+
 **Media share**:
 The LAN filesystem that holds the bytes — video files, posters, and photos.
 _Avoid_: Bucket, CDN, S3, volume (except as a mount)

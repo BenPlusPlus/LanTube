@@ -46,12 +46,13 @@ Confirmed:
 - Parent sees every Video and Playlist, including private ones, and the History of People who are not Parents. Parent does not change visibility or delete library items from that role. A house may have zero Parents.
 - A Parent may assign a Video to a Person who is neither Parent nor Admin, and only if that Person can already watch it. An Assignment is a duty, not a permission. While that Person has unfinished Assignments they must finish them before other Videos will play (signed in). Assigned playback caps at 1.5× and cannot seek past the furthest playhead. Daily watch limits still apply. Unsigned watch is unchanged.
 - Removing a Person drops them from sign-in and pickers. Their Home channel stays frozen with its Videos until an Admin deletes it. Custom channels they owned pass to the Admin who removed them. Their playlists and History go. They are dropped from Audiences and Manager lists. The last Admin cannot be removed.
+- The Host makes Renditions of every Video in the background — an HLS ladder from 1080p down to 360p on the Media share — so phones and tablets on weak Wi‑Fi get a smaller picture instead of stalling. The player picks the step from the connection; a viewer may hold a step or choose Original. A Video plays its original file until its Renditions exist (ADR 0019).
 - Tags are household-wide labels People invent by typing a name on a Video. Names are unique ignoring case. Folder videos start untagged.
 - Deleting an uploaded Video is allowed for the Video owner, and on a Custom channel also the Channel owner and Managers. Only an Admin may drop an indexed Folder Video from the catalogue. The Channel owner may delete a Custom channel from the edit form. An Admin may delete a Custom channel or a Frozen Home from the channel page; that delete removes the Videos on it, including private Videos on a Frozen Home, and a Frozen Home delete frees the slug.
 
 Undecided (do not invent):
 
-- Transcoding, live broadcast, comments, likes, or a recommendation model.
+- Live (per-play) transcoding, live broadcast, comments, likes, or a recommendation model.
 - Remote access or VPN from outside the LAN.
 - Native TV or phone apps (the product is a web app in the browser).
 - A live filesystem watcher (v1 scans at startup and when an Admin asks).

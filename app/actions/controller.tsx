@@ -30,6 +30,7 @@ import { addVideo, canSee, getPlaylist, isOwner, moveVideo, playlistVideos, remo
 import { feedPage, parseCount, splitHomeLibrary, VIDEO_FEED_PAGE } from '../data/video-feed.ts'
 import { captionsFileFor } from '../data/captions.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
+import { renditionFileFor } from '../data/renditions.ts'
 import { canDeletePost, canSeePosts, channelPosts, deletePost, getPost, picturePathFor, POSTS_PAGE } from '../data/posts.ts'
 
 import { findOrCreateTags, parseTagNames, tagsInUse } from '../data/tags.ts'
@@ -58,6 +59,13 @@ function safeReturn(value: FormDataEntryValue | null): string | undefined {
 function watchable(videoId: string, viewerId: string | undefined): Video | undefined {
   let video = getVideo(videoId)
   return video && canWatch(video, viewerId) ? video : undefined
+}
+
+/** Assignments and daily limits hold for every byte of a Video: its file, its Renditions, and its subtitles. */
+function refusePlay(person: Person | null, video: Video): Response | null {
+  if (mustFinishAssignedFirst(person, video.id)) return new Response('Finish your assigned videos first.', { status: 403 })
+  if (isTimeUp(person)) return new Response('Time’s up for today', { status: 403 })
+  return null
 }
 
 function watchFields(video: Video, personId: string | undefined | null) {
@@ -286,11 +294,21 @@ export default createController(routes, {
       let video = watchable(context.params.videoId, person?.id)
       let media = video ? mediaFileFor(video) : null
       if (!video || !media?.exists) return new Response('Not Found', { status: 404 })
-      if (mustFinishAssignedFirst(person, video.id)) {
-        return new Response('Finish your assigned videos first.', { status: 403 })
-      }
-      if (isTimeUp(person)) return new Response('Time’s up for today', { status: 403 })
+      let refused = refusePlay(person, video)
+      if (refused) return refused
       return createFileResponse(openLazyFile(media.path, { type: media.type }), context.request, {
+        cacheControl: 'private, max-age=3600',
+      })
+    },
+    async hls(context) {
+      let person = personFromSession(context.session)
+      if (!person && !unsignedWatchAllowed()) return new Response('Sign in to watch', { status: 401 })
+      let video = watchable(context.params.videoId, person?.id)
+      let file = video ? renditionFileFor(video, context.params.path) : null
+      if (!video || !file) return new Response('Not Found', { status: 404 })
+      let refused = refusePlay(person, video)
+      if (refused) return refused
+      return createFileResponse(openLazyFile(file.path, { type: file.type }), context.request, {
         cacheControl: 'private, max-age=3600',
       })
     },
@@ -300,10 +318,8 @@ export default createController(routes, {
       let video = watchable(context.params.videoId, person?.id)
       let file = video ? captionsFileFor(video) : null
       if (!video || !file) return new Response('Not Found', { status: 404 })
-      if (mustFinishAssignedFirst(person, video.id)) {
-        return new Response('Finish your assigned videos first.', { status: 403 })
-      }
-      if (isTimeUp(person)) return new Response('Time’s up for today', { status: 403 })
+      let refused = refusePlay(person, video)
+      if (refused) return refused
       return createFileResponse(openLazyFile(file, { type: 'text/vtt' }), context.request, {
         cacheControl: 'private, max-age=3600',
       })

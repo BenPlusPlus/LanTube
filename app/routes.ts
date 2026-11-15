@@ -11,6 +11,8 @@ export const routes = route({
   watchDelete: post('/watch/:videoId/delete'),
   watchAssign: form('/watch/:videoId/assign'),
   media: get('/media/:videoId'),
+  /** Renditions: a Video's lighter copies as HLS (`master.m3u8` and what it lists). */
+  hls: get('/hls/:videoId/*path'),
   captions: get('/captions/:videoId'),
   channel: get('/channel/:channelId'),
   channelVideos: get('/channel/:channelId/videos'),

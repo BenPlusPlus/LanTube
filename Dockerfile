@@ -1,9 +1,10 @@
 FROM node:26-bookworm-slim
 
 # Node 25+ no longer bundles Corepack, so pnpm comes from npm at the version package.json pins.
+# ffmpeg makes the lighter Renditions that slow Wi-Fi plays (app/data/renditions.ts).
 RUN npm install -g pnpm@12.16.1 \
   && apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

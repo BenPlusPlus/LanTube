@@ -1,0 +1,7 @@
+# Pre-encoded Renditions for slow connections
+
+Devices on weak Wi‑Fi stall on originals (a phone's 4K clip runs 40–60 Mbps). The Host makes Renditions ahead of time: one background ffmpeg job at a time, at low CPU priority, writes an H.264/AAC HLS ladder (1080p, 720p, 480p, 360p, never larger or costlier than the source) under `.lantube/renditions/<slug>/` on the Media share. The Watch player plays them with hls.js, or the browser's own HLS, and lets the connection pick the step. Viewers can hold a step or choose Original, and that choice is remembered per device. Until a Video's Renditions exist, or if they fail, it plays the original file as before.
+
+Renditions are bytes LanTube created (ADR 0003): they go when their Video is deleted, dropped, or its Folder detached. They are never written next to the house's originals. A stamp of the source's size and mtime and the ladder version decides freshness, so a replaced file or a new ladder is made again, with no catalogue column. `/hls/:videoId/*` passes the same sight, Assignment, daily-limit and Unsigned-watch gates as `/media` (ADR 0017's player rules hold because it is the same `<video>`).
+
+Live per-play transcoding was rejected: it costs an encode per struggling viewer, wants GPU passthrough into the container, and complicates seeking. A single lighter MP4 with a manual switch was rejected because Wi‑Fi changes mid-video and a switch rebuffers. HDR sources are converted to 8-bit without tone mapping for now, so their Renditions look flatter than the original.

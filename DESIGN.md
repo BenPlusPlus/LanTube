@@ -634,7 +634,7 @@ The custom player on the watch page (`app/actions/public/player.tsx`, a client e
 - **Compact** (`compact`, the edit view's reference player): no theater button or `t`, and shortcuts only answer while focus is inside the player, so typing in the form beside it never seeks or pauses. Limits, assignments, resume, and play counts work exactly as on the watch page.
 - **Touch:** a tap on the picture shows or hides the controls; it never pauses. Double-tap does nothing (double-click toggles fullscreen with a mouse).
 - **Spinner:** a 48px white ring after 300ms of buffering.
-- **Honest failures** (black-tinted overlay, 40px file icon, Paper title, Ash copy, monospace path chip): file not on the host ("LanTube looks for `Home Movies/…` in its media folder"), format this browser can't play (no transcoding yet), and lost connection with a "Try again" button. Time up for a limited person uses the same frame with a timer icon (see Parental controls). Never red.
+- **Honest failures** (black-tinted overlay, 40px file icon, Paper title, Ash copy, monospace path chip): file not on the host ("LanTube looks for `Home Movies/…` in its media folder"), format this browser can't play (before its Renditions exist, or when they fail too), and lost connection with a "Try again" button. Time up for a limited person uses the same frame with a timer icon (see Parental controls). Never red.
 - **Memory:** volume and mute persist per device; plays are counted once per visit; progress is saved on pause, end, every 15s, tab hide, and page leave, for the signed-in person only (it also feeds their History). Unsigned playback saves nothing.
 
 ### Watch page info
