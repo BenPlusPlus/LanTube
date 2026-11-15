@@ -1,3 +1,5 @@
+import * as zlib from 'node:zlib'
+
 import * as assert from 'remix/assert'
 import { afterEach, beforeEach, describe, it } from 'remix/test'
 
@@ -279,6 +281,30 @@ describe('media route', () => {
   it('404s unknown videos', async () => {
     let { response } = await get(routes.media.href({ videoId: 'nope' }))
     assert.equal(response.status, 404)
+  })
+})
+
+describe('compression', () => {
+  function fetchWith(path: string, headers: Record<string, string>) {
+    return router.fetch(new Request(new URL(path, 'http://localhost'), { headers }))
+  }
+
+  it('sends pages and the stylesheet compressed', async () => {
+    let page = await fetchWith(routes.home.href(), { 'Accept-Encoding': 'br, gzip' })
+    assert.equal(page.headers.get('Content-Encoding'), 'br')
+    let html = zlib.brotliDecompressSync(Buffer.from(await page.arrayBuffer())).toString('utf8')
+    assert.match(html, /<html lang="en">/)
+
+    let css = await fetchWith('/styles/app.css', { 'Accept-Encoding': 'gzip' })
+    assert.equal(css.headers.get('Content-Encoding'), 'gzip')
+    assert.match(zlib.gunzipSync(Buffer.from(await css.arrayBuffer())).toString('utf8'), /\.video-grid/)
+  })
+
+  it('leaves video byte ranges as they are', async () => {
+    let response = await fetchWith(routes.media.href({ videoId: 'tahoe-day-2' }), { 'Accept-Encoding': 'br, gzip', Range: 'bytes=0-9' })
+    assert.equal(response.status, 206)
+    assert.equal(response.headers.get('Content-Encoding'), null)
+    assert.equal((await response.arrayBuffer()).byteLength, 10)
   })
 })
 

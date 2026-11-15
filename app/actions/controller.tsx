@@ -30,11 +30,12 @@ import { addVideo, canSee, getPlaylist, isOwner, moveVideo, playlistVideos, remo
 import { feedPage, parseCount, splitHomeLibrary, VIDEO_FEED_PAGE } from '../data/video-feed.ts'
 import { captionsFileFor } from '../data/captions.ts'
 import { mediaFileFor, mimeTypeFor } from '../data/media.ts'
+import { posterToServe } from '../data/posters.ts'
 import { renditionFileFor } from '../data/renditions.ts'
 import { canDeletePost, canSeePosts, channelPosts, deletePost, getPost, picturePathFor, POSTS_PAGE } from '../data/posts.ts'
 
 import { findOrCreateTags, parseTagNames, tagsInUse } from '../data/tags.ts'
-import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, posterPathFor, replaceVideoCaptions, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
+import { deleteCustomChannel, deleteFrozenHomeChannel, deleteUploadedVideo, getStaged, replaceVideoCaptions, stagedUploadErrorResponse, stageUpload, uploadLimits } from '../data/uploads.ts'
 import { dropImpossibleAssignments, mustFinishAssignedFirst } from '../data/assignments.ts'
 import { allowanceFor, isTimeUp } from '../data/watch-limits.ts'
 import { routes } from '../routes.ts'
@@ -538,10 +539,10 @@ export default createController(routes, {
     },
     poster(context) {
       let video = watchable(context.params.videoId, personFromSession(context.session)?.id)
-      let file = video ? posterPathFor(video) : null
-      if (!file) return new Response('Not Found', { status: 404 })
-      return createFileResponse(openLazyFile(file, { type: 'image/jpeg' }), context.request, {
-        cacheControl: 'private, max-age=86400',
+      let served = video ? posterToServe(video, new URL(context.request.url).searchParams) : null
+      if (!served) return new Response('Not Found', { status: 404 })
+      return createFileResponse(openLazyFile(served.path, { type: 'image/jpeg' }), context.request, {
+        cacheControl: served.cacheControl,
       })
     },
     async channelPostDelete(context) {

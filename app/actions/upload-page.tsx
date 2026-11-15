@@ -2,7 +2,8 @@ import type { Handle } from 'remix/component'
 
 import { brandName } from '../data/brand.ts'
 import { getPerson, listPeople, type Person } from '../data/household.ts'
-import { channelsFor, channelVideos, formatAdded, formatPlays, getChannel, posterChannel, thumbUrl, type Channel } from '../data/library.ts'
+import { channelsFor, channelVideos, formatAdded, formatPlays, getChannel, posterChannel, type Channel } from '../data/library.ts'
+import { stillUrl } from '../data/posters.ts'
 import { videoExtensions } from '../data/media.ts'
 import { playlistsOwnedBy } from '../data/playlists.ts'
 import { destinationsFor, uploadLimits, type UploadField } from '../data/uploads.ts'
@@ -56,7 +57,7 @@ function destinationOf(channel: Channel, person: Person, runs: Set<string>): Upl
       .slice(0, 2)
       .map((video) => ({
         title: video.title,
-        thumb: thumbUrl(video),
+        thumb: stillUrl(video),
         durationSec: video.durationSec,
         meta: `${formatPlays(video.plays)} · ${formatAdded(video.addedDaysAgo)}`,
         byline: channel.kind === 'custom' && video.postedBy ? posterChannel(video.postedBy)?.name : undefined,

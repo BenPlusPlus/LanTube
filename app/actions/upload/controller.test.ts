@@ -1456,6 +1456,9 @@ describe('delete uploaded Video', () => {
     let poster = path.join(mediaDir, '.lantube', 'posters', `${slug}.jpg`)
     assert.equal(fs.existsSync(file), true)
     assert.equal(fs.existsSync(poster), true)
+    // The smaller copies cards load are LanTube's bytes too.
+    let copies = [320, 480, 640].map((width) => path.join(mediaDir, '.lantube', 'posters', `${slug}.${width}.jpg`))
+    for (let copy of copies) fs.writeFileSync(copy, 'copy')
 
     let deleted = await deleteWatch(slug, [['confirm', '1']], cookie)
     assert.equal(deleted.status, 303)
@@ -1463,6 +1466,7 @@ describe('delete uploaded Video', () => {
     assert.equal(getVideo(slug), undefined)
     assert.equal(fs.existsSync(file), false)
     assert.equal(fs.existsSync(poster), false)
+    assert.deepEqual(copies.filter((copy) => fs.existsSync(copy)), [])
     assert.equal((await get(routes.watch.href({ videoId: slug }), cookie)).response.status, 404)
     assert.equal(
       (await listVisibleVideos()).some((entry) => entry.id === slug),

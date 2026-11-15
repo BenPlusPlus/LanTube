@@ -128,6 +128,10 @@ The image includes ffmpeg. On every start the container makes Renditions (ADR 00
 
 Renditions live in `/mnt/lantube-media/.lantube/renditions` and add roughly half again to the library's size. The CIFS account needs write access there, the same as for uploads. Set `LANTUBE_RENDITIONS=off` in `/etc/lantube/production.env` to stop making them (existing ones still play). `LANTUBE_FFMPEG` and `LANTUBE_FFPROBE` point at other binaries if needed.
 
+## Poster sizes (small thumbnails for cards)
+
+Cards load 320, 480 or 640px copies of an upload's poster instead of the full 1280px still. The Host makes them with ffmpeg right after an upload, and on every start for any poster that lacks them. Each takes well under a second. They sit beside the poster as `/mnt/lantube-media/.lantube/posters/<video slug>.<width>.jpg` and go when the Video goes. If ffmpeg can't run, cards load the full poster. `LANTUBE_RENDITIONS=off` does not stop them; `LANTUBE_FFMPEG` applies.
+
 ## Layout (reference)
 
 | Piece | Location |
@@ -138,6 +142,7 @@ Renditions live in `/mnt/lantube-media/.lantube/renditions` and add roughly half
 | House overlay | `$HOME/.config/lantube/compose.override.yaml` (symlink in the project) |
 | Media share | `/mnt/lantube-media` → container `/media` |
 | Renditions | `/mnt/lantube-media/.lantube/renditions/<video slug>/` |
+| Posters and their sizes | `/mnt/lantube-media/.lantube/posters/<video slug>[.<width>].jpg` |
 | House timezone | Host `/etc/localtime` and `/etc/timezone` (optional `TZ` in production.env) |
 | HTTP | Host port 80 → container 44100 |
 | Catalogue | LAN Postgres (not a container); host pin in the overlay |

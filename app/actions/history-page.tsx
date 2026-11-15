@@ -48,7 +48,7 @@ function Row(handle: Handle<{ row: SittingRow; subjectId: string; viewerId: stri
     return (
       <li class="hrow">
         <span class="hrow-thumb">
-          <ThumbImage video={video} eager={eager} />
+          <ThumbImage video={video} eager={eager} shown="row" />
           <DurationBadge seconds={video.durationSec} />
           {progress !== null ? (
             <span class="vcard-progress">

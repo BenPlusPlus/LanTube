@@ -26,13 +26,13 @@ import { mediaDir, mediaFileFor, videoExtensions } from './media.ts'
 import { forgetDeletedVideo } from './assignments.ts'
 import { forgetChannelPosts } from './posts.ts'
 import { addVideo, dropFromPlaylists, getPlaylist } from './playlists.ts'
+import { forgetPoster, postersDir, queuePosterSizes, removePoster } from './posters.ts'
 import { queueRenditions, removeRenditions } from './renditions.ts'
 
 /** Uploads land in the media folder, so they stream like everything else on the host. */
 const uploadsDir = path.join(mediaDir, 'uploads')
 const workDir = path.join(mediaDir, '.lantube')
 const incomingDir = path.join(workDir, 'incoming')
-const postersDir = path.join(workDir, 'posters')
 
 const GB = 1024 ** 3
 const MB = 1024 ** 2
@@ -245,6 +245,7 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
   if (poster) {
     await fsp.mkdir(postersDir, { recursive: true })
     await fsp.writeFile(path.join(postersDir, `${id}.jpg`), poster)
+    forgetPoster(id)
     thumb = `/poster/${id}`
   }
 
@@ -282,14 +283,8 @@ export async function publishUpload(personId: string, input: UploadInput): Promi
   })
   if (playlist) await addVideo(playlist, video.id)
   queueRenditions(video.id)
+  if (thumb) queuePosterSizes(video.id)
   return { video }
-}
-
-/** Where a published upload's poster is kept, if it has one. */
-export function posterPathFor(video: Video): string | null {
-  if (video.thumb !== `/poster/${video.id}`) return null
-  let file = path.join(postersDir, `${video.id}.jpg`)
-  return fs.existsSync(file) ? file : null
 }
 
 async function unlinkLanTubeBytes(video: Video) {
@@ -298,8 +293,7 @@ async function unlinkLanTubeBytes(video: Video) {
     let root = path.resolve(uploadsDir)
     if (media.path === root || media.path.startsWith(root + path.sep)) await fsp.rm(media.path, { force: true })
   }
-  let poster = posterPathFor(video)
-  if (poster) await fsp.rm(poster, { force: true })
+  await removePoster(video)
   await unlinkCaptions(video)
   await removeRenditions(video.id)
 }
